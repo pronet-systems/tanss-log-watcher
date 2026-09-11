@@ -229,10 +229,17 @@ public sealed partial class UpdateService : IDisposable
     /// <param name="update">Die zu ladende Fassung.</param>
     /// <param name="progress">Fortschritt von 0 bis 1; darf <c>null</c> sein.</param>
     /// <param name="ct">Abbruchmarke.</param>
-    /// <returns>Der Pfad des geprüften Setups.</returns>
+    /// <returns>
+    /// Der Pfad des geladenen Setups <b>und</b> die Aussage, ob tatsächlich gegen eine
+    /// Prüfsumme verglichen wurde.
+    /// <para>Beides zusammen und nicht nur der Pfad: Ein Aufrufer, der nur den Pfad bekommt,
+    /// kann „geladen“ nicht von „geladen und geprüft“ unterscheiden — und meldet dann das eine,
+    /// während das andere gemeint war.</para>
+    /// </returns>
     /// <exception cref="InvalidOperationException">Die Prüfsumme passt nicht.</exception>
-    public async Task<string> DownloadAsync(AvailableUpdate update, IProgress<double>? progress = null,
-                                            CancellationToken ct = default)
+    public async Task<DownloadedUpdate> DownloadAsync(AvailableUpdate update,
+                                                      IProgress<double>? progress = null,
+                                                      CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(update);
         ObjectDisposedException.ThrowIf(_disposed, this);
@@ -273,8 +280,10 @@ public sealed partial class UpdateService : IDisposable
         if (expected is null)
         {
             // Kein Abbruch, aber auch kein Schweigen: Ohne veroeffentlichte Pruefsumme faellt
-            // ein unterwegs verfaelschter Download nicht mehr auf. Die Oberflaeche sagt das.
-            return target;
+            // ein unterwegs verfaelschter Download nicht mehr auf. Verified BLEIBT FALSCH -
+            // und die Oberflaeche sagt genau das, statt eine Pruefung zu behaupten, die
+            // nicht stattgefunden hat.
+            return new DownloadedUpdate(target, Verified: false);
         }
 
         string actual = await ComputeSha256Async(target, ct).ConfigureAwait(false);
@@ -290,7 +299,8 @@ public sealed partial class UpdateService : IDisposable
                 + "worden; in beiden Fällen wird sie nicht ausgeführt.");
         }
 
-        return target;
+        // Erst HIER ist der Vergleich wirklich gelaufen und ausgegangen.
+        return new DownloadedUpdate(target, Verified: true);
     }
 
     /// <summary>

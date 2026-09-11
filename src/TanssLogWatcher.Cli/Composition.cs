@@ -58,7 +58,15 @@ public sealed class Composition : IDisposable
         _loggers = loggers;
 
         Tokens = DpapiTokenStore.Default();
-        Client = new TanssClient(config.ToTanssOptions(), Tokens);
+        // Das Proxy-Kennwort wird HIER aufgeloest und nicht in ToTanssOptions: Jenes
+        // Stueck ist eine reine Abbildung und kennt keinen Schluesselspeicher. Ohne
+        // diese Zeile ginge bei einem Proxy mit Anmeldung eine leere Zeichenkette als
+        // Kennwort hinaus, und die Abweisung saehe aus wie ein Problem mit TANSS.
+        string? proxyPassword = config.Proxy.Enabled && config.Proxy.User is not null
+            ? DpapiSecretStore.ForProxy().Read()
+            : null;
+
+        Client = new TanssClient(config.ToTanssOptions(proxyPassword), Tokens);
         RemoteSupports = new RemoteSupportRepository(Client, config.Tanss.EmployeeId);
         Technicians = new TechnicianRepository(Client);
         Tickets = new TicketRepository(Client);

@@ -322,7 +322,9 @@ public sealed partial class AiSettingsViewModel : ObservableObject
             return;
         }
 
-        _keys.Clear();
+        // Der Rueckgabewert wird ausgewertet: Ein Widerruf, der nur behauptet wird, ist
+        // schlimmer als gar keiner. Liegt der Schluessel noch, muss der Benutzer das erfahren.
+        bool keyGone = _keys.Clear();
 
         try
         {
@@ -347,6 +349,12 @@ public sealed partial class AiSettingsViewModel : ObservableObject
 
         _ = _host.Reload();
 
-        Message = "Einwilligung zurückgenommen, Schlüssel gelöscht. Es wird nichts mehr übermittelt.";
+        // Auch ohne gelöschten Schlüssel wird nichts mehr übermittelt — das Tor prüft zuerst die
+        // Einwilligung, und die ist weg. Aber die Datei liegt dann noch da, und das gehört gesagt.
+        Message = keyGone
+            ? "Einwilligung zurückgenommen, Schlüssel gelöscht. Es wird nichts mehr übermittelt."
+            : "Einwilligung zurückgenommen — es wird nichts mehr übermittelt. Die "
+              + $"Schlüsseldatei liess sich aber nicht löschen; sie liegt weiterhin unter "
+              + $"{_keys.Path} und ist von Hand zu entfernen.";
     }
 }

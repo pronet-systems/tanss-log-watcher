@@ -127,7 +127,7 @@ public sealed class TanssAuthTests
             TestEnvironment.Envelope($$"""{"apiToken":"{{minted}}"}"""));
         using TanssClient client = TestEnvironment.Client(handler);
 
-        bool allowed = await TanssAuth.CanRotateAsync(client);
+        bool? allowed = await TanssAuth.CanRotateAsync(client);
 
         Assert.True(allowed);
         Assert.Equal("60000", handler.Last.Query("duration"));
@@ -337,14 +337,42 @@ public sealed class TanssAuthTests
         Assert.Equal(1, handler.Calls);
     }
 
+    /// <summary>
+    /// Ein Verbindungsabbruch heisst „konnte nicht gefragt werden“ — nicht „darf nicht“.
+    /// </summary>
+    /// <remarks>
+    /// <para>Dieser Test prüfte früher <c>Assert.False</c> und hielt damit einen Fehler fest:
+    /// Jede <c>TanssException</c> wurde auf <c>false</c> gedrückt, und <c>doctor</c> meldete
+    /// daraufhin bei einem Netzausfall, dem Mitarbeiter fehle in TANSS das Recht 480. Das
+    /// schickte den Techniker zum TANSS-Administrator, während in Wahrheit das VPN fehlte.</para>
+    /// <para>Der zweite Teil bleibt: Auch der Trockentest fragt genau einmal. Jeder Versuch
+    /// stellt serverseitig ein Token aus; eine Wiederholung nach Zeitüberschreitung erzeugte
+    /// ein zweites, von dem hier niemand mehr erfährt.</para>
+    /// </remarks>
     [Fact]
-    public async Task Auch_Der_Trockentest_Fragt_Nur_Einmal()
+    public async Task Der_Trockentest_Meldet_Bei_Netzausfall_Unbekannt_Und_Fragt_Nur_Einmal()
     {
         FailingHandler handler = new(() => new HttpRequestException("Verbindung abgebrochen."));
         using TanssClient client = TestEnvironment.Client(handler);
 
-        Assert.False(await TanssAuth.CanRotateAsync(client));
+        Assert.Null(await TanssAuth.CanRotateAsync(client));
         Assert.Equal(1, handler.Calls);
+    }
+
+    /// <summary>Eine Abweisung durch TANSS heisst dagegen wirklich „darf nicht“.</summary>
+    /// <remarks>
+    /// Die Gegenprobe zum Test darüber: Nur <see cref="TanssAuthException"/> — also eine
+    /// Antwort, in der TANSS den Vorgang abgelehnt hat — wird zu <c>false</c>. Ohne diesen Test
+    /// liesse sich die Unterscheidung beseitigen, ohne dass etwas rot würde.
+    /// </remarks>
+    [Fact]
+    public async Task Eine_Abweisung_Durch_Tanss_Meldet_Darf_Nicht()
+    {
+        RecordingHandler handler = new(HttpStatusCode.Forbidden,
+            TestEnvironment.Error("Nicht erlaubt", type: "NOT_ALLOWED_TO_CREATE_JWTS"));
+        using TanssClient client = TestEnvironment.Client(handler);
+
+        Assert.False(await TanssAuth.CanRotateAsync(client));
     }
 
     [Fact]

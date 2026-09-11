@@ -9,6 +9,52 @@ Die Fassungsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
+## [Unveröffentlicht]
+
+### Behoben — erfundene Daten und vorgetäuschte Prüfungen
+
+Eine Durchsicht des gesamten Baums auf Stellen, die dem Benutzer etwas anzeigen, das nie
+gemessen wurde. Die schwerste: Die Verbindungsseite trug eine Karte „Letzte Prüfung“ mit vier
+fest eingebauten grünen Haken — darunter „Token trägt und lässt sich erneuern“. Sie stand auch
+grün da, wenn nichts eingerichtet war, wenn die Prüfung fehlschlug und während das Token auf
+jeder Anfrage eine 403 erzeugte. Sie hätte beide Fehler dieser Fassung verdeckt.
+
+- **Verbindungsprüfung** zeigt jetzt echte Befunde mit einer eigenen Stufe „nicht geprüft“, die
+  nicht aussieht wie „in Ordnung“.
+- **Aktualisierung** meldete „stimmt mit der Prüfsumme überein“, sobald eine Prüfsummen-*Adresse*
+  existierte. Ob verglichen wurde, wusste sie nicht; jetzt schon.
+- **`CanRotateAsync`** machte aus „nicht erreichbar“ die Aussage „darf keine Token prägen“ und
+  schickte den Techniker wegen eines Netzausfalls zum TANSS-Administrator. Drei Ausgänge statt
+  zwei.
+- **Proxy-Kennwort** erreichte die Leitung nie — `ToTanssOptions` setzte es nicht. Ein Proxy mit
+  Anmeldung meldete sich lautlos mit leerem Kennwort an.
+- **Attributions-Gegenprobe** beim Anlegen wurde berechnet und weggeworfen. Eine Fernwartung,
+  die bei TANSS auf einem fremden Mitarbeiter landet, fiel damit niemandem auf.
+- **`windows`** lief im Betrieb ohne Namensauflösung und zeigte Ziele, die der laufende Dienst
+  ausschliesst — ausgerechnet der Befehl zum Nachsehen, warum etwas nicht erkannt wird.
+- Tote Schaltfläche „Aktualisieren“, nirgends gebundene Diagnose-Zusammenfassung, beschreibbares
+  IP-Feld ohne Wirkung, „Token 2147483647 Tage“ bei Token ohne Ablauf.
+- Mehrere Meldungen behaupteten Tatsachen, die sie nicht kannten („bereits verschickt“, „in
+  TANSS angelegt“, „Schlüssel gelöscht“).
+
+### Berichtigt — zwei nachgemessene Falschaussagen im Quelltext
+
+- `isForTesting=true` liefert **kein** unbrauchbares Token: TANSS hält sich bei beiden Werten an
+  die angefragte Laufzeit. Kurzlebig wird der Trockentest allein dadurch, dass `MintAsync` selbst
+  60 Sekunden anfragt — die Harmlosigkeit hängt an unserer Zeile, nicht an einer Zusage.
+- `loggedInUserId` darf auf `/api/tanss.x/v1` sehr wohl mitgeschickt werden; er wird ignoriert.
+  Die gegenteilige Behauptung stand als Ursache Nummer eins in der Meldung zu jeder 403.
+
+### Hinzugefügt
+
+- **`tests/TanssLogWatcher.Live.Tests`** — neun Tests gegen eine echte Instanz statt gegen
+  Attrappen. Ohne Zugangsdaten überspringen sie sich selbst; „übersprungen“ wird getrennt von
+  „bestanden“ ausgewiesen. Sie halten die beiden Fehler dieser Fassung fest sowie die beiden
+  Falschaussagen oben. Schreibende Tests verlangen zusätzlich `TANSS_LIVE_WRITES=1` und legen
+  nie eine Fernwartung an.
+
+---
+
 ## [0.1.0] — 2026-09-11
 
 Erste Veröffentlichung. Die Kette von der Sitzungserkennung bis zur Fernwartung in TANSS

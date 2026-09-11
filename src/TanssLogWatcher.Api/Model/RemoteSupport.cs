@@ -96,6 +96,26 @@ public sealed record RemoteSupportSystem
     [JsonPropertyName("supportTypeId")] public int SupportTypeId { get; init; }
 }
 
+/// <summary>
+/// Das Ergebnis eines Anlegevorgangs samt Befund zur Attribution.
+/// </summary>
+/// <remarks>
+/// Steht beim Modell und nicht beim Repository: Seit die Gegenprobe zum Vertrag gehört
+/// (<c>IRemoteSupportRepository.CreateWithDiagnosticsAsync</c>), darf die
+/// Vertragsschicht nicht auf eine Umsetzung zeigen müssen, um ihren eigenen Rückgabetyp
+/// zu kennen.
+/// </remarks>
+/// <param name="Support">Der angelegte Datensatz, so wie TANSS ihn zurückgibt.</param>
+/// <param name="AttributionConfirmed">
+/// Hat TANSS den Mitarbeiter in <c>meta.linkedEntities.employees</c> ausgewiesen?
+/// </param>
+/// <param name="Warning">
+/// Der Hinweistext, falls die Attribution nicht bestätigt ist — sonst <c>null</c>. Er ist zum
+/// Protokollieren und Anzeigen gedacht, nicht zum Wiederholen des Aufrufs.
+/// </param>
+public sealed record RemoteSupportCreateResult(RemoteSupportRead Support, bool AttributionConfirmed,
+                                               string? Warning);
+
 /// <summary>Zeitfenster für Filterabfragen. Grenzen in Unix-Sekunden.</summary>
 public sealed record Timeframe
 {

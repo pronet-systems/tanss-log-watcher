@@ -146,7 +146,7 @@ public static class TokenCommand
                         $"(tanss.rotate_before_days = {beforeDays}).")));
         }
 
-        bool allowed;
+        bool? allowed;
         try
         {
             allowed = await TanssAuth.CanRotateAsync(inputs.Client, ct).ConfigureAwait(false);
@@ -159,14 +159,22 @@ public static class TokenCommand
             return worst;
         }
 
-        Say(allowed
-            ? new CheckResult("Erneuerungsfähigkeit (Trockentest)", CheckLevel.Ok,
+        // Drei Ausgaenge. "Konnte nicht gefragt werden" ist keine Aussage ueber ein Recht.
+        Say(allowed switch
+        {
+            true => new CheckResult("Erneuerungsfähigkeit (Trockentest)", CheckLevel.Ok,
                 "Der Mitarbeiter darf Token prägen; der Wechsel wird gelingen. Der Trockentest "
-                + "selbst bleibt folgenlos — TANSS protokolliert ihn nicht.")
-            : new CheckResult("Erneuerungsfähigkeit (Trockentest)", CheckLevel.Warn,
+                + "stellt dabei ein Token mit 60 Sekunden Laufzeit aus — kurzlebig, aber nicht "
+                + "wirkungslos."),
+            false => new CheckResult("Erneuerungsfähigkeit (Trockentest)", CheckLevel.Warn,
                 "Der Mitarbeiter darf keine Token prägen (in TANSS das Recht 480). Heute merkt "
                 + "man davon nichts; am Tag des Ablaufs stirbt das Token lautlos, und ab dann "
-                + "bleibt jede Fernwartung liegen. Das Recht ist in TANSS zu vergeben."));
+                + "bleibt jede Fernwartung liegen. Das Recht ist in TANSS zu vergeben."),
+            null => new CheckResult("Erneuerungsfähigkeit (Trockentest)", CheckLevel.Warn,
+                "Die Frage liess sich nicht stellen — TANSS hat den Trockentest nicht "
+                + "beantwortet. Über das Prägerecht ist damit nichts bekannt; es ist NICHT "
+                + "gesagt, dass es fehlt."),
+        });
 
         return worst;
     }

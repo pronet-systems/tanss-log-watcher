@@ -324,8 +324,14 @@ public sealed partial class SaveSessionViewModel : ObservableObject
 
         if (FindPayload() is not { } payload)
         {
-            Result = "Der Eintrag ist nicht mehr in der Warteschlange — der Sendedienst hat ihn "
-                + "bereits verschickt. Kommentar und Ticket wären in TANSS nachzutragen.";
+            // "Nicht gefunden" kann zweierlei heissen: verschickt, oder die Warteschlange liess
+            // sich gar nicht lesen. Das Erste zu behaupten, schickt den Techniker nach TANSS,
+            // um etwas zu suchen, was dort womoeglich nie ankam - und der gerade geschriebene
+            // Bericht waere weg.
+            Result = "Der Eintrag liess sich nicht lesen. Entweder hat der Sendedienst ihn "
+                + "bereits verschickt, oder die Warteschlange ist gerade nicht zugänglich. "
+                + "Unter „Warteschlange“ steht, welches von beidem — der Berichtstext bleibt "
+                + "solange hier stehen.";
             return;
         }
 
@@ -386,8 +392,14 @@ public sealed partial class SaveSessionViewModel : ObservableObject
             {
                 if (!queue.Remove(_session.SessionId))
                 {
-                    Result = "Der Eintrag liess sich nicht mehr entfernen — der Sendedienst hat "
-                        + "ihn bereits übernommen. In TANSS ist er damit angelegt.";
+                    // Entfernt wird nur, was auf "pending" steht. Schlaegt das fehl, steht die
+                    // Zeile auf unterwegs, gesendet ODER aufgegeben - und bei "aufgegeben" ist
+                    // in TANSS gerade nichts angelegt. Diese Faelle zusammenzuziehen, hiesse dem
+                    // Techniker zu sagen, die Arbeit sei gebucht, waehrend sie liegengeblieben ist.
+                    Result = "Der Eintrag liess sich nicht entfernen: Er wartet nicht mehr, "
+                        + "sondern ist unterwegs, bereits gesendet oder aufgegeben. Was davon "
+                        + "zutrifft — und ob er in TANSS angekommen ist — steht unter "
+                        + "„Warteschlange“.";
                     return;
                 }
 

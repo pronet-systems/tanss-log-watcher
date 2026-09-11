@@ -323,7 +323,7 @@ public static class DoctorCommand
     {
         const string name = "Erneuerungsfähigkeit (Trockentest)";
 
-        bool allowed;
+        bool? allowed;
         try
         {
             allowed = await TanssAuth.CanRotateAsync(inputs.Client, ct).ConfigureAwait(false);
@@ -335,15 +335,25 @@ public static class DoctorCommand
                 + "lässt sich damit nichts sagen. Meldung: " + Redaction.Scrub(ex.Message));
         }
 
-        return allowed
-            ? new CheckResult(name, CheckLevel.Ok,
-                "Der Mitarbeiter darf Token prägen. Die Erneuerung vor Ablauf wird gelingen.")
-            : new CheckResult(name, CheckLevel.Warn,
+        // Drei Ausgaenge, nicht zwei. "Konnte nicht gefragt werden" ist keine Aussage ueber ein
+        // Recht - wer das zu "darf nicht" zusammenzieht, schickt den Techniker wegen eines
+        // Netzproblems zum TANSS-Administrator.
+        return allowed switch
+        {
+            true => new CheckResult(name, CheckLevel.Ok,
+                "Der Mitarbeiter darf Token prägen. Die Erneuerung vor Ablauf wird gelingen."),
+            false => new CheckResult(name, CheckLevel.Warn,
                 "Der Mitarbeiter darf keine Token prägen (in TANSS das Recht 480, "
                 + "NOT_ALLOWED_TO_CREATE_JWTS). Heute merkt man davon nichts — aber am Tag des "
                 + "Ablaufs stirbt das Token lautlos, und ab dann bleibt jede Fernwartung in der "
                 + "Warteschlange liegen. Das Recht ist in TANSS zu vergeben; von hier aus lässt "
-                + "es sich nicht setzen.");
+                + "es sich nicht setzen."),
+            null => new CheckResult(name, CheckLevel.Warn,
+                "Die Frage liess sich nicht stellen — TANSS hat den Trockentest nicht "
+                + "beantwortet. Über das Prägerecht ist damit nichts bekannt; es ist "
+                + "ausdrücklich NICHT gesagt, dass es fehlt. Zuerst sind die Befunde oben zu "
+                + "Erreichbarkeit und Token zu prüfen."),
+        };
     }
 
     /// <summary>
@@ -423,9 +433,15 @@ public static class DoctorCommand
 
         if (technicians.Count == 0)
         {
+            // "Leer" und "nicht lesbar" sehen hier gleich aus - die Liste kommt als leere
+            // Sammlung zurueck, wenn der Aufruf scheitert (siehe ProbeAsync). Zu behaupten,
+            // sie "liess sich nicht lesen", waere in dem Fall geraten, in dem die Instanz
+            // tatsaechlich keinen Techniker fuehrt.
             return new CheckResult(name, CheckLevel.Warn,
-                "Nicht gegengeprüft — die Technikerliste liess sich nicht lesen. Die Prüfung "
-                + "wird beim nächsten Durchlauf nachgeholt, sobald TANSS wieder antwortet.");
+                "Nicht gegengeprüft: Es lag keine Technikerliste vor. Entweder ist der Aufruf "
+                + "fehlgeschlagen — dann steht der Grund in den Befunden oben — oder die Instanz "
+                + "führt keinen Techniker. Welches von beidem, sagt der Befund „TANSS "
+                + "erreichbar“.");
         }
 
         Technician? found = technicians.FirstOrDefault(technician => technician.Id == own);

@@ -54,17 +54,33 @@ public sealed record AppConfig
 
     /// <summary>Übersetzt in die Netzoptionen der API-Schicht.</summary>
     /// <remarks>
-    /// Der Weg führt bewusst nur in diese Richtung. Die API-Schicht kennt weder Dateipfade
-    /// noch die Beobachtungsregeln und soll das auch nicht.
+    /// <para>Der Weg führt bewusst nur in diese Richtung. Die API-Schicht kennt weder Dateipfade
+    /// noch die Beobachtungsregeln und soll das auch nicht.</para>
+    /// <para><b>Das Proxy-Kennwort muss von aussen kommen.</b> In der Konfiguration steht nur
+    /// ein Verweis (<see cref="ProxySection.PasswordRef"/>), nie das Geheimnis selbst — und
+    /// dieses Stück hat keinen Zugang zum Schlüsselspeicher. Wer ein Kennwort braucht, löst es
+    /// vorher auf und reicht es hier herein.</para>
     /// </remarks>
-    public TanssOptions ToTanssOptions() => new()
+    /// <param name="proxyPassword">
+    /// Das aufgelöste Proxy-Kennwort, oder <see langword="null"/>.
+    /// <para>Fehlte dieser Parameter, ginge bei einem Proxy mit Anmeldung eine leere Zeichenkette
+    /// als Kennwort über die Leitung — der Proxy wiese ab, und die Meldung sähe aus wie ein
+    /// Problem mit TANSS. Genau so war es, bevor dieser Parameter hinzukam.</para>
+    /// </param>
+    public TanssOptions ToTanssOptions(string? proxyPassword = null) => new()
     {
         BaseUrl = Tanss.BaseUrl,
         EmployeeId = Tanss.EmployeeId,
         Timeout = TimeSpan.FromSeconds(Tanss.TimeoutSeconds),
         VerifyTls = Tanss.VerifyTls,
         Proxy = Proxy.Enabled
-            ? new ProxyOptions { Address = Proxy.Address, Port = Proxy.Port, User = Proxy.User }
+            ? new ProxyOptions
+            {
+                Address = Proxy.Address,
+                Port = Proxy.Port,
+                User = Proxy.User,
+                Password = proxyPassword,
+            }
             : null,
     };
 

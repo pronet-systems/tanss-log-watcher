@@ -108,11 +108,14 @@ internal static class TanssEnvelope
         if (status is 401 or 403)
         {
             return new TanssAuthException(
-                where + ": Zugriff verweigert. Drei Ursachen kommen in Frage, in dieser Reihenfolge "
-                + "zu prüfen: (1) auf /api/v1 fehlt der Parameter loggedInUserId — er ist dort "
-                + "zwingend und darf auf /api/tanss.x/v1 niemals mitgeschickt werden; (2) das Token "
-                + "ist abgelaufen oder wurde in TANSS zurückgezogen; (3) dem Mitarbeiter fehlt das "
-                + "Recht für diese Aktion." + said, status, detail);
+                where + ": Zugriff verweigert. Vier Ursachen kommen in Frage, in dieser "
+                + "Reihenfolge zu prüfen: (1) die Kopfzeile apiToken trägt nicht das Präfix "
+                + "\"Bearer \" — ohne das überspringt TANSS die Prüfung und weist ab; (2) es "
+                + "wurde das kurzlebige Token aus /api/v1/login benutzt statt eines über "
+                + "/api/v1/jwts/tanss_app geprägten — jenes gilt auf /api/tanss.x/v1 nicht; "
+                + "(3) auf /api/v1 fehlt der Parameter loggedInUserId, er ist dort zwingend; "
+                + "(4) das Token ist abgelaufen, oder dem Mitarbeiter fehlt das Recht für diese "
+                + "Aktion." + said, status, detail);
         }
 
         return new TanssException(where + ": TANSS hat die Anfrage abgewiesen." + said, status, detail);

@@ -88,8 +88,20 @@ public static class TanssAuth
     /// steht hier, damit sie nur an einer Stelle falsch sein kann.</param>
     /// <param name="info">Freitext, den TANSS neben dem Token protokolliert.</param>
     /// <param name="forTesting">
-    /// <c>true</c> macht daraus einen folgenlosen Rechte-Trockentest: TANSS antwortet mit einem
-    /// unbrauchbaren Token von 60 Sekunden Laufzeit und protokolliert den Vorgang nicht.
+    /// <c>true</c> macht daraus einen Rechte-Trockentest.
+    /// <para><b>ACHTUNG — nachgemessen gegen eine Instanz der Fassung 10.10.0, und anders als
+    /// hier früher behauptet:</b> Der Schalter macht das Token <b>nicht</b> unbrauchbar und
+    /// verkürzt seine Laufzeit <b>nicht</b>. Bei gleicher <c>duration</c> liefert TANSS mit
+    /// <c>true</c> und mit <c>false</c> ein Token mit identischem <c>exp</c>, und beide werden
+    /// auf jeder Route angenommen.</para>
+    /// <para>Kurzlebig wird der Trockentest allein dadurch, dass <b>diese Methode</b> in diesem
+    /// Fall 60 Sekunden anfragt — siehe die Berechnung von <c>milliseconds</c> unten. Die
+    /// Harmlosigkeit hängt also an unserer eigenen Zeile und an keiner Zusage des Servers. Wer
+    /// sie ändert, stellt ab dann bei jedem Trockentest langlebige Token aus, die TANSS 10.10.0
+    /// nicht widerrufen kann.</para>
+    /// <para>Ob TANSS den Vorgang protokolliert, ist von aussen nicht feststellbar; das Feld
+    /// <c>info</c> kommt im Token zurück und wird demnach gespeichert. Es ist deshalb nicht
+    /// anzunehmen, dass ein Trockentest spurlos bleibt.</para>
     /// </param>
     /// <param name="ct">Abbruchmarke.</param>
     /// <returns>Das Token einschließlich des Präfixes <c>Bearer </c>.</returns>
@@ -105,6 +117,11 @@ public static class TanssAuth
         ArgumentNullException.ThrowIfNull(client);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(durationDays);
 
+        // DIESE ZEILE IST DIE GANZE HARMLOSIGKEIT DES TROCKENTESTS. Nachgemessen: TANSS gibt bei
+        // isForTesting=true dasselbe Token wie bei false und haelt sich an die angefragte
+        // duration. Kurzlebig wird das Probetoken allein dadurch, dass hier 60 Sekunden stehen.
+        // Wer die 60_000 vergroessert, stellt ab dann bei jedem "folgenlosen" Rechtetest ein
+        // langlebiges Token aus, das sich nicht widerrufen laesst.
         long milliseconds = forTesting ? 60_000L : durationDays * MillisecondsPerDay;
         Dictionary<string, string?> query = new(StringComparer.Ordinal)
         {
@@ -140,7 +157,7 @@ public static class TanssAuth
     /// Versuch nicht und gibt ein unbrauchbares Token zurück — er kostet also nichts und eignet
     /// sich für die Einrichtung. Wirft nicht: die Antwort auf „darf ich?“ ist ja oder nein.
     /// </remarks>
-    public static async Task<bool> CanRotateAsync(ITanssClient client, CancellationToken ct = default)
+    public static async Task<bool?> CanRotateAsync(ITanssClient client, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(client);
 
@@ -150,9 +167,18 @@ public static class TanssAuth
                                            forTesting: true, ct).ConfigureAwait(false);
             return probe.Length > 0;
         }
+        catch (TanssAuthException)
+        {
+            // Abgewiesen — DAS ist die Antwort „darf nicht“. Nur dieser eine Fall.
+            return false;
+        }
         catch (TanssException)
         {
-            return false;
+            // Alles andere heisst „konnte nicht gefragt werden“: Instanz nicht erreichbar,
+            // Adresse falsch, Modul nicht lizenziert, Token abgelaufen. Das auf false zu
+            // druecken machte aus einem Netzproblem die Aussage, dem Mitarbeiter fehle das
+            // Recht 480 — und schickte den Techniker zum TANSS-Administrator statt ans Netz.
+            return null;
         }
     }
 

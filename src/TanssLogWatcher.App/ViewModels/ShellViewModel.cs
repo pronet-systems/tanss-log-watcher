@@ -31,8 +31,13 @@ public sealed partial class ShellViewModel : RuntimeViewModel
 
         _sessionCount = host.Sessions.ActiveSessions.Count;
         _pending = host.Uploads.Queue.Pending;
-        _tokenDays = (int)Math.Floor(host.TokenRotation.Token.DaysRemaining);
-        _tokenReadable = host.TokenRotation.Token.IsReadable;
+
+        TokenSnapshot token = host.TokenRotation.Token;
+        _tokenReadable = token.IsReadable;
+        _hasExpiry = token.ExpiresAt is not null;
+        _tokenDays = double.IsFinite(token.DaysRemaining)
+            ? (int)Math.Floor(token.DaysRemaining)
+            : 0;
     }
 
     /// <summary>Wie viele Sitzungen gerade laufen.</summary>
@@ -58,6 +63,16 @@ public sealed partial class ShellViewModel : RuntimeViewModel
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(TokenText))]
     private bool _tokenReadable;
+
+    /// <summary>Trägt das Token überhaupt einen Ablaufanspruch?</summary>
+    /// <remarks>
+    /// Ohne ihn gibt es keine Restlaufzeit, und eine Zahl an dieser Stelle wäre bedeutungslos —
+    /// vorher stand dort das Sättigungsartefakt „Token 2147483647 Tage“.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TokenText))]
+    [NotifyPropertyChangedFor(nameof(TrayToolTip))]
+    private bool _hasExpiry;
 
     /// <summary>Ist die Beobachtung angehalten?</summary>
     /// <remarks>
@@ -97,9 +112,11 @@ public sealed partial class ShellViewModel : RuntimeViewModel
     /// <summary>Die Restlaufzeit des Tokens.</summary>
     public string TokenText => !TokenReadable
         ? "kein Token"
-        : TokenDays < 0
-            ? "Token abgelaufen"
-            : string.Create(CultureInfo.CurrentCulture, $"Token {TokenDays} Tage");
+        : !HasExpiry
+            ? "Token ohne Ablauf"
+            : TokenDays < 0
+                ? "Token abgelaufen"
+                : string.Create(CultureInfo.CurrentCulture, $"Token {TokenDays} Tage");
 
     /// <summary>
     /// Der Hinweistext am Symbol im Infobereich.
@@ -158,6 +175,12 @@ public sealed partial class ShellViewModel : RuntimeViewModel
     private void OnTokenChanged(object? sender, TokenSnapshot token)
     {
         TokenReadable = token.IsReadable;
-        TokenDays = (int)Math.Floor(token.DaysRemaining);
+        HasExpiry = token.ExpiresAt is not null;
+
+        // Ein Token ohne exp-Anspruch liefert unendlich viele Resttage; der Wurf auf int
+        // saettigt das auf 2.147.483.647. In der Fusszeile stand dann "Token 2147483647 Tage".
+        TokenDays = double.IsFinite(token.DaysRemaining)
+            ? (int)Math.Floor(token.DaysRemaining)
+            : 0;
     }
 }

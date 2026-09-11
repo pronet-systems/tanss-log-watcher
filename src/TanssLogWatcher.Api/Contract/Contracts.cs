@@ -23,11 +23,15 @@ public interface ITokenStore
 
 /// <summary>Reiner HTTP-Zugriff auf TANSS. Kennt keine Fachlogik.</summary>
 /// <remarks>
-/// <para><b>Zwei Präfixe, zwei entgegengesetzte Regeln.</b> Auf <c>/api/v1/**</c> ist
-/// <c>loggedInUserId</c> zwingend, ohne ihn antwortet TANSS mit 403. Auf
-/// <c>/api/tanss.x/v1/**</c> darf er niemals mitgeschickt werden: der Aufruf gilt sonst
-/// zusätzlich als Benutzer und nimmt serverseitig andere Zweige. Die Umsetzung setzt ihn
-/// deshalb selbsttätig anhand des Pfads und nimmt dem Aufrufer die Entscheidung ab.</para>
+/// <para><b>Zwei Präfixe, eine Pflicht.</b> Auf <c>/api/v1/**</c> ist <c>loggedInUserId</c>
+/// zwingend — ohne ihn antwortet TANSS mit 403; nachgemessen an <c>GET /api/v1/timers</c>.
+/// Auf <c>/api/tanss.x/v1/**</c> wird er dagegen schlicht ignoriert: derselbe Aufruf antwortet
+/// mit und ohne ihn mit 200.</para>
+/// <para><b>Frühere Fassungen behaupteten hier, er dürfe auf <c>tanss.x</c> „niemals"
+/// mitgeschickt werden.</b> Das ist nachgemessen falsch und stand als Ursache Nummer eins in
+/// der Meldung zu jeder 403 — es schickte den Techniker auf eine Fährte, die es nicht gibt.
+/// Die Umsetzung setzt den Parameter weiterhin selbsttätig nur auf <c>/api/v1</c>: dort ist er
+/// nötig, hier ist er überflüssig, und Überflüssiges gehört nicht auf die Leitung.</para>
 /// </remarks>
 public interface ITanssClient : IDisposable
 {
@@ -73,6 +77,22 @@ public interface IRemoteSupportRepository
     /// niemals blind, sondern erst <see cref="ExistsAsync(RemoteSupportWrite, CancellationToken)"/> fragen.
     /// </remarks>
     Task<RemoteSupportRead> CreateAsync(RemoteSupportWrite item, CancellationToken ct = default);
+
+    /// <summary>
+    /// Legt eine Fernwartung an und meldet zusätzlich, ob TANSS sie dem erwarteten Mitarbeiter
+    /// zugeordnet hat.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Gehört auf die Schnittstelle und nicht nur in die Umsetzung.</b> Der Sendedienst
+    /// rief lange <see cref="CreateAsync"/> — und warf damit die Gegenprobe weg, die die
+    /// Umsetzung längst berechnet hatte. Eine Fernwartung, die bei TANSS auf einem fremden
+    /// Mitarbeiter landet, ist falsch gebuchte Arbeitszeit, und sie fällt niemandem auf: Der
+    /// Aufruf war erfolgreich, die Zeile steht, nur eben beim Falschen.</para>
+    /// <para><see cref="CreateAsync"/> bleibt für Aufrufer, denen die Zuordnung gleichgültig
+    /// ist — etwa eine reine Wiederholung nach bestandener Existenzprüfung.</para>
+    /// </remarks>
+    Task<RemoteSupportCreateResult> CreateWithDiagnosticsAsync(RemoteSupportWrite item,
+                                                               CancellationToken ct = default);
 
     /// <summary>
     /// Prüft anhand der eigenen Sitzungskennung, ob ein Upload bereits angekommen ist.

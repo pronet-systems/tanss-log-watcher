@@ -21,10 +21,15 @@
                               Text="Das Werkzeug zum Nachsehen, warum eine Anwendung nicht erkannt wird. Ändert ein Hersteller seine Fenstertitel, steht hier der neue Titel — und das Muster lässt sich danach anpassen." />
             </StackPanel>
             <ui:Button HorizontalAlignment="Right" VerticalAlignment="Top"
-                       Content="Aktualisieren" Icon="{ui:SymbolIcon ArrowSync24}" Appearance="Secondary" />
+                       Content="Aktualisieren" Icon="{ui:SymbolIcon ArrowSync24}" Appearance="Secondary"
+                       Command="{Binding RefreshCommand}" />
         </Grid>
 
-        <ui:InfoBar Grid.Row="1" Margin="0,0,0,16"
+        <ui:TextBlock Grid.Row="1" Text="{Binding Summary}" TextWrapping="Wrap"
+                      Margin="0,0,0,12" HorizontalAlignment="Left"
+                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+        <ui:InfoBar Grid.Row="1" Margin="0,26,0,16" VerticalAlignment="Bottom"
                     Severity="Informational" IsOpen="True" IsClosable="False"
                     Title="Fenstertitel verlassen diesen Rechner nicht"
                     Message="Sie werden nur angezeigt und, wo die Einstellung es verlangt, im lokalen Protokoll durch einen Abdruck ersetzt. Was in TANSS landet, ist allein das Ziel der erkannten Sitzung." />

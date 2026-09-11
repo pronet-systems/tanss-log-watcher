@@ -49,6 +49,9 @@ public static class StoragePaths
     /// <summary>Dateiname des Anbieterschlüssels für die Sprachmodell-Unterstützung.</summary>
     public const string AiKeyFileName = "ai.dat";
 
+    /// <summary>Dateiname des Proxy-Kennworts.</summary>
+    public const string ProxyPasswordFileName = "proxy.dat";
+
     /// <summary><c>%APPDATA%\ProNet Systems\TanssLogWatcher</c>.</summary>
     public static string ConfigDirectory =>
         Combine(Environment.SpecialFolder.ApplicationData);
@@ -79,6 +82,16 @@ public static class StoragePaths
     /// sich einzeln löschen.
     /// </remarks>
     public static string AiKeyFile => Path.Combine(StateDirectory, AiKeyFileName);
+
+    /// <summary>
+    /// Das Kennwort für den Proxy, DPAPI-verschlüsselt.
+    /// </summary>
+    /// <remarks>
+    /// In <c>config.json</c> steht dafür nur <c>proxy.password_ref</c> — ein Verweis. Das
+    /// Geheimnis selbst liegt hier, an den Windows-Benutzer gebunden, und geht damit auch beim
+    /// Weitergeben der Konfigurationsdatei nicht mit.
+    /// </remarks>
+    public static string ProxyPasswordFile => Path.Combine(StateDirectory, ProxyPasswordFileName);
 
     private static string Combine(Environment.SpecialFolder root) =>
         Path.Combine(Environment.GetFolderPath(root, Environment.SpecialFolderOption.Create),

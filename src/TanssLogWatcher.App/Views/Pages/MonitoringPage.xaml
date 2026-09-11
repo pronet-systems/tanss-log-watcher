@@ -113,9 +113,16 @@
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
 
-                                        <ui:TextBox Grid.Column="3" VerticalAlignment="Center"
-                                                    Text="{Binding ExcludedIps, Mode=OneWay}"
-                                                    PlaceholderText="keine" FontSize="12" />
+                                        <!-- Nur lesbar: Die Ausschlusslisten werden hier
+                                             angezeigt, aber nicht bearbeitet. Ein beschreibbares
+                                             Feld, dessen Eingaben nirgends ankommen, ist eine
+                                             Zusage, die es nicht hält. Geändert werden sie
+                                             vorerst in config.json. -->
+                                        <ui:TextBlock Grid.Column="3" VerticalAlignment="Center"
+                                                      Text="{Binding ExcludedIps}" FontSize="12"
+                                                      TextTrimming="CharacterEllipsis"
+                                                      ToolTip="{Binding ExcludedIps}"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

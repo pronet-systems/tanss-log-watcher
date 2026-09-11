@@ -189,7 +189,10 @@ public sealed class TokenRotationService : PeriodicService
             return null;
         }
 
-        bool allowed;
+        // bool? bis hier durch: CanRotateAsync unterscheidet seit der Berichtigung zwischen
+        // "abgewiesen" (false) und "konnte nicht gefragt werden" (null). Das hier auf bool zu
+        // zwingen, stellte genau die Verwechslung wieder her, die dort beseitigt wurde.
+        bool? allowed;
         try
         {
             allowed = await TanssAuth.CanRotateAsync(composition.Client, ct).ConfigureAwait(false);

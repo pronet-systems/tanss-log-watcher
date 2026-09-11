@@ -25,18 +25,48 @@ dotnet build   TanssLogWatcher.slnx -c Release -warnaserror
 dotnet test    TanssLogWatcher.slnx -c Release
 ```
 
-Die Oberfläche steht bewusst **nicht** in der Projektmappe und wird einzeln übersetzt:
-
-```bash
-dotnet build src/TanssLogWatcher.App/TanssLogWatcher.App.csproj -c Release -warnaserror
-```
-
 Ein Setup entsteht mit `build\publish.ps1`; die Einzelheiten stehen in
 [`installer/README.md`](installer/README.md). Beim Bauen der Oberfläche darf die Anwendung nicht
 laufen — sonst sind `bin\` und `obj\` gesperrt.
 
 Der CI-Lauf tut genau dasselbe (siehe [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 Was lokal grün ist, ist dort grün.
+
+### Tests gegen eine echte Instanz
+
+`tests/TanssLogWatcher.Live.Tests` läuft **nicht** gegen Attrappen, sondern gegen eine echte
+TANSS-Instanz. Ohne Zugangsdaten überspringt es sich selbst — die Werkstrecke bei GitHub hat
+keine Instanz und soll deswegen nicht scheitern. „Übersprungen" ist dabei ausdrücklich nicht
+„bestanden": Der Testläufer weist es getrennt aus.
+
+```bash
+# Nur lesende Prüfungen: Erreichbarkeit, Token-Zusagen, die undokumentierten Routen
+TANSS_BASE_URL=https://tanss.kunde.de/backend TANSS_USER=... TANSS_PASSWORD=... \
+  dotnet test tests/TanssLogWatcher.Live.Tests
+
+# Zusätzlich der schreibende Timer-Umlauf (legt an und räumt wieder weg)
+TANSS_LIVE_WRITES=1 ... dotnet test tests/TanssLogWatcher.Live.Tests
+```
+
+**Warum es dieses Projekt gibt.** Zwei Fehler haben es wochenlang durch alle 511 übrigen Tests
+geschafft, weil sie mit Attrappen unsichtbar waren:
+
+1. Ein Tokenspeicher gab das Präfix `Bearer ` nicht mit. Da jeder Test einen gefälschten Zugang
+   benutzt, wurde nie eine echte Kopfzeile gebaut — die Attrappe *konnte* den Fehler nicht
+   zeigen. Gegen die Instanz antwortet TANSS darauf mit 403.
+2. Die Einrichtung legte das kurzlebige Sitzungstoken aus `/api/v1/login` als Arbeitstoken ab.
+   Auf `/api/tanss.x/v1` gilt es nicht; nötig ist ein über `/api/v1/jwts/tanss_app` geprägtes.
+
+Beide sind heute als Tests hinterlegt. **Wer eine Annahme über TANSS gegen seine eigene
+Nachbildung dieser Annahme prüft, bekommt immer recht** — solche Annahmen gehören hierher.
+
+Zwei Regeln für dieses Projekt:
+
+- **Nie eine Fernwartung anlegen.** Das wäre gebuchte Arbeitszeit beim Kunden und bliebe stehen.
+  Geprüft wird das Schreiben über Timer, weil die sich restlos löschen lassen.
+- **Prägen ausschliesslich mit `isForTesting=true`.** Ein regulär geprägtes Token läuft ein Jahr
+  und lässt sich in TANSS 10.10.0 **nicht widerrufen**. Eine Testreihe, die bei jedem Lauf eines
+  ausstellt, hinterlässt nach einem Monat dreissig gültige Token, von denen niemand mehr weiss.
 
 ---
 

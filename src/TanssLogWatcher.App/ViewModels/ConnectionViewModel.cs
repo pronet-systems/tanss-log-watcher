@@ -81,10 +81,10 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     /// <remarks>
     /// <para>Nur zur Anzeige. Die Schaltfläche „Jetzt erneuern“ hängt ausdrücklich
     /// <b>nicht</b> daran, sondern an <see cref="RuntimeViewModel.IsConfigured"/>: Der Wert
-    /// liesse sich allein über einen Prägeversuch mit <c>isForTesting=true</c> füllen, und
-    /// dieser Aufruf liefert entgegen seinem Ruf ein voll brauchbares Token — nachgemessen
-    /// gegen eine echte Instanz. Ihn bei jedem Öffnen der Seite abzusetzen hiesse, in TANSS
-    /// Token zu erzeugen, die niemand bestellt hat und die sich nicht widerrufen lassen.</para>
+    /// liesse sich allein über einen Prägeversuch mit <c>isForTesting=true</c> füllen, und der
+    /// stellt in TANSS ein echtes — wenn auch nur 60 Sekunden gültiges — Token aus und
+    /// hinterlässt dort aller Wahrscheinlichkeit nach einen Eintrag. Ihn bei jedem Öffnen der
+    /// Seite abzusetzen hiesse, für eine Anzeige Token zu erzeugen, die niemand bestellt hat.</para>
     /// <para>Fehlt das Recht, sagt es der Prägeversuch selbst — im Klartext und erst dann,
     /// wenn ihn jemand ausgelöst hat.</para>
     /// </remarks>
@@ -121,6 +121,24 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
 
     /// <summary>Die Fernwartungsanbindungen der Instanz.</summary>
     public ObservableCollection<SystemRow> Systems { get; } = [];
+
+    /// <summary>
+    /// Die Befunde der letzten Verbindungsprüfung.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Leer, bis wirklich geprüft wurde.</b> Hier stand vorher eine Karte mit vier fest
+    /// eingebauten grünen Haken — darunter „Token trägt und lässt sich erneuern“. Sie stand auch
+    /// dann grün da, wenn gar nichts eingerichtet war, wenn die Prüfung fehlschlug und, wie sich
+    /// gezeigt hat, während das Token in Wahrheit auf jeder Anfrage eine 403 erzeugte. Eine
+    /// Anzeige, die einen Befund behauptet, den niemand erhoben hat, ist schlimmer als gar
+    /// keine: Sie beendet die Fehlersuche, bevor sie anfängt.</para>
+    /// <para>Jede Zeile hier entsteht aus einer tatsächlichen Antwort oder aus einem Wert, den
+    /// die Konfiguration wirklich trägt. Was nicht gemessen wurde, steht als „nicht geprüft“ da.</para>
+    /// </remarks>
+    public ObservableCollection<CheckRow> Checks { get; } = [];
+
+    /// <summary>Wurde überhaupt schon geprüft?</summary>
+    public bool HasChecks => Checks.Count > 0;
 
     /// <summary>Der Ort, an dem die Konfiguration erwartet wird.</summary>
     public string ConfigPath => Host.ConfigPath;
@@ -224,11 +242,17 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
         {
             Progress<double> progress = new(value => DownloadPercent = value * 100d);
 
-            _downloadedSetup = await _updates
+            // Die Antwort sagt BEIDES: wo die Datei liegt und ob wirklich verglichen wurde.
+            // Vorher stand hier `update.ChecksumUrl is not null` - das beantwortet nur, ob es
+            // eine Pruefsummen-ADRESSE gibt, nicht ob die Pruefsumme geholt und gerechnet
+            // wurde. Liess sie sich nicht holen, meldete die Oberflaeche trotzdem
+            // "stimmt ueberein".
+            DownloadedUpdate result = await _updates
                 .DownloadAsync(update, progress)
                 .ConfigureAwait(true);
 
-            ChecksumVerified = update.ChecksumUrl is not null;
+            _downloadedSetup = result.Path;
+            ChecksumVerified = result.Verified;
             IsReadyToInstall = true;
 
             UpdateText = ChecksumVerified
@@ -236,8 +260,8 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
                     $"Fassung {update.Version} ist geladen und stimmt mit der veröffentlichten "
                     + $"Prüfsumme überein.")
                 : string.Create(CultureInfo.CurrentCulture,
-                    $"Fassung {update.Version} ist geladen. Zu dieser Veröffentlichung liegt "
-                    + $"keine Prüfsumme vor — es konnte nicht gegengeprüft werden.");
+                    $"Fassung {update.Version} ist geladen, aber NICHT gegengeprüft: Die "
+                    + $"veröffentlichte Prüfsumme fehlt oder liess sich nicht holen.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -338,6 +362,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
                 : status.Reason;
 
             await LoadEmployeeAsync().ConfigureAwait(true);
+            BuildChecks(status);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -438,6 +463,58 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
             UpdateCheckState.Failed => _updates.Problem ?? "Die Prüfung ist fehlgeschlagen.",
             _ => "Noch nicht nach Aktualisierungen gesucht.",
         };
+    }
+
+    /// <summary>
+    /// Baut die Befundliste aus dem, was tatsächlich gemessen wurde.
+    /// </summary>
+    /// <remarks>
+    /// <para>Jede Zeile nennt ihre Quelle. Wo keine Messung vorliegt, steht ausdrücklich „nicht
+    /// geprüft“ — das ist eine eigene Stufe und nicht dasselbe wie „in Ordnung“. Genau diese
+    /// Unterscheidung fehlte der Vorgängerfassung, und sie ist der Grund, aus dem ein kaputtes
+    /// Token dort als „trägt“ erschien.</para>
+    /// <para>Das Prägerecht steht bewusst NICHT darin: Es liesse sich nur über einen
+    /// Prägeversuch feststellen, und der erzeugt in TANSS ein echtes, nicht widerrufbares
+    /// Token. Eine Prüfanzeige, die bei jedem Öffnen Token ausstellt, wäre teurer als ihr
+    /// Erkenntniswert.</para>
+    /// </remarks>
+    /// <param name="status">Der Betriebszustand nach dem Verbindungstest.</param>
+    private void BuildChecks(AppStatus status)
+    {
+        Checks.Clear();
+
+        bool reachable = status.State == RuntimeState.Working;
+
+        Checks.Add(new CheckRow("TANSS erreichbar",
+            reachable ? CheckLevel.Ok : CheckLevel.Fail,
+            reachable
+                ? $"GET /api/tanss.x/v1/technicians hat geantwortet ({BaseUrl})."
+                : status.Reason));
+
+        // Die Zahl kommt aus der Liste, die darunter steht - nicht aus einer Annahme.
+        Checks.Add(new CheckRow("Fernwartungsanbindungen",
+            Systems.Count > 0 ? CheckLevel.Ok : CheckLevel.Warn,
+            Systems.Count > 0
+                ? Texts.Count(Systems.Count, "Anbindung gelesen", "Anbindungen gelesen") + "."
+                : "Keine gelesen. Entweder ist keine eingerichtet, oder die Abfrage schlug fehl "
+                  + "— das Modul Fernwartung könnte auf dieser Instanz fehlen."));
+
+        Checks.Add(new CheckRow("Arbeitstoken",
+            HasTokenProblem ? CheckLevel.Fail : reachable ? CheckLevel.Ok : CheckLevel.Unknown,
+            HasTokenProblem
+                ? TokenProblem!
+                : reachable
+                    ? $"Der Aufruf wurde angenommen; das Token trägt. Ablauf: {TokenExpiry}."
+                    : "Nicht geprüft — ohne beantworteten Aufruf ist darüber nichts bekannt."));
+
+        Checks.Add(new CheckRow("Zertifikatsprüfung",
+            VerifyTls ? CheckLevel.Ok : CheckLevel.Fail,
+            VerifyTls
+                ? "Eingeschaltet (tanss.verify_tls = true)."
+                : "ABGESCHALTET. Das Arbeitstoken geht bei jedem Aufruf ungeprüft über diese "
+                  + "Leitung, und TANSS kann ein ausgestelltes Token nicht widerrufen."));
+
+        OnPropertyChanged(nameof(HasChecks));
     }
 
     private void ReadConfig()

@@ -214,6 +214,20 @@ public sealed class QueueCommandTests
                 : Task.FromResult(new RemoteSupportRead { Id = 1, RemoteMaintenanceId = item.RemoteMaintenanceId });
         }
 
+        /// <inheritdoc/>
+        /// <remarks>
+        /// Greift auf <see cref="CreateAsync"/> zurück statt einen zweiten Pfad zu führen: Zwei
+        /// Anlegewege in einer Attrappe laufen auseinander, sobald jemand nur einen davon pflegt —
+        /// und die Tests bezeugten dann ein Verhalten, das es nirgends gibt.
+        /// </remarks>
+        public async Task<RemoteSupportCreateResult> CreateWithDiagnosticsAsync(
+            RemoteSupportWrite item, CancellationToken ct = default)
+        {
+            RemoteSupportRead created = await CreateAsync(item, ct).ConfigureAwait(false);
+
+            return new RemoteSupportCreateResult(created, AttributionConfirmed: true, Warning: null);
+        }
+
         public Task<bool> ExistsAsync(string remoteMaintenanceId, DateTimeOffset around,
                                       CancellationToken ct = default) => Task.FromResult(false);
 

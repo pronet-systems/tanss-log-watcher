@@ -20,6 +20,20 @@ public sealed record AvailableUpdate(Version Version, string Tag, Uri SetupUrl, 
     public string SizeText => string.Create(CultureInfo.CurrentCulture, $"{Bytes / 1024d / 1024d:N1} MB");
 }
 
+/// <summary>Ein geladenes Setup und die Frage, ob es gegengeprüft wurde.</summary>
+/// <remarks>
+/// <b>Zwei Angaben, weil es zwei verschiedene Aussagen sind.</b> „Die Datei liegt da“ und „die
+/// Datei stimmt mit der veröffentlichten Prüfsumme überein“ fallen auseinander, sobald die
+/// Prüfsummendatei fehlt oder sich nicht holen lässt. Wer nur den Pfad zurückgibt, zwingt den
+/// Aufrufer zu raten — und der rät zugunsten des Erfolgs.
+/// </remarks>
+/// <param name="Path">Wo das Setup liegt.</param>
+/// <param name="Verified">
+/// <see langword="true"/> nur dann, wenn eine Prüfsumme geholt, gerechnet und verglichen wurde
+/// und übereingestimmt hat.
+/// </param>
+public sealed record DownloadedUpdate(string Path, bool Verified);
+
 /// <summary>Wie eine Prüfung auf Aktualisierungen ausgegangen ist.</summary>
 public enum UpdateCheckState
 {

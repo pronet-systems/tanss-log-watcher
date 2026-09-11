@@ -329,6 +329,46 @@ public sealed record ProfileRow
     public bool IsActive { get; }
 }
 
+/// <summary>Wie eine Prüfung ausgegangen ist.</summary>
+/// <remarks>
+/// <see cref="Unknown"/> ist eine eigene Stufe und ausdrücklich nicht dasselbe wie
+/// <see cref="Ok"/>. Wer beides gleich anzeigt, behauptet Befunde, die niemand erhoben hat —
+/// und beendet damit die Fehlersuche, bevor sie anfängt.
+/// </remarks>
+public enum CheckLevel
+{
+    /// <summary>Nicht geprüft. Keine Aussage.</summary>
+    Unknown,
+
+    /// <summary>Geprüft und in Ordnung.</summary>
+    Ok,
+
+    /// <summary>Läuft, verlangt aber Aufmerksamkeit.</summary>
+    Warn,
+
+    /// <summary>Geprüft und nicht in Ordnung.</summary>
+    Fail,
+}
+
+/// <summary>Ein einzelner Befund der Verbindungsprüfung.</summary>
+/// <param name="Name">Was geprüft wurde.</param>
+/// <param name="Level">Wie es ausging.</param>
+/// <param name="Detail">Woraus sich das ergibt — im Klartext und mit der Quelle.</param>
+public sealed record CheckRow(string Name, CheckLevel Level, string Detail)
+{
+    /// <summary>Ist der Befund in Ordnung?</summary>
+    public bool IsOk => Level == CheckLevel.Ok;
+
+    /// <summary>Verlangt der Befund Aufmerksamkeit?</summary>
+    public bool IsWarn => Level == CheckLevel.Warn;
+
+    /// <summary>Ist der Befund nicht in Ordnung?</summary>
+    public bool IsFail => Level == CheckLevel.Fail;
+
+    /// <summary>Wurde gar nicht geprüft?</summary>
+    public bool IsUnknown => Level == CheckLevel.Unknown;
+}
+
 /// <summary>Ein sichtbares Fenster, wie die Diagnoseseite es zeigt.</summary>
 public sealed record WindowRow
 {

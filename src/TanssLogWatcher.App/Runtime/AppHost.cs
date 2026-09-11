@@ -394,7 +394,12 @@ public sealed class AppHost : IRuntimeContext, IDisposable
                 $"Die Konfiguration ist geladen und geprüft: {config.Tanss.BaseUrl}, "
                 + $"Mitarbeiter-ID {config.Tanss.EmployeeId}, {config.Monitoring.Count} "
                 + $"Beobachtungsregel(n). Ob TANSS gerade antwortet, ist noch nicht geprüft."),
-            Advice = "Nichts zu tun; der Verbindungstest läuft gerade.",
+            // KEINE Zusage ueber einen laufenden Test: StartAsync stoesst ihn an, Reload()
+            // nicht. Der Satz "der Verbindungstest laeuft gerade" stand vorher auf beiden Wegen
+            // und war auf dem zweiten schlicht falsch - der Benutzer wartete dann auf ein
+            // Ergebnis, das nie kam.
+            Advice = "Ob TANSS antwortet, sagt die Schaltfläche „Verbindung prüfen“ unter "
+                + "„Verbindung“.",
             ConfigPath = _store.Path,
             Warnings = _warnings,
             Since = Clock.GetLocalNow(),

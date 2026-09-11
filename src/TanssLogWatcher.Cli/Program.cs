@@ -215,6 +215,12 @@ internal static class Program
             Processes = composition.Processes,
             TcpConnections = composition.TcpConnections,
             Settings = composition.Settings,
+
+            // Die Namensauflösung gehört dazu, und ihr Fehlen war kein Detail: Ohne sie fiel
+            // dieser Befehl auf NullHostNames zurück und zeigte Ziele, die der laufende Dienst
+            // gerade ausschliesst — der Befehl zum Nachsehen, warum eine Anwendung nicht
+            // erkannt wird, zeigte damit etwas anderes als die Erkennung selbst.
+            HostNames = composition.HostNames,
         }, parsed.ProfileKey, output);
     }
 

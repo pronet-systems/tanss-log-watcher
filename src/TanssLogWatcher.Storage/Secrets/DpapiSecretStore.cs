@@ -42,6 +42,10 @@ public sealed class DpapiSecretStore
     /// <summary>Der Speicher für den Schlüssel des Sprachmodell-Anbieters.</summary>
     public static DpapiSecretStore ForAi() => new(StoragePaths.AiKeyFile, "ai-provider-key");
 
+    /// <summary>Der Speicher für das Proxy-Kennwort.</summary>
+    public static DpapiSecretStore ForProxy() =>
+        new(StoragePaths.ProxyPasswordFile, "proxy-password");
+
     /// <summary>Wo das Geheimnis liegt.</summary>
     public string Path { get; }
 
@@ -123,17 +127,27 @@ public sealed class DpapiSecretStore
     /// Der Weg, eine erteilte Einwilligung auch technisch zurückzunehmen: Ohne Schlüssel kann
     /// nichts mehr gesendet werden, gleich was in der Konfiguration steht.
     /// </remarks>
-    public void Clear()
+    /// <returns>
+    /// <see langword="true"/>, wenn danach sicher kein Geheimnis mehr liegt.
+    /// <para><b>Der Rückgabewert ist kein Beiwerk.</b> Vorher verschluckte diese Methode jeden
+    /// Fehler und meldete nichts — der Widerruf der Einwilligung sagte daraufhin „Schlüssel
+    /// gelöscht“, obwohl die Datei noch dalag. Ein Widerruf, der nur behauptet wird, ist
+    /// schlimmer als gar keiner.</para>
+    /// </returns>
+    public bool Clear()
     {
         try
         {
             File.Delete(Path);
+            return !File.Exists(Path);
         }
         catch (IOException)
         {
+            return false;
         }
         catch (UnauthorizedAccessException)
         {
+            return false;
         }
     }
 }

@@ -260,17 +260,3 @@ public sealed class RemoteSupportRepository : IRemoteSupportRepository
         public string? Text { get; init; }
     }
 }
-
-/// <summary>
-/// Das Ergebnis eines Anlegevorgangs samt Befund zur Attribution.
-/// </summary>
-/// <param name="Support">Der angelegte Datensatz, so wie TANSS ihn zurückgibt.</param>
-/// <param name="AttributionConfirmed">
-/// Hat TANSS den Mitarbeiter in <c>meta.linkedEntities.employees</c> ausgewiesen?
-/// </param>
-/// <param name="Warning">
-/// Der Hinweistext, falls die Attribution nicht bestätigt ist — sonst <c>null</c>. Er ist zum
-/// Protokollieren und Anzeigen gedacht, nicht zum Wiederholen des Aufrufs.
-/// </param>
-public sealed record RemoteSupportCreateResult(RemoteSupportRead Support, bool AttributionConfirmed,
-                                               string? Warning);

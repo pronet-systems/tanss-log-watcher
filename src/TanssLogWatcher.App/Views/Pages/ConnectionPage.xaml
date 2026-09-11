@@ -222,24 +222,58 @@
                 <StackPanel>
                     <ui:TextBlock Text="Letzte Prüfung" FontTypography="BodyStrong" Margin="0,0,0,12" />
 
-                    <StackPanel design:Gap.Size="8">
-                        <StackPanel Orientation="Horizontal" design:Gap.Size="10">
-                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource StateRunningBrush}" />
-                            <ui:TextBlock Text="TANSS erreichbar" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" design:Gap.Size="10">
-                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource StateRunningBrush}" />
-                            <ui:TextBlock Text="Modul Fernwartung lizenziert — 6 Anbindungen gefunden" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" design:Gap.Size="10">
-                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource StateRunningBrush}" />
-                            <ui:TextBlock Text="Token trägt und lässt sich erneuern (Recht 480 vorhanden)" VerticalAlignment="Center" />
-                        </StackPanel>
-                        <StackPanel Orientation="Horizontal" design:Gap.Size="10">
-                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource StateRunningBrush}" />
-                            <ui:TextBlock Text="Zertifikatsprüfung aktiv" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </StackPanel>
+                    <!-- Solange nichts geprüft wurde, steht hier auch nichts. Hier standen
+                         vorher vier fest eingebaute grüne Haken — sie zeigten „Token trägt"
+                         auch dann, wenn das Token auf jeder Anfrage eine 403 erzeugte. -->
+                    <ui:TextBlock TextWrapping="Wrap" HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Visibility="{Binding HasChecks, Converter={StaticResource InverseBoolToVis}}"
+                                  Text="Noch nicht geprüft. Die Schaltfläche „Verbindung prüfen“ oben fragt TANSS tatsächlich — erst danach steht hier ein Befund." />
+
+                    <ItemsControl ItemsSource="{Binding Checks}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,0,0,10">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Zeichen und Farbe folgen der Stufe. „Nicht geprüft" ist
+                                         eine eigene Stufe und sieht nicht aus wie „in Ordnung". -->
+                                    <ui:SymbolIcon Grid.Column="0" Margin="0,0,10,0" VerticalAlignment="Top">
+                                        <ui:SymbolIcon.Style>
+                                            <Style TargetType="ui:SymbolIcon">
+                                                <Setter Property="Symbol" Value="QuestionCircle24" />
+                                                <Setter Property="Foreground" Value="{DynamicResource StateIdleBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsOk}" Value="True">
+                                                        <Setter Property="Symbol" Value="CheckmarkCircle24" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource StateRunningBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsWarn}" Value="True">
+                                                        <Setter Property="Symbol" Value="Warning24" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource StatePendingBrush}" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsFail}" Value="True">
+                                                        <Setter Property="Symbol" Value="DismissCircle24" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource StateFailedBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </ui:SymbolIcon.Style>
+                                    </ui:SymbolIcon>
+
+                                    <StackPanel Grid.Column="1">
+                                        <ui:TextBlock Text="{Binding Name}" FontWeight="SemiBold" />
+                                        <ui:TextBlock Text="{Binding Detail}" FontSize="12" TextWrapping="Wrap"
+                                                      HorizontalAlignment="Left"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    </StackPanel>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </Border>
 

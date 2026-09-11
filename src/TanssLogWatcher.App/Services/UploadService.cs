@@ -348,16 +348,33 @@ public sealed class UploadService : PeriodicService
 
         try
         {
-            RemoteSupportRead created = await composition.RemoteSupports
-                .CreateAsync(item.Payload, ct).ConfigureAwait(false);
+            // CreateWithDiagnosticsAsync und nicht CreateAsync: Jenes wirft die Gegenprobe der
+            // Attribution weg. Sie sagt, ob TANSS die Fernwartung wirklich dem erwarteten
+            // Mitarbeiter zugeordnet hat - und eine Fernwartung, die auf einem fremden
+            // Mitarbeiter landet, ist falsch gebuchte Arbeitszeit, die niemandem auffaellt.
+            RemoteSupportCreateResult result = await composition.RemoteSupports
+                .CreateWithDiagnosticsAsync(item.Payload, ct).ConfigureAwait(false);
+
+            RemoteSupportRead created = result.Support;
 
             composition.Queue.MarkDone(item.RemoteMaintenanceId);
-            Log(composition, item, SessionOutcome.Ok, "Hochgeladen.", created.Id);
+
+            string note = result.AttributionConfirmed
+                ? "Hochgeladen."
+                : "Hochgeladen, aber die Zuordnung zum Mitarbeiter ist unbestätigt: "
+                  + (result.Warning ?? "TANSS hat sie im meta-Block nicht gemeldet.");
+
+            Log(composition, item, SessionOutcome.Ok, note, created.Id);
             Context.ReportWorking();
 
             return new UploadReport(item.RemoteMaintenanceId, UploadOutcome.Uploaded,
-                string.Create(CultureInfo.CurrentCulture,
-                    $"Hochgeladen; TANSS führt sie unter der Kennung {created.Id}."),
+                result.AttributionConfirmed
+                    ? string.Create(CultureInfo.CurrentCulture,
+                        $"Hochgeladen; TANSS führt sie unter der Kennung {created.Id}.")
+                    : string.Create(CultureInfo.CurrentCulture,
+                        $"Hochgeladen unter der Kennung {created.Id} — die Zuordnung zum "
+                        + $"Mitarbeiter hat TANSS aber nicht bestätigt. Nachzusehen ist, auf wen "
+                        + $"die Fernwartung dort gebucht ist."),
                 created.Id);
         }
         catch (TanssException ex)
