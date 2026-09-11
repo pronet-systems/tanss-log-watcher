@@ -9,7 +9,7 @@ Die Fassungsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
-## [Unveröffentlicht]
+## [0.1.1] — 2026-09-12
 
 ### Behoben — erfundene Daten und vorgetäuschte Prüfungen
 
@@ -128,4 +128,5 @@ mehrere Arbeitstage und die Beteiligung der Mitbestimmung.
 - Der Rechte-Vorabtest für das Prägen wird nicht selbsttätig ausgeführt: Er erzeugt in TANSS
   ein echtes, nicht widerrufbares Token. Fehlt das Recht, meldet es der Versuch selbst.
 
+[0.1.1]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.1.1
 [0.1.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.1.0
