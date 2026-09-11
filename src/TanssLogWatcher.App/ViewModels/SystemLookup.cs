@@ -28,6 +28,18 @@ public sealed class SystemLookup
     /// <summary>Wurde die Liste schon einmal erfolgreich geholt?</summary>
     public bool IsLoaded { get; private set; }
 
+    /// <summary>
+    /// Der Name des eigenen Technikers, oder <c>null</c>, solange er unbekannt ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Steht hier und nicht in einem zweiten Zwischenspeicher: Er wird aus derselben
+    /// Verbindung geholt und zur selben Zeit ungültig wie die Anbindungen. Zwei Speicher mit
+    /// demselben Lebenslauf laufen auseinander, sobald jemand nur einen davon auffrischt.</para>
+    /// <para>Gebraucht wird er vom Abschlussdialog: Dort steht der Techniker im Bericht, der
+    /// zum Kunden geht — und eine Mitarbeiterkennung wie „1“ sagt dem Kunden nichts.</para>
+    /// </remarks>
+    public string? OwnTechnicianName { get; private set; }
+
     /// <summary>Der Name eines Fernwartungstyps, oder <c>null</c>, wenn er unbekannt ist.</summary>
     /// <param name="typeId">Die Kennung des Typs.</param>
     public string? NameFor(int typeId) =>
@@ -72,6 +84,8 @@ public sealed class SystemLookup
 
             Systems = rows;
             IsLoaded = true;
+
+            await LoadOwnTechnicianAsync(composition, ct).ConfigureAwait(true);
             return true;
         }
         catch (OperationCanceledException)
@@ -82,6 +96,56 @@ public sealed class SystemLookup
         {
             // Beiwerk. Die Seite zeigt dann Kennungen statt Namen - siehe Klassenkommentar.
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Löst die eigene Mitarbeiterkennung in einen Namen auf.
+    /// </summary>
+    /// <remarks>
+    /// Misslingt es, bleibt <see cref="OwnTechnicianName"/> leer — und der Bericht lässt die
+    /// Zeile dann weg. Eine Kennung statt eines Namens hinzuschreiben wäre schlechter als gar
+    /// nichts: Sie steht in einem Text, den der Kunde liest, und bedeutet ihm nichts.
+    /// </remarks>
+    private async Task LoadOwnTechnicianAsync(RuntimeComposition composition, CancellationToken ct)
+    {
+        int own = composition.Config.Tanss.EmployeeId;
+
+        if (own <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<Technician> technicians =
+                await composition.Technicians.ListAsync(ct).ConfigureAwait(true);
+
+            Technician? mine = technicians.FirstOrDefault(t => t.Id == own);
+
+            if (mine is null)
+            {
+                return;
+            }
+
+            OwnTechnicianName = !string.IsNullOrWhiteSpace(mine.Name)
+                ? mine.Name.Trim()
+                : string.Join(' ',
+                    new[] { mine.FirstName, mine.LastName }
+                        .Where(part => !string.IsNullOrWhiteSpace(part))).Trim();
+
+            if (OwnTechnicianName.Length == 0)
+            {
+                OwnTechnicianName = null;
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Siehe Kommentar: ohne Namen bleibt die Zeile im Bericht weg.
         }
     }
 }

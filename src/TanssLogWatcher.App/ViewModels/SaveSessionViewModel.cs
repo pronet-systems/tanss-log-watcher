@@ -37,19 +37,26 @@ public sealed partial class SaveSessionViewModel : ObservableObject
 {
     private readonly AppHost _host;
     private readonly SessionSnapshot _session;
+    private readonly string? _technician;
 
     /// <summary>Baut den Dialog zu einer beendeten Sitzung.</summary>
     /// <param name="host">Die Laufzeit.</param>
     /// <param name="closed">Die beendete Sitzung samt dem, was mit ihr geschah.</param>
     /// <param name="typeName">Der sprechende Name des Fernwartungstyps, falls bekannt.</param>
     /// <param name="color">Die Farbe der Anbindung als Hexwert ohne Raute.</param>
-    public SaveSessionViewModel(AppHost host, SessionClosed closed, string? typeName, string? color)
+    /// <param name="technician">
+    /// Der Name des Technikers, oder <see langword="null"/>. Ohne ihn bleibt die Zeile im
+    /// Bericht weg — eine Mitarbeiterkennung sagt dem Kunden nichts.
+    /// </param>
+    public SaveSessionViewModel(AppHost host, SessionClosed closed, string? typeName, string? color,
+                                string? technician = null)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(closed);
 
         _host = host;
         _session = closed.Session;
+        _technician = technician;
 
         Color = color ?? string.Empty;
         Destination = string.IsNullOrWhiteSpace(_session.Destination)
@@ -62,10 +69,13 @@ public sealed partial class SaveSessionViewModel : ObservableObject
                 $"{_session.RemoteSupportTypeId} — {typeName ?? "unbekannter Typ"}")
             : "nicht überwacht";
 
+        // Volle Minuten wie im Bericht darunter. Die tickende Schreibweise gehoert in die Liste
+        // der LAUFENDEN Sitzungen; hier ist die Sitzung beendet, und zwei verschiedene
+        // Schreibweisen derselben Dauer im selben Fenster lesen sich wie zwei Messwerte.
         DateTimeOffset ended = _session.EndedAt ?? host.Clock.GetLocalNow();
         TimeRange = string.Create(CultureInfo.CurrentCulture,
             $"{Texts.Clock(_session.StartedAt)} – {Texts.Clock(ended)} · "
-            + $"{Texts.Ticking(ended - _session.StartedAt)}");
+            + $"{Texts.Minutes(ended - _session.StartedAt)}");
 
         // Die automatische Beschreibung steht bereits in der Nutzlast. Sie wird hier gezeigt,
         // damit klar ist, was in TANSS ankommt, auch wenn niemand etwas dazuschreibt.
@@ -111,20 +121,25 @@ public sealed partial class SaveSessionViewModel : ObservableObject
             $"{Application}: {Destination}");
         _ = report.AppendLine();
 
+        // Volle Minuten und kein Prozessname, keine PID: Der Text geht als Dokumentation an den
+        // Kunden. Eine PID ist dort ohne Bedeutung und beim naechsten Start ohnehin eine andere;
+        // Sekunden behaupten eine Genauigkeit, die diese Messung nicht hat - Anfang und Ende
+        // ergeben sich daraus, wann ein Fenster auf- und zuging.
         _ = report.AppendLine(CultureInfo.CurrentCulture,
             $"Zeitraum:     {Texts.Day(_session.StartedAt)} {Texts.Clock(_session.StartedAt)} – "
-            + $"{Texts.Clock(ended)} ({Texts.Span(duration)})");
+            + $"{Texts.Clock(ended)} ({Texts.Minutes(duration)})");
         _ = report.AppendLine(CultureInfo.CurrentCulture,
             $"Gegenstelle:  {Destination}");
         _ = report.AppendLine(CultureInfo.CurrentCulture,
-            $"Anwendung:    {Application} ({_session.ProfileKey}, PID {_session.ProcessId})");
+            $"Anwendung:    {Application}");
         _ = report.AppendLine(CultureInfo.CurrentCulture,
             $"Arbeitsplatz: {Environment.MachineName} / {Environment.UserName}");
 
-        if (_host.Config is { } config)
+        // Der Name, nicht die Kennung - und lieber gar keine Zeile als eine Zahl: Der Text geht
+        // an den Kunden, und "Mitarbeiter 1" bedeutet ihm nichts.
+        if (!string.IsNullOrWhiteSpace(_technician))
         {
-            _ = report.AppendLine(CultureInfo.CurrentCulture,
-                $"Techniker:    Mitarbeiter {config.Tanss.EmployeeId}");
+            _ = report.AppendLine(CultureInfo.CurrentCulture, $"Techniker:    {_technician}");
         }
 
         _ = report.AppendLine();

@@ -195,7 +195,8 @@ public partial class App : IDisposable
 
         SaveSessionWindow dialog = new(host, closed,
                                        Systems.NameFor(closed.Session.RemoteSupportTypeId),
-                                       Systems.ColorFor(closed.Session.RemoteSupportTypeId));
+                                       Systems.ColorFor(closed.Session.RemoteSupportTypeId),
+                                       Systems.OwnTechnicianName);
 
         dialog.Closed += (_, _) =>
         {

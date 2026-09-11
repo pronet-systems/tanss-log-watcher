@@ -64,6 +64,43 @@ internal static class Texts
         return Count((int)absolute.TotalDays, "Tag", "Tage");
     }
 
+    /// <summary>
+    /// Eine Dauer in vollen Minuten, für Texte, die zum Kunden gehen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ausdrücklich ohne Sekunden, und zwar auch bei kurzen Sitzungen: In einem
+    /// Leistungsnachweis behauptet „3 Minuten 47 Sekunden“ eine Genauigkeit, die die Messung
+    /// nicht hat — Anfang und Ende einer Sitzung ergeben sich daraus, wann ein Fenster auf- und
+    /// zuging, nicht daraus, wann jemand zu arbeiten begann.</para>
+    /// <para>Unter einer Minute steht „unter 1 Minute“ statt einer aufgerundeten Null: Eine
+    /// Leistung über „0 Minuten“ ist keine Angabe, sondern ein Rätsel.</para>
+    /// </remarks>
+    /// <param name="value">Die Dauer.</param>
+    public static string Minutes(TimeSpan value)
+    {
+        TimeSpan absolute = value < TimeSpan.Zero ? value.Negate() : value;
+
+        if (absolute.TotalMinutes < 1)
+        {
+            return "unter 1 Minute";
+        }
+
+        int total = (int)absolute.TotalMinutes;
+
+        if (total < 60)
+        {
+            return Count(total, "Minute", "Minuten");
+        }
+
+        int hours = total / 60;
+        int minutes = total % 60;
+
+        return minutes == 0
+            ? Count(hours, "Stunde", "Stunden")
+            : string.Create(CultureInfo.CurrentCulture,
+                $"{hours} Std. {minutes} Min.");
+    }
+
     /// <summary>Ein Zeitpunkt in der Zukunft oder Vergangenheit, gemessen an <paramref name="now"/>.</summary>
     public static string Relative(DateTimeOffset moment, DateTimeOffset now)
     {

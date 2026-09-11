@@ -23,11 +23,13 @@ public partial class SaveSessionWindow
     /// <param name="closed">Die beendete Sitzung samt dem, was mit ihr geschah.</param>
     /// <param name="typeName">Der sprechende Name des Fernwartungstyps, falls bekannt.</param>
     /// <param name="color">Die Farbe der Anbindung als Hexwert ohne Raute.</param>
-    public SaveSessionWindow(AppHost host, SessionClosed closed, string? typeName, string? color)
+    /// <param name="technician">Der Name des Technikers, falls bekannt.</param>
+    public SaveSessionWindow(AppHost host, SessionClosed closed, string? typeName, string? color,
+                             string? technician = null)
     {
         InitializeComponent();
 
-        ViewModel = new SaveSessionViewModel(host, closed, typeName, color);
+        ViewModel = new SaveSessionViewModel(host, closed, typeName, color, technician);
         ViewModel.Finished += (_, _) => Close();
         DataContext = ViewModel;
     }
