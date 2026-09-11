@@ -1,0 +1,99 @@
+<Page x:Class="TanssLogWatcher.App.Views.Pages.DiagnosticsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Title="Diagnose"
+      Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False">
+
+    <Grid Margin="{StaticResource PagePadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel HorizontalAlignment="Left">
+                <ui:TextBlock Text="Sichtbare Fenster" FontTypography="Title" />
+                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                              Text="Das Werkzeug zum Nachsehen, warum eine Anwendung nicht erkannt wird. Ändert ein Hersteller seine Fenstertitel, steht hier der neue Titel — und das Muster lässt sich danach anpassen." />
+            </StackPanel>
+            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                       Content="Aktualisieren" Icon="{ui:SymbolIcon ArrowSync24}" Appearance="Secondary" />
+        </Grid>
+
+        <ui:InfoBar Grid.Row="1" Margin="0,0,0,16"
+                    Severity="Informational" IsOpen="True" IsClosable="False"
+                    Title="Fenstertitel verlassen diesen Rechner nicht"
+                    Message="Sie werden nur angezeigt und, wo die Einstellung es verlangt, im lokalen Protokoll durch einen Abdruck ersetzt. Was in TANSS landet, ist allein das Ziel der erkannten Sitzung." />
+
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="16,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="150" />
+                        <ColumnDefinition Width="70" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="110" />
+                        <ColumnDefinition Width="140" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBlock Grid.Column="0" Text="PROZESS" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="1" Text="PID" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="2" Text="FENSTERTITEL" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="3" Text="HAUPTFENSTER" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="4" Text="VERBINDUNGEN" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </Grid>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Windows}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="0,1,0,0" Padding="16,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="150" />
+                                            <ColumnDefinition Width="70" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="110" />
+                                            <ColumnDefinition Width="140" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <ui:TextBlock Grid.Column="0" Text="{Binding Process}"
+                                                      Style="{StaticResource TabularText}"
+                                                      HorizontalAlignment="Left" FontSize="12" />
+                                        <ui:TextBlock Grid.Column="1" Text="{Binding ProcessId}"
+                                                      Style="{StaticResource TabularText}"
+                                                      HorizontalAlignment="Left" FontSize="12"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <ui:TextBlock Grid.Column="2" Text="{Binding Title}"
+                                                      VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                        <ui:TextBlock Grid.Column="3" VerticalAlignment="Center" FontSize="12"
+                                                      Text="{Binding IsMainWindow}"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <ui:TextBlock Grid.Column="4" Text="{Binding Connections}"
+                                                      Style="{StaticResource TabularText}"
+                                                      HorizontalAlignment="Left" FontSize="12"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</Page>

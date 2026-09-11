@@ -1,0 +1,245 @@
+# ---------------------------------------------------------------------------
+#  Veröffentlichung. Läuft nur, wenn jemand eine Marke v* setzt.
+#
+#  Die Schritte zwischen Quelltext und Setup stehen NICHT hier, sondern in
+#  build\publish.ps1. Diese Datei ruft das Skript auf und legt das Ergebnis
+#  als GitHub-Release ab. Wer die Kette hier nachbaut, hat sie ab dem ersten
+#  Tag zweimal - und die zweite Fassung ist die, die niemand pflegt.
+#
+#  Ausgeliefert wird TanssLogWatcher-<Fassung>-setup.exe samt SHA256.
+#  Unsigniert, solange kein Zertifikat vorliegt; die Veröffentlichungsnotiz
+#  sagt das ausdrücklich, weil SmartScreen den Benutzer sonst unvorbereitet
+#  trifft.
+# ---------------------------------------------------------------------------
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+# Schreibrecht nur auf den Inhalt - mehr braucht "gh release create" nicht.
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: 'true'
+  DOTNET_CLI_TELEMETRY_OPTOUT: 'true'
+  DOTNET_CLI_UI_LANGUAGE: 'en'
+
+jobs:
+  release:
+    name: Setup bauen und veröffentlichen
+    runs-on: windows-latest
+    # 45 Minuten: Tests, zwei self-contained Veröffentlichungen und einmal
+    # lzma2/max über rund 62 MB. UNGEPRÜFT auf einem Läufer - wie lange das
+    # Packen dort dauert, weiß bisher nur der Entwicklungsrechner.
+    timeout-minutes: 45
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v7
+
+      - name: .NET 10 einrichten
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Fassung aus der Marke lesen
+        id: version
+        shell: pwsh
+        # Die Marke kommt über eine Umgebungsvariable herein und nicht als
+        # Einsetzung mitten im Skript: ein Markenname ist Text, den jemand mit
+        # Schreibrecht frei wählt, und der hat in einer Befehlszeile nichts
+        # unquotiert zu suchen.
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          $tag = $env:TAG
+          $version = $tag -replace '^v', ''
+
+          # Dieselbe Suche wie in publish.ps1 und im .iss. Weicht die Marke von
+          # Directory.Build.props ab, trägt das Setup zwar die Nummer der
+          # Marke, die eingebauten Dateiversionen aber die der Props-Datei -
+          # und ab da glaubt jeder Rechner etwas anderes.
+          $match = Select-String -LiteralPath 'Directory.Build.props' -Pattern '<Version>([^<]+)</Version>' | Select-Object -First 1
+          if (-not $match) {
+            throw "In Directory.Build.props steht kein Element mit der Fassung.`n   Grund:   Ohne sie lässt sich nicht prüfen, ob die Marke $tag zum Quelltext passt.`n   Abhilfe: Das Element dort eintragen und die Marke neu setzen."
+          }
+          $inProps = $match.Matches[0].Groups[1].Value.Trim()
+          if ($version -ne $inProps) {
+            throw "Die Marke $tag und Directory.Build.props ($inProps) nennen verschiedene Fassungen.`n   Grund:   Das Setup hieße $version, die Dateiversionen darin wären $inProps. Später ist nicht mehr feststellbar, welcher Quelltext in welcher Datei steckt.`n   Abhilfe: Die Fassung in Directory.Build.props auf $version setzen, einchecken, Marke $tag löschen und neu setzen."
+          }
+
+          # Eine Vorabfassung (v0.2.0-beta.1) wird gekennzeichnet, damit sie
+          # nicht als neueste Veröffentlichung angeboten wird.
+          $prerelease = $version -match '-'
+
+          "version=$version" | Out-File $env:GITHUB_OUTPUT -Append
+          "prerelease=$($prerelease.ToString().ToLowerInvariant())" | Out-File $env:GITHUB_OUTPUT -Append
+          Write-Host "Fassung: $version (Vorabfassung: $prerelease)"
+
+      - name: Inno Setup bereitstellen
+        shell: pwsh
+        # VORGEFUNDEN (nachgesehen im Verzeichnis der Läuferabbilder, 09/2026):
+        # Das Abbild windows-2025 - darauf zeigt windows-latest derzeit -
+        # führt "InnoSetup 6.7.1" in seiner Werkzeugliste. Nachinstallieren
+        # ist also der Ausnahmefall. Der Zweig bleibt trotzdem stehen: die
+        # Abbilder ändern sich, und der Tag, an dem Inno daraus verschwindet,
+        # soll nicht der Tag sein, an dem die Veröffentlichung ausfällt.
+        run: |
+          $candidates = @(
+            (Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'),
+            (Join-Path $env:ProgramFiles 'Inno Setup 6\ISCC.exe')
+          )
+          $iscc = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+          if (-not $iscc) {
+            $onPath = Get-Command 'ISCC.exe' -ErrorAction SilentlyContinue
+            if ($onPath) { $iscc = $onPath.Source }
+          }
+
+          if ($iscc) {
+            Write-Host "Inno Setup gefunden: $iscc"
+          } else {
+            Write-Host 'Inno Setup ist auf diesem Läufer nicht vorhanden - wird nachinstalliert.'
+            choco install innosetup --no-progress --yes
+            if ($LASTEXITCODE -ne 0) {
+              throw "Inno Setup ließ sich nicht nachinstallieren (Rückgabewert $LASTEXITCODE).`n   Grund:   Ohne ISCC.exe entsteht kein Setup; die Veröffentlichung hätte nichts anzuhängen.`n   Abhilfe: Prüfen, ob das Läuferabbild Chocolatey noch mitbringt; sonst winget install JRSoftware.InnoSetup verwenden."
+            }
+            $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6\ISCC.exe'
+          }
+
+          # publish.ps1 sucht selbst, nimmt aber den Benutzerpfad zuerst. Hier
+          # wird der gefundene Pfad durchgereicht, damit im Protokoll steht,
+          # welcher Übersetzer tatsächlich gelaufen ist.
+          "ISCC_PATH=$iscc" | Out-File $env:GITHUB_ENV -Append
+
+      - name: Veröffentlichen und Setup packen
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        # publish.ps1 testet selbst, bevor es packt - deshalb gibt es hier
+        # keinen eigenen Testschritt. Die Ausgabe läuft absichtlich direkt ins
+        # Protokoll und nicht in eine Variable: bei einem roten Lauf will man
+        # die Übersetzungsfehler lesen können.
+        run: |
+          .\build\publish.ps1 -Version $env:VERSION -AppUrl "$env:GITHUB_SERVER_URL/$env:GITHUB_REPOSITORY" -IsccPath $env:ISCC_PATH
+
+      - name: Prüfsumme bilden
+        id: setup
+        shell: pwsh
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        # Der Hash wird hier neu gebildet und nicht aus der Rückgabe von
+        # publish.ps1 gefischt: das Skript reicht die Ausgabe der aufgerufenen
+        # Werkzeuge mit durch, und aus diesem Strom das eine Objekt
+        # herauszusuchen wäre fehleranfälliger als ein zweiter Get-FileHash.
+        run: |
+          $name = "TanssLogWatcher-$($env:VERSION)-setup.exe"
+          $path = Join-Path 'artifacts' $name
+          if (-not (Test-Path -LiteralPath $path)) {
+            throw "publish.ps1 meldete Erfolg, aber $path liegt nicht dort.`n   Grund:   OutputDir oder OutputBaseFilename im .iss passen nicht mehr zu dem, was dieses Ablaufskript erwartet.`n   Abhilfe: installer\TanssLogWatcher.iss und build\publish.ps1 abgleichen."
+          }
+
+          $file = Get-Item -LiteralPath $path
+          $hash = (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
+          $sizeMb = '{0:N1}' -f ($file.Length / 1MB)
+
+          # Die Prüfsumme liegt zusätzlich als Datei daneben, im Format von
+          # sha256sum, damit sie sich ohne Abtippen gegenprüfen lässt.
+          "$hash *$name" | Set-Content -LiteralPath "$path.sha256" -Encoding utf8 -NoNewline
+
+          "name=$name" | Out-File $env:GITHUB_OUTPUT -Append
+          "path=$path" | Out-File $env:GITHUB_OUTPUT -Append
+          "hash=$hash" | Out-File $env:GITHUB_OUTPUT -Append
+          "sizeMb=$sizeMb" | Out-File $env:GITHUB_OUTPUT -Append
+
+          Write-Host "Datei:   $path"
+          Write-Host "Größe: $($file.Length) Bytes ($sizeMb MB)"
+          Write-Host "SHA256:  $hash"
+
+      - name: Setup als Lauf-Artefakt sichern
+        # Vor dem Release-Schritt, nicht danach: scheitert das Anlegen des
+        # Releases, ist die gebaute Datei trotzdem greifbar und muss nicht
+        # neu erzeugt werden.
+        uses: actions/upload-artifact@v7
+        with:
+          name: setup
+          path: |
+            artifacts/TanssLogWatcher-*-setup.exe
+            artifacts/TanssLogWatcher-*-setup.exe.sha256
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Veröffentlichungsnotiz schreiben
+        shell: pwsh
+        env:
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SETUP_NAME: ${{ steps.setup.outputs.name }}
+          SETUP_HASH: ${{ steps.setup.outputs.hash }}
+          SETUP_SIZE: ${{ steps.setup.outputs.sizeMb }}
+        # ACHTUNG beim Umformatieren: die Schlussmarke des Textblocks muss
+        # genau so weit eingerückt bleiben wie die Zeilen davor. YAML zieht
+        # diese Einrückung ab, PowerShell verlangt die Marke danach am
+        # Zeilenanfang. Und keine Rückwärtsstriche in den Text: im Textblock
+        # sind sie Fluchtzeichen.
+        run: |
+          $notes = @"
+          ## TANSS Log-Watcher $($env:VERSION)
+
+          Setup: $($env:SETUP_NAME) ($($env:SETUP_SIZE) MB)
+
+          SHA256: $($env:SETUP_HASH)
+
+          ### Vor dem Ausführen prüfen
+
+              Get-FileHash .\$($env:SETUP_NAME) -Algorithm SHA256
+
+          Weicht der Wert ab, ist die Datei nicht die hier veröffentlichte. Dann nicht ausführen.
+
+          ### Dieses Setup ist nicht signiert
+
+          **Was ist:** Die Datei trägt keine Code-Signatur.
+
+          **Warum:** Für dieses Projekt liegt kein Code-Signing-Zertifikat vor.
+
+          **Folge:** Windows SmartScreen meldet beim Start einen unbekannten Herausgeber und hält die Ausführung zunächst an - bei jeder neuen Fassung erneut, weil der Ruf einer unsignierten Datei jedes Mal bei null beginnt.
+
+          **Was zu tun ist:** Erst den SHA256 oben vergleichen, dann im SmartScreen-Fenster auf *Weitere Informationen* und *Trotzdem ausführen* klicken. Wer das nicht möchte, baut das Setup selbst - siehe installer/README.md im Quelltext.
+
+          ### Installation
+
+          Pro Benutzer, ohne Administratorrechte, nach %LOCALAPPDATA%\Programs\TanssLogWatcher. Die .NET-Laufzeit ist enthalten und muss nicht getrennt installiert werden. Der Autostart ist eine Verknüpfung im Autostart-Ordner: im Assistenten abwählbar und später im Task-Manager unter *Autostart* sichtbar und abschaltbar.
+
+          ### Änderungen
+
+          Siehe [CHANGELOG.md]($($env:GITHUB_SERVER_URL)/$($env:GITHUB_REPOSITORY)/blob/$($env:TAG)/CHANGELOG.md) zu dieser Fassung.
+          "@
+          $notes | Set-Content -LiteralPath 'release-notes.md' -Encoding utf8
+          Write-Host $notes
+
+      - name: GitHub-Release anlegen
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SETUP_PATH: ${{ steps.setup.outputs.path }}
+          PRERELEASE: ${{ steps.version.outputs.prerelease }}
+        run: |
+          # Die GitHub-CLI liegt auf dem Läufer bereits vor. Sie statt einer
+          # fremden Aktion zu nehmen, erspart dem Projekt eine Abhängigkeit,
+          # die Schreibrecht auf Veröffentlichungen bekäme.
+          $ghArgs = @(
+            'release', 'create', $env:TAG,
+            $env:SETUP_PATH,
+            "$($env:SETUP_PATH).sha256",
+            '--title', "TANSS Log-Watcher $($env:VERSION)",
+            '--notes-file', 'release-notes.md'
+          )
+          if ($env:PRERELEASE -eq 'true') { $ghArgs += '--prerelease' }
+
+          gh @ghArgs
+          if ($LASTEXITCODE -ne 0) {
+            throw "Das Release ließ sich nicht anlegen (Rückgabewert $LASTEXITCODE).`n   Grund:   Meist gibt es zu dieser Marke schon ein Release, oder dem Lauf fehlt contents: write.`n   Abhilfe: Bestehendes Release löschen und den Lauf wiederholen. Das gebaute Setup hängt als Artefakt am Lauf und muss nicht neu gebaut werden."
+          }

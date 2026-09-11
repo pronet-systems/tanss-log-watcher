@@ -1,0 +1,128 @@
+<Page x:Class="TanssLogWatcher.App.Views.Pages.MonitoringPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      Title="Überwachung"
+      Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False">
+
+    <Grid Margin="{StaticResource PagePadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <ui:TextBlock Text="Überwachte Anwendungen" FontTypography="Title" />
+            <ui:TextBlock TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left" Margin="0,4,0,0"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                          Text="Eine Anwendung wird erst überwacht, wenn sie einem Fernwartungstyp zugeordnet ist. In der Voreinstellung ist keine einzige aktiv." />
+        </StackPanel>
+
+        <Grid Grid.Row="1" Margin="0,0,0,16">
+            <ui:TextBlock HorizontalAlignment="Left" VerticalAlignment="Center"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                <Run Text="{Binding ActiveProfiles, Mode=OneWay}" FontWeight="SemiBold" />
+                <Run Text="von" />
+                <Run Text="{Binding TotalProfiles, Mode=OneWay}" />
+                <Run Text="Anwendungen aktiv" />
+            </ui:TextBlock>
+            <!-- Gespeichert wird auf Befehl. Eine Zuordnung, die beim Umstellen des
+                 Auswahlfelds sofort wirkte, bearbeitete die Konfiguration bei jedem
+                 versehentlichen Scrollen über ein Auswahlfeld. -->
+            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Center"
+                       Content="Zuordnungen speichern" Icon="{ui:SymbolIcon Save24}"
+                       Appearance="Primary" IsEnabled="{Binding IsDirty}"
+                       Command="{Binding SaveCommand}" />
+        </Grid>
+
+        <ui:InfoBar Grid.Row="1" VerticalAlignment="Bottom" Margin="0,56,0,0"
+                    Severity="Informational" IsClosable="False"
+                    IsOpen="{Binding HasMessage}"
+                    Title="Überwachung"
+                    Message="{Binding Message}" />
+
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="16,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="170" />
+                        <ColumnDefinition Width="230" />
+                        <ColumnDefinition Width="180" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBlock Grid.Column="0" Text="ANWENDUNG" FontSize="11" Margin="0,0,16,0"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="1" Text="ERKENNUNG ÜBER" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="2" Text="FERNWARTUNGSTYP" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="3" Text="IP-ADRESSEN AUSNEHMEN" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </Grid>
+
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Profiles}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="0,1,0,0" Padding="16,8">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="170" />
+                                            <ColumnDefinition Width="230" />
+                                            <ColumnDefinition Width="180" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Der Abstand nach rechts ist Pflicht, nicht Geschmack: ohne ihn
+                                             endet der abgeschnittene Name unmittelbar an der naechsten
+                                             Spalte und die Auslassungspunkte kleben am Wort dahinter
+                                             ("Eingabeaufforderung (cmd.e...Titel"). -->
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center" Margin="0,0,16,0">
+                                            <ui:TextBlock Text="{Binding Application}" TextTrimming="CharacterEllipsis"
+                                                          ToolTip="{Binding Application}" />
+                                            <ui:TextBlock Text="{Binding Key}" FontSize="11"
+                                                          Style="{StaticResource TabularText}"
+                                                          HorizontalAlignment="Left"
+                                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+
+                                        <ui:TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="12"
+                                                      Text="{Binding Method}"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                        <ComboBox Grid.Column="2" Margin="0,0,16,0" VerticalAlignment="Center"
+                                                  ItemsSource="{Binding DataContext.Systems,
+                                                      RelativeSource={RelativeSource AncestorType=Page}}"
+                                                  SelectedItem="{Binding SelectedSystem, Mode=TwoWay}">
+                                            <ComboBox.ItemTemplate>
+                                                <DataTemplate>
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <Border Style="{StaticResource SystemSwatch}"
+                                                                Background="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                                                        <TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ComboBox.ItemTemplate>
+                                        </ComboBox>
+
+                                        <ui:TextBox Grid.Column="3" VerticalAlignment="Center"
+                                                    Text="{Binding ExcludedIps, Mode=OneWay}"
+                                                    PlaceholderText="keine" FontSize="12" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+    </Grid>
+</Page>

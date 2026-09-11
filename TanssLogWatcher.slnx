@@ -1,0 +1,15 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/TanssLogWatcher.Api/TanssLogWatcher.Api.csproj" />
+    <Project Path="src/TanssLogWatcher.App/TanssLogWatcher.App.csproj" />
+    <Project Path="src/TanssLogWatcher.Cli/TanssLogWatcher.Cli.csproj" />
+    <Project Path="src/TanssLogWatcher.Monitoring/TanssLogWatcher.Monitoring.csproj" />
+    <Project Path="src/TanssLogWatcher.Storage/TanssLogWatcher.Storage.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/TanssLogWatcher.Api.Tests/TanssLogWatcher.Api.Tests.csproj" />
+    <Project Path="tests/TanssLogWatcher.Cli.Tests/TanssLogWatcher.Cli.Tests.csproj" />
+    <Project Path="tests/TanssLogWatcher.Monitoring.Tests/TanssLogWatcher.Monitoring.Tests.csproj" />
+    <Project Path="tests/TanssLogWatcher.Storage.Tests/TanssLogWatcher.Storage.Tests.csproj" />
+  </Folder>
+</Solution>

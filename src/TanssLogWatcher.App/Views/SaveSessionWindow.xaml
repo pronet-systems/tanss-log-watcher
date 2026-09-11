@@ -1,0 +1,151 @@
+<ui:FluentWindow x:Class="TanssLogWatcher.App.Views.SaveSessionWindow"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+                Title="Sitzung abschließen"
+                Width="620" Height="700"
+                WindowStartupLocation="CenterScreen"
+                WindowBackdropType="Mica"
+                ExtendsContentIntoTitleBar="True"
+                WindowCornerPreference="Round"
+                ResizeMode="NoResize"
+                Topmost="True">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Sitzung abschließen" ShowMaximize="False" ShowMinimize="False">
+            <ui:TitleBar.Icon>
+                <ui:SymbolIcon Symbol="CheckmarkCircle24" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <StackPanel Grid.Row="1" Margin="24,8,24,0">
+
+            <!-- Was beendet wurde. Steht oben, weil es die Frage beantwortet, die der
+                 Techniker beim Auftauchen des Fensters hat. -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,20">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <!-- Die Farbe der Anbindung, wie TANSS sie führt. Sie geht durch
+                             denselben Umsetzer wie in den Listen, damit hier keine zweite
+                             Wahrheit entsteht - eine XAML-Farbe wäre genau das. -->
+                        <Border Style="{StaticResource SystemSwatch}" Width="12" Height="12"
+                                Background="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                        <ui:TextBlock Text="{Binding Destination}" FontTypography="BodyStrong"
+                                      VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ui:TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Application}" FontSize="12"
+                                      Margin="0,0,16,2"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:TextBlock Grid.Row="0" Grid.Column="1" FontSize="12" Margin="0,0,0,2"
+                                      Style="{StaticResource TabularText}" HorizontalAlignment="Left"
+                                      Text="{Binding TimeRange}"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                        <ui:TextBlock Grid.Row="1" Grid.Column="0" Text="Fernwartungstyp" FontSize="12"
+                                      Margin="0,0,16,0"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TypeText}" FontSize="12"
+                                      HorizontalAlignment="Left"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Ticket -->
+            <ui:TextBlock Text="Ticket" Margin="0,0,0,6" FontTypography="BodyStrong" />
+            <!-- Tag24 statt Ticket24: WPF-UI 4.3.0 kennt kein Ticket-Zeichen, der Name warf beim
+                 Oeffnen des Fensters eine XamlParseException. -->
+            <ui:TextBox PlaceholderText="Ticketnummer oder leer lassen"
+                        Icon="{ui:SymbolIcon Tag24}" Margin="0,0,0,20"
+                        IsEnabled="{Binding CanEdit}"
+                        Text="{Binding Ticket, UpdateSourceTrigger=PropertyChanged}" />
+
+            <!-- Kommentar. Vorausgefüllt mit dem Bericht; bearbeitbar, weil er in TANSS die
+                 Dokumentation ist, die der Kunde später bekommt. -->
+            <ui:TextBlock Text="Bericht für TANSS" Margin="0,0,0,6" FontTypography="BodyStrong" />
+            <ui:TextBox PlaceholderText="Was wurde gemacht?"
+                        AcceptsReturn="True" TextWrapping="NoWrap"
+                        Height="190" VerticalContentAlignment="Top"
+                        FontFamily="Consolas, Cascadia Mono, Courier New"
+                        VerticalScrollBarVisibility="Auto"
+                        HorizontalScrollBarVisibility="Auto"
+                        IsEnabled="{Binding CanEdit}"
+                        Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" />
+
+            <!-- Sprachmodell-Unterstützung. Nur sichtbar, wenn eingeschaltet UND eingewilligt —
+                 die Prüfung dafür sitzt in AiGateway, nicht hier. -->
+            <StackPanel Margin="0,10,0,0" design:Gap.Size="8"
+                        Visibility="{Binding IsAiAvailable, Converter={StaticResource BoolToVis}}">
+                <StackPanel Orientation="Horizontal" design:Gap.Size="8">
+                    <ui:Button Content="Rechtschreibung prüfen" Icon="{ui:SymbolIcon TextGrammarCheckmark24}"
+                               Appearance="Secondary"
+                               IsEnabled="{Binding IsAiBusy, Converter={StaticResource InverseBool}}"
+                               Command="{Binding ProofreadCommand}" />
+                    <ui:Button Content="Ausformulieren" Icon="{ui:SymbolIcon Sparkle24}"
+                               Appearance="Secondary"
+                               IsEnabled="{Binding IsAiBusy, Converter={StaticResource InverseBool}}"
+                               Command="{Binding ImproveCommand}" />
+                    <ui:Button Content="Zurücknehmen" Icon="{ui:SymbolIcon ArrowUndo24}"
+                               Appearance="Transparent"
+                               Visibility="{Binding CanUndoAi, Converter={StaticResource BoolToVis}}"
+                               Command="{Binding UndoAiCommand}" />
+                </StackPanel>
+
+                <ui:TextBlock Text="{Binding AiStatus}" FontSize="11" TextWrapping="Wrap"
+                              HorizontalAlignment="Left"
+                              Visibility="{Binding HasAiStatus, Converter={StaticResource BoolToVis}}"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+
+            <ui:TextBlock Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Left"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                          Text="Dieser Text steht anschließend als Kommentar an der Fernwartung in TANSS. Fenstertitel sind bewusst nicht enthalten — sie tragen Kundennamen und E-Mail-Betreffe." />
+
+            <!-- Der Eintrag lässt sich nicht mehr ändern, oder das Ändern ist gescheitert. -->
+            <ui:InfoBar Margin="0,12,0,0" Severity="Warning" IsClosable="False"
+                        IsOpen="{Binding HasResult}"
+                        Title="Hinweis"
+                        Message="{Binding Result}" />
+        </StackPanel>
+
+        <!-- Fußleiste -->
+        <Border Grid.Row="2" Padding="24,16"
+                Background="{DynamicResource LayerFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0">
+            <Grid>
+                <!-- „Verwerfen“ steht links und unauffällig: es ist die seltene, folgenreiche
+                     Wahl. Im Original war es gleichrangig neben dem Speichern. -->
+                <ui:Button HorizontalAlignment="Left" Content="Verwerfen"
+                           Appearance="Transparent" Command="{Binding DiscardCommand}" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" design:Gap.Size="8">
+                    <ui:Button Content="Später" Appearance="Secondary"
+                               Command="{Binding LaterCommand}" />
+                    <ui:Button Content="In TANSS buchen" Appearance="Primary"
+                               Icon="{ui:SymbolIcon Save24}"
+                               IsEnabled="{Binding CanEdit}"
+                               Command="{Binding SaveCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

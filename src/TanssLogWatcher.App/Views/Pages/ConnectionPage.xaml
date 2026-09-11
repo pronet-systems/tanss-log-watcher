@@ -1,0 +1,287 @@
+<Page x:Class="TanssLogWatcher.App.Views.Pages.ConnectionPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+      Title="Verbindung"
+      Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="820" HorizontalAlignment="Left">
+
+            <Grid>
+                <StackPanel HorizontalAlignment="Left">
+                    <ui:TextBlock Text="Verbindung zu TANSS" FontTypography="Title" />
+                    <ui:TextBlock Margin="0,4,0,20" TextWrapping="Wrap" HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Text="Das Werkzeug spricht direkt mit eurer Instanz. Es gibt keinen Zwischendienst und keine Daten außerhalb eures Hauses." />
+                </StackPanel>
+
+                <!-- Das Zahnrad. Es steht auch dann bereit, wenn schon alles eingerichtet ist:
+                     Die Adresse einer Instanz ändert sich, und dafür soll niemand eine Datei
+                     von Hand bearbeiten müssen. -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            VerticalAlignment="Top" design:Gap.Size="8">
+                    <ui:Button Icon="{ui:SymbolIcon Settings24}" Appearance="Secondary"
+                               Content="Einstellungen"
+                               ToolTip="Basisadresse, Anmeldung und Zuordnungen ändern"
+                               Command="{Binding OpenSetupCommand}" />
+                    <ui:Button Content="Verbindung prüfen" Icon="{ui:SymbolIcon PlugConnected24}"
+                               Appearance="Primary" Command="{Binding CheckCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Warning" IsClosable="False"
+                        IsOpen="{Binding NeedsSetup}"
+                        Title="Noch nicht eingerichtet"
+                        Message="{Binding Status.Advice}" />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Error" IsClosable="False"
+                        IsOpen="{Binding IsDegraded}"
+                        Title="{Binding Status.Headline}"
+                        Message="{Binding Status.Reason}" />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Informational" IsClosable="False"
+                        IsOpen="{Binding HasMessage}"
+                        Title="Rückmeldung"
+                        Message="{Binding Message}" />
+
+            <!-- Instanz -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <ui:TextBlock Text="Instanz" FontTypography="BodyStrong" Margin="0,0,0,12" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="200" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ui:TextBlock Grid.Row="0" Grid.Column="0" Text="Adresse" Margin="0,0,0,8"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding BaseUrl}" Margin="0,0,0,8"
+                                      Style="{StaticResource TabularText}" HorizontalAlignment="Left" />
+
+                        <ui:TextBlock Grid.Row="1" Grid.Column="0" Text="Zertifikatsprüfung" Margin="0,0,0,8"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <StackPanel Grid.Row="1" Grid.Column="1" Orientation="Horizontal" Margin="0,0,0,8">
+                            <ui:TextBlock Text="eingeschaltet" HorizontalAlignment="Left"
+                                          Visibility="{Binding VerifyTls, Converter={StaticResource BoolToVis}}" />
+                            <ui:TextBlock Text="ABGESCHALTET — das Token geht ungeprüft über die Leitung"
+                                          FontWeight="SemiBold" TextWrapping="Wrap" HorizontalAlignment="Left"
+                                          Foreground="{DynamicResource StateFailedBrush}"
+                                          Visibility="{Binding VerifyTls, Converter={StaticResource InverseBoolToVis}}" />
+                        </StackPanel>
+
+                        <ui:TextBlock Grid.Row="2" Grid.Column="0" Text="Angemeldet als"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <!-- Die Kennung samt Klammern in EINEM Run: getrennte Runs setzen zwischen
+                             sich je ein Leerzeichen, die schliessende Klammer stand dadurch ab
+                             ("Mitarbeiter 1 )"). -->
+                        <ui:TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left">
+                            <Run Text="{Binding EmployeeName, Mode=OneWay}" />
+                            <Run Text="{Binding EmployeeId, Mode=OneWay, StringFormat=(Mitarbeiter {0})}" />
+                        </ui:TextBlock>
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <!-- Sprachmodell-Unterstützung -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <ui:TextBlock Text="Rechtschreibung und Ausformulieren"
+                                      FontTypography="BodyStrong" HorizontalAlignment="Left" />
+                        <ui:Button HorizontalAlignment="Right" Content="Einstellen"
+                                   Icon="{ui:SymbolIcon Sparkle24}" Appearance="Secondary"
+                                   Command="{Binding OpenAiSettingsCommand}" />
+                    </Grid>
+
+                    <ui:TextBlock Text="{Binding AiStateText}" TextWrapping="Wrap"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                    <ui:TextBlock Margin="0,8,0,0" FontSize="11" TextWrapping="Wrap"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Text="Die einzige Funktion dieses Werkzeugs, bei der Daten das Haus verlassen. Ohne ausdrückliche Einwilligung bleibt sie gesperrt." />
+                </StackPanel>
+            </Border>
+
+            <!-- Aktualisierung -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <ui:TextBlock Text="{Binding UpdateHeadline}" FontTypography="BodyStrong"
+                                      HorizontalAlignment="Left" />
+                        <Border Style="{StaticResource StatePillOnColor}" HorizontalAlignment="Right"
+                                Background="{DynamicResource StatePendingBrush}"
+                                Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}">
+                            <ui:TextBlock Text="neu" FontSize="11" />
+                        </Border>
+                    </Grid>
+
+                    <ui:TextBlock Text="{Binding UpdateText}" TextWrapping="Wrap" Margin="0,0,0,12"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                    <ProgressBar Value="{Binding DownloadPercent, Mode=OneWay}" Maximum="100"
+                                 Margin="0,0,0,12"
+                                 Visibility="{Binding IsDownloading, Converter={StaticResource BoolToVis}}" />
+
+                    <!-- Der Hinweis steht sichtbar und nicht nur im Quelltext: Die Prüfsumme
+                         stammt aus derselben Veröffentlichung wie die Datei. Sie fängt einen
+                         verfälschten Download, nicht eine übernommene Veröffentlichung. -->
+                    <ui:InfoBar Margin="0,0,0,12" Severity="Warning" IsClosable="False"
+                                IsOpen="{Binding HasChecksumWarning}"
+                                Title="Ohne Gegenprüfung geladen"
+                                Message="Zu dieser Veröffentlichung liegt keine Prüfsumme vor. Ein unvollständiger oder unterwegs veränderter Download fiele damit nicht auf." />
+
+                    <StackPanel Orientation="Horizontal" design:Gap.Size="8">
+                        <ui:Button Content="Nach Aktualisierung suchen" Icon="{ui:SymbolIcon ArrowSync24}"
+                                   Appearance="Secondary" Command="{Binding CheckUpdateCommand}" />
+
+                        <ui:Button Content="Herunterladen" Icon="{ui:SymbolIcon ArrowDownload24}"
+                                   Appearance="Primary"
+                                   Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}"
+                                   IsEnabled="{Binding IsDownloading, Converter={StaticResource InverseBool}}"
+                                   Command="{Binding DownloadUpdateCommand}" />
+
+                        <ui:Button Content="Installieren und beenden" Icon="{ui:SymbolIcon Box24}"
+                                   Appearance="Primary"
+                                   ToolTip="Das Werkzeug beendet sich dabei geordnet — laufende Sitzungen werden vorher gesichert."
+                                   Visibility="{Binding IsReadyToInstall, Converter={StaticResource BoolToVis}}"
+                                   Command="{Binding InstallUpdateCommand}" />
+                    </StackPanel>
+
+                    <ui:TextBlock Margin="0,10,0,0" FontSize="11" TextWrapping="Wrap"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Text="Das Setup ist nicht signiert. Windows SmartScreen meldet daher einen unbekannten Herausgeber und hält die Installation zunächst an — das ist bei jeder Fassung so." />
+                </StackPanel>
+            </Border>
+
+            <!-- Token -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid Margin="0,0,0,12">
+                        <ui:TextBlock Text="Zugangstoken" FontTypography="BodyStrong" HorizontalAlignment="Left" />
+                        <Border Style="{StaticResource StatePillOnColor}" HorizontalAlignment="Right"
+                                Background="{DynamicResource StateRunningBrush}"
+                                Visibility="{Binding HasTokenProblem, Converter={StaticResource InverseBoolToVis}}">
+                            <ui:TextBlock Text="gültig" FontSize="11" />
+                        </Border>
+                        <Border Style="{StaticResource StatePillOnColor}" HorizontalAlignment="Right"
+                                Background="{DynamicResource StateFailedBrush}"
+                                Visibility="{Binding HasTokenProblem, Converter={StaticResource BoolToVis}}">
+                            <ui:TextBlock Text="beanstandet" FontSize="11" />
+                        </Border>
+                    </Grid>
+
+                    <ui:TextBlock TextWrapping="Wrap" Margin="0,0,0,12"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                        <Run Text="Läuft ab am" />
+                        <Run Text="{Binding TokenExpiry, Mode=OneWay}" FontWeight="SemiBold" />
+                        <!-- Kein fuehrendes Leerzeichen: zwischen zwei Runs steht ohnehin eines. -->
+                        <Run Text="— noch" />
+                        <Run Text="{Binding TokenDaysLeft, Mode=OneWay}" FontWeight="SemiBold" />
+                        <Run Text="Tage. Die Erneuerung läuft selbsttätig, sobald weniger als 60 Tage bleiben, und wird gegengetestet, bevor sie übernommen wird." />
+                    </ui:TextBlock>
+
+                    <!-- Die Frist läuft über ein Jahr; 365 ist damit der volle Balken. Ohne
+                         Ablaufanspruch bleibt der Balken weg — eine Restlaufzeit ohne Ablauf
+                         wäre eine Zahl ohne Bedeutung. -->
+                    <ProgressBar Value="{Binding TokenDaysLeft, Mode=OneWay}" Maximum="365"
+                                 Margin="0,0,0,12"
+                                 Visibility="{Binding HasExpiry, Converter={StaticResource BoolToVis}}" />
+
+                    <ui:InfoBar Margin="0,0,0,12" Severity="Error" IsClosable="False"
+                                IsOpen="{Binding HasTokenProblem}"
+                                Title="Mit dem Token stimmt etwas nicht"
+                                Message="{Binding TokenProblem}" />
+
+                    <StackPanel Orientation="Horizontal" design:Gap.Size="8">
+                        <!-- Freigegeben, sobald eingerichtet ist — NICHT abhängig von einem
+                             vorab geprüften Prägerecht. Dieser Vorabtest kostet einen Aufruf,
+                             der in TANSS ein echtes, nicht widerrufbares Token erzeugt; fehlt
+                             das Recht, sagt es der Versuch selbst, und zwar im Klartext. -->
+                        <ui:Button Content="Jetzt erneuern" Icon="{ui:SymbolIcon ArrowSync24}"
+                                   Appearance="Secondary"
+                                   IsEnabled="{Binding IsConfigured}"
+                                   ToolTip="Prägt ein neues Token, prüft es gegen und übernimmt es erst danach."
+                                   Command="{Binding RotateCommand}" />
+                        <ui:Button Content="Verbindung prüfen" Icon="{ui:SymbolIcon Stethoscope24}"
+                                   Appearance="Secondary" Command="{Binding CheckCommand}" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Prüfungen -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <ui:TextBlock Text="Letzte Prüfung" FontTypography="BodyStrong" Margin="0,0,0,12" />
+
+                    <StackPanel design:Gap.Size="8">
+                        <StackPanel Orientation="Horizontal" design:Gap.Size="10">
+                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource StateRunningBrush}" />
+                            <ui:TextBlock Text="TANSS erreichbar" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" design:Gap.Size="10">
+                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource StateRunningBrush}" />
+                            <ui:TextBlock Text="Modul Fernwartung lizenziert — 6 Anbindungen gefunden" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" design:Gap.Size="10">
+                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource StateRunningBrush}" />
+                            <ui:TextBlock Text="Token trägt und lässt sich erneuern (Recht 480 vorhanden)" VerticalAlignment="Center" />
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal" design:Gap.Size="10">
+                            <ui:SymbolIcon Symbol="CheckmarkCircle24" Foreground="{DynamicResource StateRunningBrush}" />
+                            <ui:TextBlock Text="Zertifikatsprüfung aktiv" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <!-- Anbindungen -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel>
+                    <ui:TextBlock Text="Fernwartungsanbindungen in TANSS" FontTypography="BodyStrong"
+                                  Margin="0,0,0,4" />
+                    <ui:TextBlock Margin="0,0,0,12" TextWrapping="Wrap" HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Text="Gepflegt in der TANSS-Administration. Die Farben sind dieselben, die im TANSS-Kalender erscheinen." />
+
+                    <ItemsControl ItemsSource="{Binding Systems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="0,5">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="70" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="160" />
+                                    </Grid.ColumnDefinitions>
+                                    <ui:TextBlock Grid.Column="0" Text="{Binding Id}"
+                                                  Style="{StaticResource TabularText}"
+                                                  HorizontalAlignment="Left" FontSize="12"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Border Style="{StaticResource SystemSwatch}"
+                                                Background="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                                        <ui:TextBlock Text="{Binding Name}" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <ui:TextBlock Grid.Column="2" FontSize="12" VerticalAlignment="Center"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                        <Run Text="Leistungstyp" />
+                                        <Run Text="{Binding SupportTypeId, Mode=OneWay}" />
+                                    </ui:TextBlock>
+                                </Grid>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Border>
+
+        </StackPanel>
+    </ScrollViewer>
+</Page>

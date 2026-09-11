@@ -1,0 +1,28 @@
+# Build
+bin/
+obj/
+artifacts/
+*.user
+*.suo
+.vs/
+.idea/
+TestResults/
+
+# Konfiguration und Geheimnisse - gehoeren niemals ins Repository
+config.json
+credentials.dat
+credentials.dat.bak
+token
+*.pfx
+*.snk
+.local/
+
+# Laufzeitdaten
+state.db
+state.db-*
+*.log
+logs/
+
+# Betriebssystem
+Thumbs.db
+.DS_Store

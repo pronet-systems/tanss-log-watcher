@@ -1,0 +1,24 @@
+<Application x:Class="TanssLogWatcher.App.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Theme="Dark" ist nur der Startwert. App.OnStartup setzt die Darstellung
+                     unmittelbar danach: dem System folgend oder, mit dem Startargument
+                     theme=light bzw. theme=dark (beides mit zwei Bindestrichen davor),
+                     erzwungen. Die Auswertung und ihre Grenzen stehen in App.xaml.cs;
+                     ein Wechsel der Systemeinstellung zur Laufzeit wird derzeit nicht
+                     nachgezogen. -->
+                <ui:ThemesDictionary Theme="Dark" />
+                <ui:ControlsDictionary />
+                <ResourceDictionary Source="pack://application:,,,/Design/Tokens.xaml" />
+                <!-- Die Bedeutungsfarben der dunklen Darstellung, passend zum Startwert oben.
+                     Design/ThemeTokens.cs wechselt diesen Eintrag gegen Tokens.Light.xaml,
+                     sobald WPF-UI auf die helle Darstellung umschaltet. -->
+                <ResourceDictionary Source="pack://application:,,,/Design/Tokens.Dark.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,123 @@
+<Page x:Class="TanssLogWatcher.App.Views.Pages.TimersPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+      Title="Timer"
+      Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False">
+
+    <Grid Margin="{StaticResource PagePadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel HorizontalAlignment="Left">
+                <ui:TextBlock Text="Timer" FontTypography="Title" />
+                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                              Text="Dieselben Timer wie in TANSS. Ein Timer läuft, solange er eine Startzeit trägt — TANSS kennt nur diesen einen Umschalter." />
+            </StackPanel>
+            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Top"
+                       Content="Neu laden" Icon="{ui:SymbolIcon ArrowSync24}" Appearance="Secondary"
+                       IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                       Command="{Binding LoadCommand}" />
+        </Grid>
+
+        <StackPanel Grid.Row="1" Margin="0,0,0,16">
+            <ui:TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Margin="0,0,0,12"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+            <!-- Anlegen. Startzeit und Dauer setzt TANSS selbst — ein neuer Timer läuft sofort. -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel Orientation="Horizontal" design:Gap.Size="8">
+                    <ui:TextBox Width="300" VerticalAlignment="Center"
+                                PlaceholderText="Titel des neuen Timers"
+                                Text="{Binding NewTitle, UpdateSourceTrigger=PropertyChanged}" />
+                    <ui:TextBox Width="130" VerticalAlignment="Center"
+                                PlaceholderText="Ticket (optional)"
+                                Icon="{ui:SymbolIcon Tag24}"
+                                Text="{Binding NewTicket, UpdateSourceTrigger=PropertyChanged}" />
+                    <ui:Button Content="Timer anlegen" Icon="{ui:SymbolIcon Add24}"
+                               Appearance="Primary" VerticalAlignment="Center"
+                               IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                               Command="{Binding CreateCommand}" />
+                </StackPanel>
+            </Border>
+        </StackPanel>
+
+        <ItemsControl Grid.Row="2" ItemsSource="{Binding Timers}"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border Style="{StaticResource CardBorder}" Margin="0,0,0,10">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- TANSS kennt nur einen Umschalter; die Beschriftung folgt dem
+                                 zuletzt gelesenen Stand, danach wird neu gelesen. -->
+                            <ui:Button Grid.Column="0" Margin="0,0,16,0" Width="44" Height="44"
+                                       Appearance="Secondary"
+                                       ToolTip="{Binding ToggleText}"
+                                       Command="{Binding DataContext.ToggleCommand,
+                                                 RelativeSource={RelativeSource AncestorType=Page}}"
+                                       CommandParameter="{Binding}">
+                                <ui:Button.Style>
+                                    <Style TargetType="ui:Button" BasedOn="{StaticResource {x:Type ui:Button}}">
+                                        <Setter Property="Icon">
+                                            <Setter.Value>
+                                                <ui:SymbolIcon Symbol="Play24" />
+                                            </Setter.Value>
+                                        </Setter>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsRunning}" Value="True">
+                                                <Setter Property="Icon">
+                                                    <Setter.Value>
+                                                        <ui:SymbolIcon Symbol="Pause24" />
+                                                    </Setter.Value>
+                                                </Setter>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </ui:Button.Style>
+                            </ui:Button>
+
+                            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                                <ui:TextBlock Text="{Binding Title}" FontWeight="SemiBold" />
+                                <StackPanel Orientation="Horizontal" design:Gap.Size="10" Margin="0,2,0,0">
+                                    <ui:TextBlock Text="{Binding TicketText}" FontSize="12"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <ui:TextBlock Text="{Binding StateText}" FontSize="12"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <ui:TextBlock Grid.Column="2" VerticalAlignment="Center" Margin="16,0"
+                                          Text="{Binding ElapsedText}" FontSize="22"
+                                          Style="{StaticResource TabularText}" />
+
+                            <!-- Die Notizfläche ist entfallen: Sie hatte keine Wirkung, und eine
+                                 Schaltfläche, die nichts tut, ist schlimmer als keine. -->
+                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"
+                                        design:Gap.Size="4">
+                                <ui:Button Icon="{ui:SymbolIcon Delete24}" Appearance="Transparent"
+                                           ToolTip="Timer in TANSS löschen — erfasste Zeit ist danach weg"
+                                           Command="{Binding DataContext.DeleteCommand,
+                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                           CommandParameter="{Binding}" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</Page>

@@ -1,0 +1,34 @@
+<Project>
+  <PropertyGroup>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <Deterministic>true</Deterministic>
+    <!-- IDE0005 (unbenutzte usings) wirkt beim Build nur mit Dokumentationsdatei. CS1591 dafuer stumm. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CA1848;CA1031;CS1591</NoWarn>
+    <Company>ProNet Systems GmbH</Company>
+    <Product>TANSS Log-Watcher</Product>
+    <Copyright>Copyright (c) 2026 ProNet Systems GmbH</Copyright>
+    <!-- Eine Quelle der Wahrheit fuer die Fassung. Version ist der Urtext, alles
+         andere leitet sich davon ab: build\publish.ps1 liest sie hier, und
+         installer\TanssLogWatcher.iss tut es auch, wenn jemand das Setup von Hand
+         uebersetzt. Wer sie an zwei Stellen pflegt, pflegt sie irgendwann falsch.
+         Das Setup-Skript sucht buchstaeblich nach dem Element Version mit Wert
+         und Endmarke in EINER Zeile - diese Schreibweise bitte beibehalten und
+         das Wort in spitzen Klammern in keinem Kommentar darueber wiederholen,
+         sonst liest der Suchlauf den Kommentar statt der Fassung. -->
+    <Version>0.1.0</Version>
+    <!-- Windows will bei FileVersion nur Zahlen und Punkte; die vierte bleibt 0,
+         weil es keine Buildnummer gibt, die etwas aussagen wuerde. Der Suchlauf
+         schneidet einen Vorabzusatz ab: aus 0.2.0-beta.1 wird 0.2.0.0, sonst
+         lehnt der Uebersetzer die Dateiversion ab. Die volle Nummer samt Zusatz
+         steht weiterhin in InformationalVersion. -->
+    <FileVersion>$([System.Text.RegularExpressions.Regex]::Match($(Version), "^\d+(\.\d+){0,2}").Value).0</FileVersion>
+    <InformationalVersion>$(Version)</InformationalVersion>
+    <!-- Deutsche Fehlertexte in der Oberflaeche, daher keine InvariantGlobalization. -->
+  </PropertyGroup>
+</Project>

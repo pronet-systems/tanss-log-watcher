@@ -1,0 +1,147 @@
+<!--
+    Ergänzungen zur Fluent-Palette von WPF-UI.
+
+    Regel: Farben, die WPF-UI bereits führt, werden NICHT überschrieben — sonst bricht der
+    Wechsel zwischen heller und dunkler Darstellung an einzelnen Stellen auf. Hier stehen nur
+    Bedeutungsfarben und Maße, die es dort nicht gibt.
+
+    Bedeutungsfarben sind bewusst vom Akzent getrennt: der Akzent gehört der Anwendung,
+    „läuft / wartet / gestört“ gehört dem Zustand. Beides zu vermischen macht einen gestörten
+    Zustand unsichtbar, sobald jemand den Systemakzent ändert.
+
+    Die Bedeutungsfarben selbst stehen nicht hier, sondern in Tokens.Dark.xaml und
+    Tokens.Light.xaml; Design/ThemeTokens.cs wechselt die passende Datei ein. Deshalb werden
+    sie hier und in den Ansichten ausschließlich über DynamicResource angesprochen —
+    StaticResource würde den Wert beim Laden einfrieren und den Wechsel verschlucken.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=System.Runtime"
+                    xmlns:design="clr-namespace:TanssLogWatcher.App.Design">
+
+    <design:HexToBrushConverter x:Key="HexToBrush" />
+    <design:InverseBooleanConverter x:Key="InverseBool" />
+    <design:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
+
+    <!-- Der eingebaute Konverter, hier einmal benannt: Seiten blenden ganze Abschnitte aus,
+         solange nichts eingerichtet ist, und sollen dafür nicht je eigene Fassungen führen. -->
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+
+    <!-- Maße. Eine Leiter statt frei gewählter Abstände, damit Seiten untereinander gleich wirken. -->
+    <sys:Double x:Key="SpaceXs">4</sys:Double>
+    <sys:Double x:Key="SpaceSm">8</sys:Double>
+    <sys:Double x:Key="SpaceMd">16</sys:Double>
+    <sys:Double x:Key="SpaceLg">24</sys:Double>
+    <sys:Double x:Key="SpaceXl">32</sys:Double>
+
+    <Thickness x:Key="PagePadding">24,16,24,24</Thickness>
+    <Thickness x:Key="CardPadding">16</Thickness>
+    <CornerRadius x:Key="CardRadius">8</CornerRadius>
+
+    <!--
+        Die Schriftfarbe jeder Seite. Ohne diesen Stil ist auf jeder Seite schwarz, was nicht
+        ausdrücklich eingefärbt wurde — auch in der dunklen Darstellung.
+
+        Der Grund liegt eine Ebene tiefer: ui:NavigationView hängt die Seiten in einen
+        NavigationViewContentPresenter, und der ist ein Frame. Ein Frame trägt
+        InheritanceBehavior.SkipToAppNow und kappt damit die Vererbung der geerbten
+        Eigenschaften an seiner Grenze — nachgemessen mit WPF-UI 4.3.0: oberhalb des
+        Presenters liegt TextElement.Foreground auf dem Themenwert, unterhalb fällt es auf den
+        Vorgabewert der Eigenschaft zurück, und der ist Schwarz, in beiden Darstellungen.
+        Das erklärt auch, warum die Fußzeile des Hauptfensters richtig aussieht: sie steht
+        außerhalb des Frames.
+
+        WPF-UI kennt das Problem und liefert einen impliziten Stil für Page mit, der die Farbe
+        neu setzt. Er greift hier nicht: implizite Stile werden über den GENAUEN Typ gesucht,
+        und jede Seite ist eine eigene, von Page abgeleitete Klasse.
+
+        Warum nicht statt dessen ein impliziter Stil für TextBlock, der die Farbe setzt: ein
+        solcher Stil greift auch in die Vorlagen der Bedienelemente durch. Nachgemessen: die
+        Beschriftung einer ui:Button mit Appearance="Primary" wird dann schwarz auf der
+        Akzentfläche, weil der Stil die Vererbung vom Knopf schlägt. Die Farbe muss dort neu
+        gesetzt werden, wo sie gekappt wird — an der Seite, nicht an jeder Schrift.
+    -->
+    <Style x:Key="PageSurface" TargetType="Page">
+        <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+
+    <!-- Eine Karte. Bewusst sparsam eingesetzt: Rahmen und Füllung sagen „eigenständiges Ding“.
+         Wo alles eine Karte ist, sagt die Karte nichts mehr. -->
+    <Style x:Key="CardBorder" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{StaticResource CardRadius}" />
+        <Setter Property="Padding" Value="{StaticResource CardPadding}" />
+    </Style>
+
+    <!--
+        Zustandsmarke: kleine Pille, die den Zustand auch ohne Farbe lesbar hält (der Text steht drin).
+        Die Grundform ist neutral eingefärbt; ihre Schrift kommt aus dem Thema und braucht daher
+        an der Verwendungsstelle nicht noch einmal gesetzt zu werden.
+
+        Der Rahmen ist nicht Zierrat. Die Füllung allein trägt nur in der dunklen Darstellung:
+        ControlFillColorSecondary liegt dort merklich über dem Kartengrund, in der hellen
+        Darstellung aber bei rund #F9F9F9 auf Weiß — die Pille war dort als Form nicht zu sehen,
+        der Zustand las sich wie loser Text. Derselbe kräftige Strich wie beim Farbfeld hält sie
+        in beiden Darstellungen als Marke erkennbar.
+    -->
+    <Style x:Key="StatePill" TargetType="Border">
+        <Setter Property="CornerRadius" Value="4" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+    </Style>
+
+    <!--
+        Zustandsmarke auf einer Bedeutungsfarbe. Der Hintergrund wird an der Verwendungsstelle
+        gesetzt (StateRunningBrush und Geschwister), die Schrift hier — einmal und passend zu
+        eben diesen Farben. Vorher stand dort „White“; das war in der dunklen Darstellung
+        zufällig richtig und wäre mit einer helleren Marke unlesbar geworden.
+    -->
+    <Style x:Key="StatePillOnColor" TargetType="Border" BasedOn="{StaticResource StatePill}">
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource StateOnColorBrush}" />
+        <!-- Auf einer Bedeutungsfarbe grenzt die Fläche selbst schon ab; der Rahmen des
+             Grundstils würde sie nur eintrüben. -->
+        <Setter Property="BorderThickness" Value="0" />
+    </Style>
+
+    <!--
+        Farbfeld einer Fernwartungsanbindung. Die Farbe kommt aus TANSS (fernwartung_ext.farbe_hg)
+        und ist damit dieselbe, die der Techniker im TANSS-Kalender sieht.
+
+        Der Rahmen muss kräftig sein, nicht dezent: Anbindung 1003 ist 000000 und verschwindet
+        sonst auf dunklem Grund (Kontrast 1,5:1), 1006 ist e2f019 und verschwindet auf hellem
+        (1,3:1). ControlStrongStrokeColorDefaultBrush liegt bei rund 50 % Deckung gegen den
+        Grund und hält beide Fälle als Farbfeld erkennbar — in beiden Darstellungen.
+    -->
+    <Style x:Key="SystemSwatch" TargetType="Border">
+        <Setter Property="Width" Value="10" />
+        <Setter Property="Height" Value="10" />
+        <Setter Property="CornerRadius" Value="2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrongStrokeColorDefaultBrush}" />
+    </Style>
+
+    <!--
+        Zur Schriftfarbe der Zweitzeilen: die Ansichten benutzen dafür ausschließlich
+        TextFillColorSecondaryBrush, nie TextFillColorTertiaryBrush. Nachgemessen am laufenden
+        Bild erreicht die dritte Stufe in der hellen Darstellung nur 2,0:1 gegen den Kartengrund
+        (dunkel dagegen 7,1:1) — Spaltenköpfe, Fehlermeldungen und Erkennungsschlüssel
+        verschwanden dort im Grund. Die zweite Stufe liegt bei rund 3,2:1 hell und 9:1 dunkel.
+        Eine dritte Abstufung wird statt dessen über Schriftgrad und Abstand erzeugt.
+    -->
+
+    <!-- Zahlen in Spalten müssen untereinander stehen. -->
+    <Style x:Key="TabularText" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="Consolas, Cascadia Mono, monospace" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+</ResourceDictionary>

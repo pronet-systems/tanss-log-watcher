@@ -1,0 +1,136 @@
+<Page x:Class="TanssLogWatcher.App.Views.Pages.SessionsPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+      xmlns:local="clr-namespace:TanssLogWatcher.App.Views.Pages"
+      Title="Sitzungen"
+      Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False">
+
+    <Grid Margin="{StaticResource PagePadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Kopf -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <StackPanel HorizontalAlignment="Left">
+                <ui:TextBlock Text="Laufende Sitzungen" FontTypography="Title" />
+                <ui:TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                              Text="Alle 10 Sekunden geprüft. Eine Sitzung endet, wenn das Fenster schließt — dann wird nach Kommentar und Ticket gefragt."
+                              TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left"
+                              Margin="0,4,0,0" />
+            </StackPanel>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
+                        design:Gap.Size="8">
+                <ui:Button Content="Jetzt prüfen" Icon="{ui:SymbolIcon ArrowSync24}"
+                           Appearance="Secondary" Command="{Binding RefreshCommand}" />
+                <ui:ToggleSwitch Content="Überwachung aktiv" VerticalAlignment="Center"
+                                 IsChecked="{Binding IsWatching}" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="1">
+            <!-- Ohne Einrichtung ist eine leere Tabelle irreführend: Sie sieht aus wie
+                 „nichts los“ und nicht wie „hier fehlt etwas“. -->
+            <ui:InfoBar Margin="0,0,0,16" Severity="Warning" IsClosable="False"
+                        IsOpen="{Binding NeedsSetup}"
+                        Title="Noch nicht eingerichtet"
+                        Message="{Binding Status.Advice}" />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Error" IsClosable="False"
+                        IsOpen="{Binding IsDegraded}"
+                        Title="{Binding Status.Headline}"
+                        Message="{Binding Status.Reason}" />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Informational" IsClosable="False"
+                        IsOpen="{Binding IsDryRun}"
+                        Title="Trockenlauf"
+                        Message="{Binding DryRunReason}" />
+        </StackPanel>
+
+        <!-- Liste -->
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Spaltenköpfe -->
+                <Grid Grid.Row="0" Margin="16,10" >
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="80" />
+                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="110" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBlock Grid.Column="0" Text="ANWENDUNG UND ZIEL" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="1" Text="FERNWARTUNGSTYP" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="2" Text="SEIT" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="3" Text="DAUER" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="4" Text="ZUSTAND" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </Grid>
+
+                <ItemsControl Grid.Row="1" ItemsSource="{Binding Sessions}"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="0,1,0,0" Padding="16,12">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="140" />
+                                        <ColumnDefinition Width="80" />
+                                        <ColumnDefinition Width="90" />
+                                        <ColumnDefinition Width="110" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <Border Style="{StaticResource SystemSwatch}"
+                                                Background="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                                        <StackPanel>
+                                            <ui:TextBlock Text="{Binding Destination}" FontWeight="SemiBold" />
+                                            <ui:TextBlock Text="{Binding Application}" FontSize="12"
+                                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <ui:TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="12"
+                                                  Text="{Binding TypeText}"
+                                                  TextTrimming="CharacterEllipsis"
+                                                  ToolTip="{Binding TypeText}"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                    <ui:TextBlock Grid.Column="2" VerticalAlignment="Center"
+                                                  Text="{Binding StartText}"
+                                                  Style="{StaticResource TabularText}" />
+
+                                    <ui:TextBlock Grid.Column="3" VerticalAlignment="Center"
+                                                  Text="{Binding Duration}"
+                                                  Style="{StaticResource TabularText}" />
+
+                                    <Border Grid.Column="4" Style="{StaticResource StatePillOnColor}"
+                                            Background="{DynamicResource StateRunningBrush}">
+                                        <ui:TextBlock Text="{Binding StateText}" FontSize="11" />
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+        </Border>
+    </Grid>
+</Page>

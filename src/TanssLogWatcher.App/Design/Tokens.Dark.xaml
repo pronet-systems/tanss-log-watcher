@@ -1,0 +1,27 @@
+<!--
+    Bedeutungsfarben für die dunkle Darstellung.
+
+    Warum je Darstellung eine eigene Datei: ein Grünton, der auf #202020 trägt, verliert auf
+    #FAFAFA den Kontrast, und umgekehrt. Ein einziger Satz Farben kann beides nicht leisten —
+    der vorherige tat es auch nicht, er war nur nie gegen den hellen Grund gehalten worden.
+
+    Gemessen wird gegen den Kartengrund der jeweiligen Darstellung (hier rund #2A2A2A):
+    Die Farbe selbst erreicht als Symbol- und Textfarbe mindestens 5:1, und die Schrift auf
+    einer Zustandsmarke (StateOnColorBrush) mindestens 6:1 gegen die Marke.
+
+    Eingewechselt wird diese Datei von Design/ThemeTokens.cs.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Auf dunklem Grund muss die Bedeutungsfarbe heller sein als der Grund. -->
+    <SolidColorBrush x:Key="StateRunningBrush" Color="#4FC98C" />
+    <SolidColorBrush x:Key="StatePendingBrush" Color="#E3A53F" />
+    <SolidColorBrush x:Key="StateFailedBrush"  Color="#F0796F" />
+    <SolidColorBrush x:Key="StateIdleBrush"    Color="#A3B0BD" />
+
+    <!-- Schrift auf einer Zustandsmarke. Die Marke trägt eine der hellen Farben oben,
+         also braucht ihre Schrift Tinte statt Weiß — Weiß auf Hellgrün ist unlesbar. -->
+    <SolidColorBrush x:Key="StateOnColorBrush" Color="#141414" />
+
+</ResourceDictionary>

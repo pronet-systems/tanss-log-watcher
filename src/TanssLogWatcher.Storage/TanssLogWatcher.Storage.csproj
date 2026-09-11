@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>TanssLogWatcher.Storage</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TanssLogWatcher.Api\TanssLogWatcher.Api.csproj" />
+    <ProjectReference Include="..\TanssLogWatcher.Monitoring\TanssLogWatcher.Monitoring.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- StateDatabase.Execute ist absichtlich intern: Die Sperre gehoert der Klasse, nicht
+         dem Aufrufer. Dass Dispose auf eine laufende Abfrage wartet, laesst sich aber nur
+         von innen pruefen - ueber die oeffentliche Oberflaeche gibt es keinen Weg, eine
+         Abfrage lange genug offen zu halten. -->
+    <InternalsVisibleTo Include="TanssLogWatcher.Storage.Tests" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,19 @@
+<!--
+    Bedeutungsfarben für die helle Darstellung. Begründung siehe Tokens.Dark.xaml.
+
+    Gemessen gegen den Kartengrund #FFFFFF: die Farbe selbst erreicht als Symbol- und
+    Textfarbe mindestens 5:1, weiße Schrift auf einer Zustandsmarke ebenfalls mindestens 5:1.
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Auf hellem Grund muss die Bedeutungsfarbe dunkler sein als der Grund. -->
+    <SolidColorBrush x:Key="StateRunningBrush" Color="#0F7A45" />
+    <SolidColorBrush x:Key="StatePendingBrush" Color="#7A4E06" />
+    <SolidColorBrush x:Key="StateFailedBrush"  Color="#A32820" />
+    <SolidColorBrush x:Key="StateIdleBrush"    Color="#4C5864" />
+
+    <!-- Hier trägt die Marke eine dunkle Farbe, also ist Weiß die lesbare Schrift. -->
+    <SolidColorBrush x:Key="StateOnColorBrush" Color="#FFFFFF" />
+
+</ResourceDictionary>

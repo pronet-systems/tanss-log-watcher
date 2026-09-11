@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>TanssLogWatcher.App</RootNamespace>
+    <AssemblyName>TanssLogWatcher</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Platforms>x64</Platforms>
+    <!-- Deutsche Oberflaeche: die invariante Globalisierung wuerde Datums- und
+         Zahlenformate auf en-US zwingen. -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Anthropic" Version="12.47.0" />
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets/tray.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Zweimal mit Absicht: eingebettet, damit der Zustand "Nicht eingerichtet" die Vorlage
+         auch dann noch anbieten kann, wenn neben der Anwendung nichts mehr liegt - und als
+         Datei daneben, damit man sie ohne Start ansehen kann. Siehe Runtime/ConfigTemplate.cs. -->
+    <EmbeddedResource Include="config.example.json" LogicalName="TanssLogWatcher.App.config.example.json" />
+    <None Include="config.example.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TanssLogWatcher.Api\TanssLogWatcher.Api.csproj" />
+    <ProjectReference Include="..\TanssLogWatcher.Monitoring\TanssLogWatcher.Monitoring.csproj" />
+    <ProjectReference Include="..\TanssLogWatcher.Storage\TanssLogWatcher.Storage.csproj" />
+  </ItemGroup>
+</Project>

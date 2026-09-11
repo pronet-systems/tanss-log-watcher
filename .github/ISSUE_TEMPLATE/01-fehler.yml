@@ -1,0 +1,93 @@
+# Bewusst kurz: sechs Felder. Jedes davon ist eines, ohne das die Rückfrage
+# ohnehin käme. "bug" und "enhancement" sind die Marken, die jedes
+# GitHub-Projekt von Haus aus hat - eine selbst erfundene Marke würde beim
+# Anlegen stillschweigend unter den Tisch fallen.
+name: Fehler melden
+description: Etwas verhält sich anders als beschrieben.
+labels: ["bug"]
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Bitte vorher schwärzen.** Protokolle dieses Werkzeugs enthalten Hostnamen,
+        Benutzernamen, Fenstertitel und Ticketnummern — also Kundendaten. Zugangsdaten und
+        Token gehören nie in ein Issue, auch nicht abgekürzt.
+
+  - type: input
+    id: version
+    attributes:
+      label: Fassung
+      description: 'Zu finden über: tanss-logwatch doctor, oder unter „Apps & Features".'
+      placeholder: '0.1.0'
+    validations:
+      required: true
+
+  - type: input
+    id: windows
+    attributes:
+      label: Windows-Fassung
+      placeholder: 'Windows 11 23H2'
+    validations:
+      required: true
+
+  - type: dropdown
+    id: bereich
+    attributes:
+      label: Betroffener Bereich
+      options:
+        - Oberfläche
+        - Kommandozeile
+        - Sitzungserkennung
+        - TANSS-Anbindung
+        - Warteschlange
+        - Setup und Installation
+        - weiß ich nicht
+    validations:
+      required: true
+
+  - type: textarea
+    id: beobachtung
+    attributes:
+      label: Was ist passiert, und was wurde erwartet?
+      description: Beides nennen. Die Lücke dazwischen ist der Fehler.
+    validations:
+      required: true
+
+  - type: textarea
+    id: schritte
+    attributes:
+      label: Wie lässt sich das nachstellen?
+      description: >-
+        Schritt für Schritt. Wenn es nur sporadisch auftritt, bitte dazuschreiben, wie oft
+        und was zuletzt anders war.
+      placeholder: |
+        1. …
+        2. …
+        3. …
+    validations:
+      required: true
+
+  - type: textarea
+    id: protokoll
+    attributes:
+      label: Protokollauszug
+      description: >-
+        Die Zeilen um den Vorfall herum, geschwärzt. Der Ort der Protokolle steht im README
+        unter „Wo was liegt".
+      # "shell" ist der in der GitHub-Dokumentation gezeigte Wert. Er sorgt nur
+      # dafür, dass der Auszug als Codeblock stehen bleibt und nicht als
+      # Markdown zerfällt.
+      render: shell
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: datenschutz
+    attributes:
+      label: Vor dem Absenden
+      options:
+        - label: >-
+            In diesem Issue stehen keine Zugangsdaten, keine Token und keine Kundendaten
+            (Hostnamen, Ticketinhalte, Namen).
+          required: true

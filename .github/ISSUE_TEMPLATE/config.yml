@@ -1,0 +1,10 @@
+# Leere Issues bleiben erlaubt: eine Frage ist weder Fehler noch Wunsch, und
+# wer sie in ein Formular pressen muss, stellt sie am Ende gar nicht.
+blank_issues_enabled: true
+
+contact_links:
+  - name: Sicherheitslücke melden
+    url: https://github.com/pronet-systems/tanss-log-watcher/security/advisories/new
+    about: >-
+      Nicht als Issue. Eine Lücke in einem Werkzeug, das in fremde Ticketsysteme schreibt,
+      wird vertraulich gemeldet.

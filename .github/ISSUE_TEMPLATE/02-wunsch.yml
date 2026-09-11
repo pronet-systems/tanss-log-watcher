@@ -1,0 +1,36 @@
+name: Wunsch äußern
+description: Etwas fehlt oder ginge besser.
+labels: ["enhancement"]
+
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Welches Problem im Arbeitsalltag steckt dahinter?
+      description: >-
+        Die Beschreibung des Problems ist wichtiger als die der Lösung — sie lässt Raum für
+        eine Lösung, an die noch niemand gedacht hat.
+    validations:
+      required: true
+
+  - type: textarea
+    id: vorschlag
+    attributes:
+      label: Wie stellst du dir die Lösung vor?
+    validations:
+      required: true
+
+  - type: textarea
+    id: heute
+    attributes:
+      label: Wie behilfst du dir heute?
+      description: Auch „gar nicht" ist eine Antwort und sagt etwas über die Dringlichkeit.
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        **Zwei Dinge sind bewusst ausgeschlossen** und werden nicht umgesetzt: ein Nachbau des
+        Updaters aus dem Vorgängerwerkzeug, und alles, was Sitzungen ohne Rückfrage bucht oder
+        das Werkzeug unsichtbar macht. Die Begründungen stehen im README.

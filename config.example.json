@@ -1,0 +1,89 @@
+{
+  // Vorlage fuer %APPDATA%\ProNet Systems\TanssLogWatcher\config.json.
+  //
+  // Kommentare und nachgestellte Kommata sind beim LESEN erlaubt (siehe ConfigJson); beim
+  // naechsten Schreiben durch den Einrichtungsassistenten sind sie fort. Unbekannte Felder
+  // werden dagegen abgelehnt statt uebergangen - eine vertippte Einstellung, die
+  // stillschweigend wirkungslos bleibt, ist gefaehrlicher als ein Ladefehler.
+  "version": 1,
+
+  "tanss": {
+    // Muss auf /backend enden. Zeigt die Adresse auf die Weboberflaeche, antwortet die
+    // PHP-Oberflaeche auf jede Anfrage mit HTTP 400 - auch ohne Token.
+    "base_url": "https://tanss.kunde.de/backend",
+
+    // Die eigene Mitarbeiter-ID. Sie traegt die gesamte Attribution der Fernwartungen;
+    // "tanss-logwatch doctor" prueft sie gegen die Technikerliste der Instanz.
+    "employee_id": 42,
+
+    // Verweis auf die Ablage des Tokens, nicht das Token selbst.
+    "token_ref": "dpapi:credentials",
+
+    "rotate_before_days": 60,
+
+    // Nur fuer Testinstanzen abschaltbar. doctor meldet false als WARNUNG.
+    "verify_tls": true,
+
+    "timeout_seconds": 30
+  },
+
+  "watcher": {
+    // Der Takt ist zugleich die Messgenauigkeit von Sitzungsbeginn und -ende.
+    "poll_interval_seconds": 10,
+
+    // Schonfrist fuer verbindungsbasierte Profile: ohne sie zerfaellt eine Fernwartung mit
+    // kurzem Verbindungsabriss in mehrere Datensaetze, und TANSS dedupliziert nicht.
+    "ip_session_grace_seconds": 180
+  },
+
+  // Die Schluessel stammen aus dem Profilkatalog (MonitoringProfiles); "tanss-logwatch
+  // windows --profile <Schluessel>" zeigt, was ein Profil aus den aktuellen Fenstern
+  // ableiten wuerde. Die Kennungen sind die der Referenzinstanz - in der eigenen Instanz
+  // stehen sie unter "Externe Fernwartungs-Anbindungen verwalten" und muessen mindestens
+  // 1000 sein.
+  "monitoring": [
+    {
+      "key": "OUTLOOK|Message",
+      "remote_support_type_id": 1001
+    },
+    {
+      "key": "mstsc",
+      "remote_support_type_id": 1002,
+      // Eigene Server und das eigene Rechenzentrum sind keine Fernwartung.
+      "exclude_ip_addresses": ["10.0.0.0/8", "192.168.0.0/16"]
+    },
+    {
+      "key": "putty",
+      "remote_support_type_id": 1003
+    },
+    {
+      "key": "WinSCP",
+      "remote_support_type_id": 1004
+    },
+    {
+      "key": "AnyDesk",
+      "remote_support_type_id": 1005
+    },
+    {
+      "key": "RoyalTS",
+      "remote_support_type_id": 1006
+    }
+  ],
+
+  "proxy": {
+    "enabled": false,
+    "address": "",
+    "port": 8080
+  },
+
+  "logging": {
+    "level": "info",
+
+    // Standardmaessig an. Eine Fensterbeschriftung traegt regelmaessig Kundennamen,
+    // Rechnernamen und gelegentlich Benutzerkonten - sie gehoert in die Fernwartung bei
+    // TANSS, nicht im Klartext in state.db.
+    "redact_window_titles": true,
+
+    "retention_days": 30
+  }
+}

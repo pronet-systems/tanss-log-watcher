@@ -1,0 +1,143 @@
+<ui:FluentWindow x:Class="TanssLogWatcher.App.Views.AiSettingsWindow"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+                Title="Sprachmodell-Unterstützung"
+                Width="720" Height="760"
+                MinWidth="640" MinHeight="560"
+                WindowStartupLocation="CenterOwner"
+                WindowBackdropType="Mica"
+                ExtendsContentIntoTitleBar="True"
+                WindowCornerPreference="Round">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Rechtschreibung und Ausformulieren">
+            <ui:TitleBar.Icon>
+                <ui:SymbolIcon Symbol="Sparkle24" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,8,24,8">
+            <StackPanel design:Gap.Size="16">
+
+                <!-- Der Hinweis steht ZUERST, nicht im Kleingedruckten am Ende. -->
+                <ui:InfoBar Severity="Warning" IsOpen="True" IsClosable="False"
+                            Title="Hier verlassen Daten das Haus"
+                            Message="Alles übrige in diesem Werkzeug spricht ausschließlich mit eurer TANSS-Instanz. Diese Funktion nicht: Sie übermittelt den Berichtstext an einen Anbieter in den Vereinigten Staaten." />
+
+                <!-- Anbieter -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Gap.Size="12">
+                        <ui:TextBlock Text="Anbieter" FontTypography="BodyStrong" />
+
+                        <StackPanel Orientation="Horizontal" design:Gap.Size="16">
+                            <RadioButton Content="Anthropic (Claude)" GroupName="Provider"
+                                         IsChecked="{Binding IsOpenAi, Converter={StaticResource InverseBool}}" />
+                            <RadioButton Content="OpenAI" GroupName="Provider"
+                                         IsChecked="{Binding IsOpenAi}" />
+                        </StackPanel>
+
+                        <StackPanel>
+                            <ui:TextBlock Text="API-Schlüssel" FontWeight="SemiBold" />
+                            <ui:TextBlock Text="{Binding KeyHint}" FontSize="11" Margin="0,2,0,4"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <ui:PasswordBox x:Name="KeyField" />
+                            <ui:TextBlock Margin="0,4,0,0" FontSize="11" TextWrapping="Wrap"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                          Text="Der Schlüssel wird DPAPI-verschlüsselt im Benutzerprofil abgelegt — nicht in config.json. Er lässt sich auf keinem anderen Rechner und unter keinem anderen Windows-Benutzer entsiegeln." />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Modell -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Gap.Size="12">
+                        <ui:TextBlock Text="Modell" FontTypography="BodyStrong" />
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Die Auswahl kommt aus der Modellliste des Anbieters und ist nicht fest eingebaut. Zum Laden genügt der Schlüssel; dabei wird kein Berichtstext übermittelt." />
+
+                        <StackPanel Orientation="Horizontal" design:Gap.Size="8">
+                            <ui:Button Content="Modelle laden" Icon="{ui:SymbolIcon ArrowSync24}"
+                                       Appearance="Secondary"
+                                       IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                       Click="OnLoadModels" />
+                            <ComboBox Width="320" VerticalAlignment="Center"
+                                      ItemsSource="{Binding Models}"
+                                      SelectedItem="{Binding SelectedModel, Mode=TwoWay}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- Datenschutz -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Gap.Size="12">
+                        <ui:TextBlock Text="Datenschutz" FontTypography="BodyStrong" />
+
+                        <ui:ToggleSwitch Content="Namen vor dem Senden unkenntlich machen"
+                                         IsChecked="{Binding RedactIdentifiers}" />
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Ersetzt Gegenstelle, Rechnername und Anmeldename durch Platzhalter und stellt sie in der Antwort wieder her. Frei geschriebene Namen im Text erkennt das Werkzeug nicht." />
+
+                        <Border Background="{DynamicResource LayerFillColorDefaultBrush}"
+                                CornerRadius="{StaticResource CardRadius}" Padding="12">
+                            <ui:TextBlock Text="{Binding ConsentText}" TextWrapping="Wrap"
+                                          FontSize="12" HorizontalAlignment="Left" />
+                        </Border>
+
+                        <CheckBox IsChecked="{Binding ConsentAccepted}">
+                            <TextBlock TextWrapping="Wrap" MaxWidth="560"
+                                       Text="Ich habe die Hinweise gelesen und bestätige, dass die Übermittlung an diesem Arbeitsplatz zulässig ist." />
+                        </CheckBox>
+
+                        <ui:TextBlock Text="{Binding ConsentRecord}" FontSize="11"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Border>
+
+                <!-- Einschalten -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel design:Gap.Size="8">
+                        <ui:ToggleSwitch Content="Unterstützung im Abschlussdialog anbieten"
+                                         IsChecked="{Binding Enabled}" />
+                        <ui:TextBlock FontSize="11" TextWrapping="Wrap"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Auch dann wird nichts von selbst übermittelt: Der Text geht erst hinaus, wenn im Abschlussdialog auf „Rechtschreibung prüfen“ oder „Ausformulieren“ geklickt wird." />
+                    </StackPanel>
+                </Border>
+
+                <ui:InfoBar Severity="Informational" IsClosable="False"
+                            IsOpen="{Binding HasMessage}"
+                            Title="Hinweis" Message="{Binding Message}" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Background="{DynamicResource LayerFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0" Padding="24,12">
+            <Grid>
+                <ui:Button HorizontalAlignment="Left" Content="Einwilligung zurücknehmen"
+                           Appearance="Transparent"
+                           ToolTip="Löscht auch den hinterlegten Schlüssel."
+                           Visibility="{Binding HasRecordedConsent, Converter={StaticResource BoolToVis}}"
+                           Command="{Binding RevokeCommand}" />
+
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" design:Gap.Size="8">
+                    <ui:Button Content="Schließen" Appearance="Secondary" Click="OnClose" />
+                    <ui:Button Content="Speichern" Appearance="Primary"
+                               Icon="{ui:SymbolIcon Save24}"
+                               IsEnabled="{Binding CanSave}" Click="OnSave" />
+                </StackPanel>
+            </Grid>
+        </Border>
+    </Grid>
+</ui:FluentWindow>
