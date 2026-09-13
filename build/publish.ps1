@@ -317,7 +317,13 @@ foreach ($source in @($AppPublish, $CliPublish)) {
 # wenn jemand diese Baugruppen als Verweis einbindet. Im Setup lag damit die
 # gesamte Dokumentation dieses Hauses beim Kunden auf der Platte, mitsamt jeder
 # Begründung, die in einem /// -Kommentar steht.
-Get-ChildItem -LiteralPath $PayloadDir -Recurse -File -Include '*.pdb', '*.xml' |
+# Where-Object und NICHT -Include: Gegen -LiteralPath wirkt -Include auf den PFAD
+# und nicht auf die Kinder - nachgemessen trifft es dann JEDE Datei, auch die
+# Programmdatei. Der Lauf brach daraufhin am Riegel weiter unten ab, was richtig
+# war, aber erst nach dem Loeschen. Die Endung zu vergleichen hat keine
+# Platzhalter-Eigenheiten.
+Get-ChildItem -LiteralPath $PayloadDir -Recurse -File |
+    Where-Object { $_.Extension -eq '.pdb' -or $_.Extension -eq '.xml' } |
     ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
 
 foreach ($required in @('TanssLogWatcher.exe', 'tanss-logwatch.exe')) {
