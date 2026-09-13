@@ -313,6 +313,28 @@ Arbeitsplatz, Techniker, die Pausen und das Löschdatum — und sie wird mit den
 zusammen gelöscht. Im Ordnernamen steht bewusst **kein Kundenname**: Ein Dateipfad wandert in
 Sicherungsläufe, Suchindizes und jede Fehlermeldung.
 
+Eine Sitzung liegt so:
+
+```
+Aufzeichnungen
+└── 2026-09-13
+    └── 1214-2da9294a
+        ├── teil-01.mp4
+        ├── teil-02.mp4
+        └── sitzung.json
+```
+
+Tag, Uhrzeit und acht Zeichen der Sitzungskennung — mehr steht nicht im Pfad. Die
+vollständige Kennung, die Gegenstelle und der Techniker stehen in der `sitzung.json`.
+
+> **Heute noch mehrere Dateien je Sitzung.** Aufgeteilt wird aus zwei Gründen: nach
+> `segment_minutes`, und immer dann, wenn die Fenster nicht mehr auf die Bildfläche passen,
+> mit der die Datei begonnen wurde — die Bildgröße liegt im Encoder fest. Im Betrieb
+> gemessen: Eine Fernwartung von 19 Sekunden ergab drei Dateien, weil ein
+> Remotedesktop-Fenster beim Verbindungsaufbau zweimal seine Größe ändert. Der Zeittakt
+> hatte damit gar nichts zu tun. **Eine Datei je Sitzung ist in Arbeit**, ebenso die Wahl
+> zwischen „nur die Fenster der Sitzung“ und „der ganze Bildschirm“.
+
 ### Wo was liegt
 
 | Was | Wo |
@@ -573,7 +595,9 @@ Absturzberichte, keine Aktualisierungsabfrage bei einem Dritten.
 | Einrichtungsassistent auf der Kommandozeile (`setup`) | offen |
 | Selbsttätige Aktualisierung über GitHub | fertig |
 | Sprachmodell-Unterstützung (abgeschaltet, einwilligungspflichtig) | fertig |
-| Bildschirmaufzeichnung (abgeschaltet, kenntnisnahmepflichtig) | verdrahtet, gegen echte Fenster und echte Dateien geprüft; ein Probelauf über eine echte Fernwartung steht aus |
+| Bildschirmaufzeichnung (abgeschaltet, kenntnisnahmepflichtig) | läuft; im Betrieb an einer echten Fernwartung erprobt |
+| Eine einzige Datei je Sitzung statt mehrerer Abschnitte | in Arbeit |
+| Wahl zwischen Fenster- und Bildschirmaufnahme, Aufnahme folgt dem Monitor | in Arbeit |
 | Aufzeichnung mehrerer Bildschirme im RDP-Mehrschirmbetrieb | bewusst zurückgestellt |
 | Setup und Veröffentlichung | fertig |
 | Prüfung der 36 Titelmuster gegen aktuelle Anwendungsversionen | offen |
