@@ -257,6 +257,44 @@ public sealed class VideoFileTests : IDisposable
         Assert.InRange(pause.TotalSeconds, 4.7, 5.3);
     }
 
+    /// <summary>
+    /// Der Herzschlag: wenige Bilder in grossen Abständen, jedes mit kurzer angegebener
+    /// Standzeit. Gemessen wird, woraus der Behälter seine Dauer nimmt — aus den Zeitstempeln
+    /// oder aus den angegebenen Standzeiten.
+    /// </summary>
+    /// <remarks>
+    /// Die Antwort entscheidet, wie ein stehender Bildschirm aufgezeichnet werden darf. Nimmt
+    /// der Behälter die Zeitstempel, genügt alle zwei Sekunden ein Bild und die Datei bleibt
+    /// so lang wie die Sitzung. Nähme er die Standzeiten, liefe eine Viertelstunde Lesen im
+    /// Schnelldurchlauf ab — und die Aufzeichnung behauptete eine Dauer, die es nicht gab.
+    /// </remarks>
+    [Fact]
+    public void Weit_auseinanderliegende_Bilder_ergeben_eine_entsprechend_lange_Datei()
+    {
+        string path = Path.Combine(_folder, "herzschlag.mp4");
+
+        using (VideoFile file = VideoFile.Create(path, 320, 240, framesPerSecond: 4))
+        {
+            byte[] canvas = new byte[320 * 240 * 4];
+
+            for (int i = 0; i < 5; i++)
+            {
+                Array.Fill(canvas, (byte)(i * 40));
+
+                file.Write(canvas, TimeSpan.FromSeconds(2 * i), TimeSpan.FromMilliseconds(250));
+            }
+
+            file.Complete();
+        }
+
+        TimeSpan? duration = Mp4Duration.Of(path);
+
+        Assert.NotNull(duration);
+
+        // Fuenf Bilder im Abstand von zwei Sekunden: Das letzte steht bei acht Sekunden.
+        Assert.InRange(duration.Value.TotalSeconds, 7.5, 8.6);
+    }
+
     /// <summary>Schreibt Bilder mit wechselnder Farbe, damit der Kodierer etwas zu tun hat.</summary>
     private static void Schreibe(VideoFile file, int frames, int framesPerSecond,
                                  int startIndex = 0)

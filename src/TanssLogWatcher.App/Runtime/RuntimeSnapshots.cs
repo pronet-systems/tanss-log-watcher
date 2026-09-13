@@ -35,6 +35,22 @@ public sealed record SessionSnapshot
     /// <summary>Prozesskennung der beobachteten Anwendung.</summary>
     public int ProcessId { get; init; }
 
+    /// <summary>
+    /// Das Fenster, aus dem das Ziel stammt; <c>0</c>, wenn es keines (mehr) gibt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Es steht hier ausschliesslich für die Bildschirmaufzeichnung: Sie braucht einen
+    /// Anfasspunkt, um die Fenster der Sitzung zu finden. Angezeigt wird es nirgends — ein
+    /// Fensterhandle sagt einem Menschen nichts.</para>
+    ///
+    /// <para><b>Es kann sich ändern, ohne dass die Sitzung endet</b> — übernimmt ein
+    /// Platzhalter sein erstes echtes Ziel, stammt dieses womöglich aus einem anderen Fenster
+    /// desselben Prozesses. Die Aufzeichnung arbeitet ohnehin über
+    /// <see cref="ProcessId"/> und nimmt alle Fenster des Prozesses; dieses hier ist der
+    /// Beleg, dass es überhaupt eines gab.</para>
+    /// </remarks>
+    public nint WindowHandle { get; init; }
+
     /// <summary>Beginn der Sitzung.</summary>
     public required DateTimeOffset StartedAt { get; init; }
 

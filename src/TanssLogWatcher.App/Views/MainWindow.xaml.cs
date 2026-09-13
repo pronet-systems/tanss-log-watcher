@@ -109,6 +109,7 @@ public partial class MainWindow
         "queue" => typeof(QueuePage),
         "timers" => typeof(TimersPage),
         "monitoring" => typeof(MonitoringPage),
+        "recording" => typeof(RecordingPage),
         "diagnostics" => typeof(DiagnosticsPage),
         "connection" => typeof(ConnectionPage),
         _ => typeof(SessionsPage),

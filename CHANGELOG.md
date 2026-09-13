@@ -57,9 +57,73 @@ der Platte liegt.
   Aufstellung nicht auf. Sie wird erst beim Fortsetzen eingetragen — und ausgerechnet die
   letzte ist häufig die längste.
 
-**Noch nicht gebaut:** Ablage samt Begleitdatei, Löschdienst, die Anbindung an die
-Sitzungsbeobachtung und die Oberfläche. Die Aufzeichnung läuft, wenn ein Test sie antreibt —
-noch nicht, wenn eine Fernwartung beginnt.
+### Hinzugefügt — Bildschirmaufzeichnung, dritter Teil: sie läuft von selbst
+
+Die Aufzeichnung hängt jetzt an der Sitzungsbeobachtung. Beginnt eine Fernwartung, beginnt das
+Video; endet sie, wird die Datei abgeschlossen und die Begleitdatei danebengelegt. Und es gibt
+einen Schalter in der Oberfläche — jetzt, wo etwas dahintersteht.
+
+**Die Ablage**
+
+- `recordings` in `state.db` (Schemastand 3): Jeder Abschnitt steht dort ab dem Augenblick, in
+  dem er begonnen wird. Beim Beginn und nicht beim Ende, denn ein Absturz mitten im Schreiben
+  hinterliesse sonst eine Waise — niemand wüsste, zu welcher Sitzung sie gehört und wann sie zu
+  löschen wäre.
+- Die Zeile bleibt als **Grabstein** stehen, wenn die Datei gelöscht ist. Für eine Auskunft nach
+  Art. 15 DSGVO ist zu sagen, was es gab und wann es verschwand; eine gelöschte Zeile könnte das
+  nicht.
+- `RecordingPaths` — **im Pfad steht kein Kundenname.** Ein Dateipfad wandert in Sicherungsläufe,
+  Suchindizes und jede Fehlermeldung. Wer wissen will, zu wem eine Aufzeichnung gehört, findet es
+  in der Begleitdatei: dort, wo es mit der Aufzeichnung zusammen gelöscht wird.
+- `RecordingManifest` — die Begleitdatei `sitzung.json` neben den Videodateien. Sie erklärt die
+  Lücke zwischen Video und Sitzung (zwanzig Minuten Video zu fünfundvierzig Minuten Fernwartung
+  sähen sonst nach einer abgebrochenen Aufzeichnung aus), nennt das Löschdatum und trägt die
+  Rechtsgrundlage mit.
+- `RecordingCleaner` — gelöscht wird nur, was **in der Buchführung steht** und **unterhalb der
+  eingestellten Wurzel liegt**. Beide Prüfungen sind nötig: Die erste schützt Dateien, die jemand
+  von Hand hineingelegt hat, die zweite alles andere auf der Platte vor einem Eintrag mit einem
+  Pfad, der dort nicht hingehört. Bleibt kein Video übrig, geht die Begleitdatei mit.
+
+**Der Dienst**
+
+- `RecordingService` als vierter Hintergrunddienst. Er zeichnet **nichts auf, was nicht gebucht
+  wird**: Eine Sitzung ohne Zuordnung auf einen Fernwartungstyp geht nirgendwohin, und ein Video
+  davon wäre personenbezogene Daten ohne den Vorgang, zu dem sie gehören. Bleibt eine
+  Aufzeichnung aus, steht der Grund im Änderungsprotokoll — eine, die stillschweigend ausbleibt,
+  fällt erst an dem Tag auf, an dem jemand sie sucht.
+- Jede Sitzung wird auf einem **eigenen Strang** aufgezeichnet. Die Zeitachse der Datei hängt
+  daran, wie gleichmässig getaktet wird, und ein Dienst, der nebenbei aufräumt und meldet, taktet
+  nicht gleichmässig.
+- **Das Aufräumen läuft auch dann, wenn nicht aufgezeichnet wird** — beim Start und danach
+  stündlich. Was ein früherer Lauf hinterlassen hat, muss gelöscht werden, wenn seine Frist
+  abläuft. Eine Löschfrist, die sich abschalten liesse, wäre keine.
+
+**Die Oberfläche**
+
+- Neue Seite „Aufzeichnung“: Schalter, Kenntnisnahme, Ordner, Löschfrist und die Feinheiten.
+  Der Hinweis, was dabei entsteht, steht **vor** dem Schalter — wer einschaltet, soll vorher
+  gelesen haben, dass der Bildschirm des Kunden und der des Technikers aufgezeichnet werden und
+  dass Letzteres nach §87 Abs. 1 Nr. 6 BetrVG mitbestimmungspflichtig ist.
+- Die Rechtsgrundlage ist **nicht vorbelegt**. Eine vorausgefüllte Auswahl wäre eine Behauptung
+  des Werkzeugs über einen Sachverhalt, den nur der Betrieb kennt.
+- `--page=recording` für den Start auf dieser Seite.
+
+**Behoben — die Zeitachse log bei stehendem Bildschirm**
+
+Der Zeitstempel eines Bildes lag bei `Bildnummer / Bildrate`. Das trägt nur, solange bei jedem
+Takt ein Bild geschrieben wird — Bilder werden aber nur geschrieben, wenn sich etwas geändert
+hat. Ein stehender Bildschirm hätte eine Viertelstunde Lesen auf wenige Sekunden Video
+zusammengeschnurrt, und der Abspieler hätte eine Dauer gezeigt, die es nie gab. Der Zeitstempel
+ist jetzt die aufgezeichnete Zeit selbst: Wanduhr minus Pausen. Gemessen und festgehalten: Die
+Dauer im `mvhd`-Block einer mp4 folgt den **Zeitstempeln** und nicht den angegebenen Standzeiten
+— fünf Bilder im Abstand von zwei Sekunden ergeben eine Datei von acht Sekunden.
+
+**Geprüft**
+
+Neues Testprojekt `TanssLogWatcher.App.Tests`: Aus einem echten Fenster wird eine echte Datei,
+ein Eintrag in einer echten Datenbank und eine Begleitdatei — und der Aufräumer holt nach Ablauf
+der Frist alles wieder ab. Was die Umgebung nicht hergibt, wird benannt und nicht umgangen: Auf
+einem Rechner ohne Bildschirmaufnahme werden diese Fälle ausdrücklich übersprungen.
 
 ## [0.2.0] — 2026-09-13
 

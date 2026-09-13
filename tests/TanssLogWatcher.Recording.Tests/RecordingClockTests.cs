@@ -52,18 +52,82 @@ public sealed class RecordingClockTests
         RecordingClock clock = new(framesPerSecond: 3);
         clock.Start(Start);
 
+        long ticksPerFrame = TimeSpan.TicksPerSecond / 3;
         TimeSpan last = TimeSpan.Zero;
 
         // Eine Stunde bei drei Bildern je Sekunde.
         for (int i = 0; i < 3 * 3600; i++)
         {
-            last = clock.NextFrameTimestamp();
+            last = clock.NextFrameTimestamp(Start + TimeSpan.FromTicks(i * ticksPerFrame));
         }
 
         // Das letzte Bild steht am Anfang seines Abschnitts, also einen Abstand vor dem Ende.
-        long ticksPerFrame = TimeSpan.TicksPerSecond / 3;
         Assert.Equal(TimeSpan.FromTicks(((3 * 3600) - 1) * ticksPerFrame), last);
         Assert.Equal(TimeSpan.FromTicks(3 * 3600 * ticksPerFrame), clock.Duration);
+    }
+
+    /// <summary>
+    /// Der Herzschlag: Wird nur alle zwei Sekunden ein Bild geschrieben, liegen die
+    /// Zeitstempel auch zwei Sekunden auseinander.
+    /// </summary>
+    /// <remarks>
+    /// Die Zusage, die dahintersteht: Ein stehender Bildschirm ergibt eine Datei, die so lang
+    /// ist wie die Zeit, in der er stand. Läge der Zeitstempel am Bildzähler, schrumpfte eine
+    /// Viertelstunde Lesen auf knapp zwei Sekunden Video — und der Abspieler zeigte eine
+    /// Dauer, die es nie gab.
+    /// </remarks>
+    [Fact]
+    public void Ein_Bild_alle_zwei_Sekunden_liegt_auch_zwei_Sekunden_auseinander()
+    {
+        RecordingClock clock = new(framesPerSecond: 4);
+        clock.Start(Start);
+
+        Assert.Equal(TimeSpan.Zero, clock.NextFrameTimestamp(Start));
+        Assert.Equal(TimeSpan.FromSeconds(2),
+                     clock.NextFrameTimestamp(Start + TimeSpan.FromSeconds(2)));
+        Assert.Equal(TimeSpan.FromSeconds(4),
+                     clock.NextFrameTimestamp(Start + TimeSpan.FromSeconds(4)));
+
+        // Vier Sekunden plus die Standzeit des letzten Bildes.
+        Assert.Equal(TimeSpan.FromSeconds(4.25), clock.Duration);
+    }
+
+    /// <summary>
+    /// Die Pause fehlt in der Zeitachse. Fünf Minuten minimiert erzeugen keine fünf Minuten
+    /// Datei — genau das ist der Sinn dieser Uhr.
+    /// </summary>
+    [Fact]
+    public void Die_Pause_fehlt_in_den_Zeitstempeln()
+    {
+        RecordingClock clock = new(framesPerSecond: 4);
+
+        clock.Start(Start);
+        _ = clock.NextFrameTimestamp(Start + TimeSpan.FromSeconds(10));
+
+        clock.Pause(Start + TimeSpan.FromSeconds(10));
+        clock.Resume(Start + TimeSpan.FromMinutes(5));
+
+        // Zehn Sekunden aufgezeichnet, danach eine Pause, danach eine weitere Sekunde.
+        Assert.Equal(TimeSpan.FromSeconds(11),
+                     clock.NextFrameTimestamp(Start + TimeSpan.FromMinutes(5)
+                                              + TimeSpan.FromSeconds(1)));
+    }
+
+    /// <summary>
+    /// Zwei Bilder im selben Augenblick — der Takt hat einmal nachgeholt. Der zweite
+    /// Zeitstempel rückt weiter, weil Media Foundation gleiche Zeitstempel abweist.
+    /// </summary>
+    [Fact]
+    public void Zwei_Bilder_im_selben_Augenblick_bekommen_verschiedene_Zeitstempel()
+    {
+        RecordingClock clock = new(framesPerSecond: 4);
+        clock.Start(Start);
+
+        TimeSpan first = clock.NextFrameTimestamp(Start + TimeSpan.FromSeconds(3));
+        TimeSpan second = clock.NextFrameTimestamp(Start + TimeSpan.FromSeconds(3));
+
+        Assert.True(second > first,
+            $"Der zweite Zeitstempel ({second}) ist nicht grösser als der erste ({first}).");
     }
 
     [Fact]
@@ -71,11 +135,12 @@ public sealed class RecordingClockTests
     {
         RecordingClock clock = new(framesPerSecond: 4);
         clock.Start(Start);
-        _ = clock.NextFrameTimestamp();
+        _ = clock.NextFrameTimestamp(Start);
         clock.Pause(Start + TimeSpan.FromSeconds(1));
 
         // Kaeme hier ein Bild durch, entstuende in der Datei Zeit, die es nicht gab.
-        _ = Assert.Throws<InvalidOperationException>(() => clock.NextFrameTimestamp());
+        _ = Assert.Throws<InvalidOperationException>(
+            () => clock.NextFrameTimestamp(Start + TimeSpan.FromSeconds(2)));
     }
 
     [Fact]

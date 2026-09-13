@@ -11,22 +11,36 @@ namespace TanssLogWatcher.Recording;
 /// stattgefunden hat. Diese Uhr steht während der Pause, und heraus kommt ein Video von
 /// zwanzig Minuten, das genau die zwanzig Minuten zeigt, in denen etwas geschah.</para>
 ///
-/// <para><b>Der Zeitstempel wird gerechnet, nicht aufaddiert.</b> Der n-te geschriebene
-/// Bildpunkt liegt bei <c>n / Bildrate</c>. Wer statt dessen bei jedem Bild einen Abstand
-/// aufaddierte, sammelte bei krummen Bildraten — vier Bilder je Sekunde sind 2 500 000 Ticks,
-/// drei sind 3 333 333,33 — mit jeder Stunde mehr Abweichung an. Gerechnet driftet nichts.</para>
+/// <para><b>Der Zeitstempel ist die aufgezeichnete Zeit selbst und nicht der Bildzähler.</b>
+/// Bilder werden nur geschrieben, wenn sich etwas geändert hat; ein stehender Bildschirm
+/// bekommt alle zwei Sekunden einen Herzschlag. Läge der Zeitstempel bei
+/// <c>Bildnummer / Bildrate</c>, schrumpfte eine Viertelstunde Lesen auf wenige Sekunden
+/// Datei — und die Aufzeichnung liefe im Schnelldurchlauf. Gemessen: Die Dauer im
+/// <c>mvhd</c>-Block einer mp4 folgt den Zeitstempeln und nicht den angegebenen Standzeiten
+/// (siehe <c>VideoFileTests</c>).</para>
+///
+/// <para><b>Gerechnet, nicht aufaddiert.</b> Die aufgezeichnete Zeit ist immer
+/// <c>jetzt − Beginn − Pausen</c> und nie eine Summe von Abständen. Aufaddiert sammelte sich
+/// bei krummen Bildraten — drei Bilder je Sekunde sind 3 333 333,33 Ticks — mit jeder Stunde
+/// mehr Abweichung an.</para>
 ///
 /// <para><b>Ohne Windows und ohne Media Foundation.</b> Das ist Absicht: Die Zeitachse ist der
 /// Teil, der im Streitfall zählt, und er muss ohne Bildschirm prüfbar sein.</para>
 /// </remarks>
 public sealed class RecordingClock
 {
+    /// <summary>
+    /// Der kleinste Abstand zweier Zeitstempel, wenn die Wanduhr keinen hergibt.
+    /// </summary>
+    private static readonly TimeSpan MinimumStep = TimeSpan.FromMilliseconds(1);
+
     private readonly List<RecordingPause> _pauses = [];
     private readonly long _ticksPerFrame;
 
     private DateTimeOffset? _startedAt;
     private DateTimeOffset? _pausedAt;
     private TimeSpan _pausedTotal;
+    private TimeSpan? _lastStamp;
     private long _frames;
 
     /// <summary>Baut die Uhr für eine Bildrate.</summary>
@@ -139,12 +153,17 @@ public sealed class RecordingClock
     /// Meldet ein geschriebenes Bild und liefert dessen Zeitstempel in der Datei.
     /// </summary>
     /// <remarks>
-    /// Aus dem Zähler gerechnet und nicht aus der Wanduhr gelesen: Der Abstand zweier Bilder in
-    /// der Datei ist konstant, auch wenn der Rechner einen Takt lang beschäftigt war.
+    /// <para>Der Zeitstempel ist die aufgezeichnete Zeit zu <paramref name="now"/> — also die
+    /// Wanduhr ohne die Pausen. Ein Bild, das nach zwei Sekunden Stillstand als Herzschlag
+    /// geschrieben wird, steht damit auch zwei Sekunden später in der Datei.</para>
+    /// <para>Streng aufsteigend, weil Media Foundation einen Zeitstempel abweist, der nicht
+    /// grösser ist als der vorige. Zwei Bilder in derselben Millisekunde kommen vor, wenn der
+    /// Takt einmal nachholt; dann rückt das zweite um eine Millisekunde weiter.</para>
     /// </remarks>
+    /// <param name="now">Der Bezugszeitpunkt — die Wanduhr dieses Taktes.</param>
     /// <returns>Der Zeitstempel des Bildes, gemessen ab Beginn der Aufzeichnung.</returns>
     /// <exception cref="InvalidOperationException">Die Uhr läuft nicht.</exception>
-    public TimeSpan NextFrameTimestamp()
+    public TimeSpan NextFrameTimestamp(DateTimeOffset now)
     {
         if (!IsRunning)
         {
@@ -153,7 +172,17 @@ public sealed class RecordingClock
                 + "entstünde in der Datei Zeit, die es nicht gab.");
         }
 
-        return TimeSpan.FromTicks(_frames++ * _ticksPerFrame);
+        TimeSpan stamp = Elapsed(now);
+
+        if (_lastStamp is { } last && stamp <= last)
+        {
+            stamp = last + MinimumStep;
+        }
+
+        _lastStamp = stamp;
+        _frames++;
+
+        return stamp;
     }
 
     /// <summary>Die Dauer, die die fertige Datei haben wird.</summary>
@@ -161,7 +190,9 @@ public sealed class RecordingClock
     /// Das letzte Bild steht am Anfang seines Zeitabschnitts; die Datei ist deshalb um genau
     /// einen Bildabstand länger als der Zeitstempel des letzten Bildes.
     /// </remarks>
-    public TimeSpan Duration => TimeSpan.FromTicks(_frames * _ticksPerFrame);
+    public TimeSpan Duration => _lastStamp is { } last
+        ? last + TimeSpan.FromTicks(_ticksPerFrame)
+        : TimeSpan.Zero;
 }
 
 /// <summary>Ein Abschnitt, in dem nicht aufgezeichnet wurde.</summary>

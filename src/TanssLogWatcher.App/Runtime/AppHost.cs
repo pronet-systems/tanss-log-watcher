@@ -77,7 +77,16 @@ public sealed class AppHost : IRuntimeContext, IDisposable
         Sessions = new SessionWatcherService(this);
         Uploads = new UploadService(this);
         TokenRotation = new TokenRotationService(this);
-        Services = [Sessions, Uploads, TokenRotation];
+        // Der Riegel steht hier und nicht im Dienst: Windows.Graphics.Capture gibt es erst ab
+        // Build 19041. Auf einem aelteren Rechner laeuft dieses Werkzeug vollstaendig - es
+        // zeichnet nur nichts auf, und die Einstellungsseite sagt, warum.
+        Recordings = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 19041)
+            ? new RecordingService(this, Sessions)
+            : null;
+
+        Services = Recordings is null
+            ? [Sessions, Uploads, TokenRotation]
+            : [Sessions, Uploads, TokenRotation, Recordings];
     }
 
     /// <summary>Der Betriebszustand hat sich geändert; wird auf dem Strang der Oberfläche ausgelöst.</summary>
@@ -110,7 +119,21 @@ public sealed class AppHost : IRuntimeContext, IDisposable
     /// <summary>Die Tokenerneuerung.</summary>
     public TokenRotationService TokenRotation { get; }
 
-    /// <summary>Alle drei Hintergrunddienste, für eine Anzeige, die sie gemeinsam auflistet.</summary>
+    /// <summary>
+    /// Die Bildschirmaufzeichnung samt Löschfrist; <c>null</c> auf einem Rechner, der keine
+    /// Bildschirmaufnahme kann.
+    /// </summary>
+    /// <remarks>
+    /// <para>Sie läuft auch dann, wenn nicht aufgezeichnet wird: Was ein früherer Lauf
+    /// hinterlassen hat, muss gelöscht werden, wenn seine Frist abläuft. Eine Löschfrist, die
+    /// sich abschalten liesse, wäre keine.</para>
+    /// <para><c>null</c> vor Windows 10 Build 19041 — dort gibt es
+    /// <c>Windows.Graphics.Capture</c> nicht. Es gäbe dann auch nichts zu löschen, denn es
+    /// wäre nie etwas entstanden.</para>
+    /// </remarks>
+    public RecordingService? Recordings { get; }
+
+    /// <summary>Alle Hintergrunddienste, für eine Anzeige, die sie gemeinsam auflistet.</summary>
     public IReadOnlyList<IBackgroundService> Services { get; }
 
     /// <summary>

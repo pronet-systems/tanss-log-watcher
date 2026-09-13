@@ -24,7 +24,7 @@ namespace TanssLogWatcher.App;
 /// Darstellung, statt der Systemeinstellung zu folgen. Ohne den Schalter gilt
 /// <c>system</c>. Eine Einstellung „Darstellung“ in der Oberfläche wird später denselben
 /// Weg gehen; deshalb steht die Auswertung hier und nicht in einem Prüfgerüst.</item>
-/// <item><c>--page=sessions|queue|timers|monitoring|diagnostics|connection</c> — wählt die
+/// <item><c>--page=sessions|queue|timers|monitoring|recording|diagnostics|connection</c> — wählt die
 /// Startseite. Ohne den Schalter sind es die Sitzungen.</item>
 /// <item><c>--show-save-dialog</c> — zeigt den Abschlussdialog einmalig beim Start. Er
 /// erscheint sonst nur am Ende einer echten Sitzung und wäre nicht zu begutachten.</item>

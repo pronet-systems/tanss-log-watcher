@@ -485,11 +485,49 @@ public sealed record RecordingSection
     /// <remarks>
     /// Die einzige Stelle, an der diese Frage beantwortet wird — wie
     /// <see cref="AiSection.IsUsable"/>. Vier Bedingungen: eingeschaltet, Kenntnisnahme
-    /// erteilt, Rechtsgrundlage benannt, Beleg benannt.
+    /// erteilt, Rechtsgrundlage benannt, Beleg benannt. Sie stehen einmal, nämlich in
+    /// <see cref="UnusableReason"/>; hier wird nur geprüft, ob dort etwas steht.
     /// </remarks>
     [JsonIgnore]
-    public bool IsUsable => Enabled
-        && HasAcknowledgement
-        && !string.IsNullOrWhiteSpace(LegalBasis)
-        && !string.IsNullOrWhiteSpace(LegalReference);
+    public bool IsUsable => UnusableReason is null;
+
+    /// <summary>
+    /// Warum nicht aufgezeichnet wird — oder <c>null</c>, wenn aufgezeichnet werden darf.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Grund steht neben der Entscheidung und nicht woanders.</b> Ein Werkzeug,
+    /// das an einer Stelle entscheidet und an einer anderen begründet, begründet irgendwann
+    /// etwas anderes, als es entschieden hat — und wird an beiden Stellen nicht mehr
+    /// geglaubt.</para>
+    /// <para>Der Satz ist für Menschen geschrieben: Er steht so in der Einstellungsseite, im
+    /// Zustand des Dienstes und im Änderungsprotokoll.</para>
+    /// </remarks>
+    [JsonIgnore]
+    public string? UnusableReason
+    {
+        get
+        {
+            if (!Enabled)
+            {
+                return "Die Bildschirmaufzeichnung ist abgeschaltet.";
+            }
+
+            if (!HasAcknowledgement)
+            {
+                return "Die Bildschirmaufzeichnung ist eingeschaltet, aber die Kenntnisnahme "
+                    + "fehlt. Es wird nichts aufgezeichnet, bis sie in den Einstellungen "
+                    + "erteilt ist.";
+            }
+
+            if (string.IsNullOrWhiteSpace(LegalBasis)
+                || string.IsNullOrWhiteSpace(LegalReference))
+            {
+                return "Die Kenntnisnahme ist unvollständig: Rechtsgrundlage und Beleg fehlen. "
+                    + "Eine Kenntnisnahme ohne benannte Grundlage ist ein Haken und kein "
+                    + "Nachweis.";
+            }
+
+            return null;
+        }
+    }
 }

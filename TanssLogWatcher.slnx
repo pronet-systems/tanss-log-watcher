@@ -9,6 +9,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/TanssLogWatcher.Api.Tests/TanssLogWatcher.Api.Tests.csproj" />
+    <Project Path="tests/TanssLogWatcher.App.Tests/TanssLogWatcher.App.Tests.csproj" />
     <Project Path="tests/TanssLogWatcher.Cli.Tests/TanssLogWatcher.Cli.Tests.csproj" />
     <Project Path="tests/TanssLogWatcher.Live.Tests/TanssLogWatcher.Live.Tests.csproj" />
     <Project Path="tests/TanssLogWatcher.Monitoring.Tests/TanssLogWatcher.Monitoring.Tests.csproj" />

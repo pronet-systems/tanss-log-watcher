@@ -50,11 +50,17 @@ Kein Zwischendienst, kein Herstellerkonto, keine Daten außerhalb eures Hauses.
   löschen, ohne die Weboberfläche zu öffnen.
 - **Sich selbst am Leben halten.** Das Zugangstoken erneuert sich lange vor seinem Ablauf und
   wird gegengetestet, bevor es übernommen wird.
+- **Auf Wunsch aufzeichnen.** Die Fenster einer laufenden Fernwartung lassen sich als Video
+  mitschneiden. Das ist **voreingestellt aus** und bleibt aus, bis jemand eingeschaltet, die
+  Kenntnisnahme erteilt und eine Rechtsgrundlage benannt hat. Jede Aufzeichnung bekommt beim
+  Beginn ein festes Löschdatum.
 
 ## Was es nicht tut
 
-- **Keine Tastatureingaben, keine Bildschirminhalte, keine Dateien.** Gelesen werden
-  Fenstertitel, Prozessnamen und die Gegenstellen offener Netzwerkverbindungen — nicht mehr.
+- **Keine Tastatureingaben und keine Dateien.** Gelesen werden Fenstertitel, Prozessnamen und
+  die Gegenstellen offener Netzwerkverbindungen — nicht mehr. Bildschirminhalte nur dann, wenn
+  die Aufzeichnung ausdrücklich eingeschaltet **und** die Kenntnisnahme erteilt ist; ohne beides
+  entsteht kein einziges Bild.
 - **Nichts heimlich.** Das Symbol im Infobereich ist immer sichtbar, die laufenden Sitzungen
   sind jederzeit einsehbar, und keine Sitzung wird ohne Bestätigung gebucht.
 - **Kein Zwang zur Überwachung.** In der Voreinstellung ist **keine einzige Anwendung** aktiv.
@@ -277,6 +283,36 @@ unter einem je Installation erzeugten Schlüssel). Dieselbe Beschriftung bleibt 
 mehrere Einträge hinweg wiedererkennbar, ein Wörterbuchangriff von außen scheitert aber. Der
 Schlüssel liegt DPAPI-versiegelt neben der Zustandsdatenbank.
 
+### `recording`
+
+Die Bildschirmaufzeichnung. **Voreingestellt aus**, und sie bleibt aus, solange nicht alle vier
+Angaben der Kenntnisnahme stehen — eine Kenntnisnahme ohne benannte Rechtsgrundlage ist ein
+Haken und kein Nachweis. Bequemer stellt sich das alles auf der Seite „Aufzeichnung“ ein.
+
+| Feld | Vorgabe | Bedeutung |
+|---|---|---|
+| `enabled` | `false` | Aufzeichnen — allein genügt der Schalter nicht |
+| `directory` | leer | Wohin; leer heißt: neben dem übrigen Zustand im Profil. Gelöscht wird ausschließlich unterhalb dieses Ordners |
+| `retention_days` | `30` | Nach wie vielen Tagen eine Aufzeichnung gelöscht wird |
+| `frames_per_second` | `4` | Bilder je Sekunde |
+| `heartbeat_seconds` | `2` | Nach welcher Ruhe trotzdem ein Bild geschrieben wird |
+| `segment_minutes` | `10` | Nach wie vielen Minuten eine neue Datei beginnt |
+| `minimum_free_megabytes` | `2048` | Darunter wird nicht mehr aufgezeichnet |
+| `acknowledged_at` | `null` | Wann die Kenntnisnahme erteilt wurde |
+| `acknowledged_by` | `null` | Von wem |
+| `legal_basis` | `null` | Worauf sie sich stützt |
+| `legal_reference` | `null` | Der Beleg dazu |
+
+Der Löschzeitpunkt jeder einzelnen Aufzeichnung wird beim Beginn aus `retention_days` berechnet
+und **festgeschrieben**. Wer die Frist später verkürzt, verkürzt auch die bestehenden; wer sie
+verlängert, verlängert die bestehenden **nicht** — ein gegebenes Versprechen wird nicht
+nachträglich gedehnt.
+
+Neben den Videodateien jeder Sitzung liegt eine `sitzung.json`. Sie nennt Gegenstelle,
+Arbeitsplatz, Techniker, die Pausen und das Löschdatum — und sie wird mit den Videodateien
+zusammen gelöscht. Im Ordnernamen steht bewusst **kein Kundenname**: Ein Dateipfad wandert in
+Sicherungsläufe, Suchindizes und jede Fehlermeldung.
+
 ### Wo was liegt
 
 | Was | Wo |
@@ -285,6 +321,7 @@ Schlüssel liegt DPAPI-versiegelt neben der Zustandsdatenbank.
 | Token, Abdruckschlüssel | `%LOCALAPPDATA%\ProNet Systems\TanssLogWatcher\` (DPAPI, an den Benutzer gebunden) |
 | Warteschlange, Sitzungen, Änderungsprotokoll | `%LOCALAPPDATA%\ProNet Systems\TanssLogWatcher\state.db` |
 | Betriebsprotokolle | `%LOCALAPPDATA%\ProNet Systems\TanssLogWatcher\logs\` |
+| Aufzeichnungen (wenn eingeschaltet) | `recording.directory`, sonst `%LOCALAPPDATA%\ProNet Systems\TanssLogWatcher\Aufzeichnungen\` |
 | Programm | `%LOCALAPPDATA%\Programs\TanssLogWatcher\` |
 
 Konfiguration und Laufzeitzustand sind bewusst getrennt: die eine will man sichern und
@@ -432,6 +469,32 @@ Was das Werkzeug gegen verdeckten Betrieb vorsieht: sichtbares Symbol im Infober
 einsehbare Sitzungsliste, abschaltbarer Autostart, Bestätigung vor jeder Buchung und die
 Möglichkeit, eine Sitzung zu verwerfen.
 
+### Bildschirmaufzeichnung
+
+Sie ist der Teil mit dem größten Gewicht und deshalb der am strengsten verriegelte. Eine
+Aufzeichnung zeigt den Bildschirm des Kunden — mit dessen Daten und den Daten Dritter — und den
+Bildschirm des Technikers; Letzteres ist Leistungs- und Verhaltenskontrolle im Sinne von
+§ 87 Abs. 1 Nr. 6 BetrVG.
+
+- Sie ist **voreingestellt aus** und lässt sich nicht allein durch einen Schalter einschalten:
+  Es braucht zusätzlich eine Kenntnisnahme mit benannter Rechtsgrundlage und Beleg. Fehlt eines
+  davon, entsteht kein Bild, und die Oberfläche sagt, was fehlt.
+- Die Rechtsgrundlage ist **nicht vorbelegt**. Ob bei euch eine Betriebsvereinbarung besteht,
+  weiß dieses Werkzeug nicht — und es behauptet es auch nicht.
+- Aufgezeichnet wird ausschließlich, was auch gebucht wird: Sitzungen von Anwendungen, die einem
+  Fernwartungstyp zugeordnet sind. Ein Video ohne den Vorgang, zu dem es gehört, wäre allein
+  eine Datensammlung.
+- Aufgezeichnet werden die **Fenster der Sitzung**, nicht der Bildschirm. Ein fremdes Fenster
+  darüber landet nachweislich nicht im Bild — das Mailfenster des Technikers gehört nicht in die
+  Dokumentation des Kunden.
+- Ist das Fenster minimiert, **pausiert** die Aufzeichnung, und die Pause zählt nicht zur
+  aufgezeichneten Zeit. Die Datei ist damit genau so lang wie das, was sie zeigt; welche
+  Abschnitte Pause waren, steht in der Begleitdatei.
+- Jede Aufzeichnung bekommt beim Beginn ein **festes Löschdatum**. Gelöscht wird stündlich und
+  beim Start, auch wenn die Aufzeichnung inzwischen abgeschaltet ist.
+- Nichts davon verlässt den Rechner. Es gibt keinen Versand, keinen Zwischendienst und keine
+  Anbindung, über die ein Video irgendwohin ginge.
+
 ---
 
 ## Häufige Fragen
@@ -510,6 +573,8 @@ Absturzberichte, keine Aktualisierungsabfrage bei einem Dritten.
 | Einrichtungsassistent auf der Kommandozeile (`setup`) | offen |
 | Selbsttätige Aktualisierung über GitHub | fertig |
 | Sprachmodell-Unterstützung (abgeschaltet, einwilligungspflichtig) | fertig |
+| Bildschirmaufzeichnung (abgeschaltet, kenntnisnahmepflichtig) | verdrahtet, gegen echte Fenster und echte Dateien geprüft; ein Probelauf über eine echte Fernwartung steht aus |
+| Aufzeichnung mehrerer Bildschirme im RDP-Mehrschirmbetrieb | bewusst zurückgestellt |
 | Setup und Veröffentlichung | fertig |
 | Prüfung der 36 Titelmuster gegen aktuelle Anwendungsversionen | offen |
 

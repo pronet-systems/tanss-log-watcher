@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!-- Muss dem Ziel der Anwendung folgen: ein Verweis von net10.0-windows auf ein
+         versioniertes Ziel ergibt NU1201. -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Platforms>x64</Platforms>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>TanssLogWatcher.App.Tests</RootNamespace>
+    <!-- Die Anwendung ist eine WPF-Anwendung; ohne diesen Schalter findet der Übersetzer
+         ihre Typen nicht. -->
+    <UseWPF>true</UseWPF>
+    <!-- Echte Fenster als Aufnahmeziel. Eine Attrappe liefert keine Bildpunkte, und genau
+         die sind hier die Frage. -->
+    <UseWindowsForms>true</UseWindowsForms>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\TanssLogWatcher.App\TanssLogWatcher.App.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Geteilt statt abgeschrieben: Das Aufnahmeziel ist dasselbe wie im Aufnahmeprojekt.
+         Zwei Abschriften liefen auseinander, und die Abweichung fiele erst auf, wenn ein
+         Test aus unerfindlichem Grund nur hier scheitert. -->
+    <Compile Include="..\TanssLogWatcher.Recording.Tests\TestWindow.cs" Link="TestWindow.cs" />
+  </ItemGroup>
+</Project>

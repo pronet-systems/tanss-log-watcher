@@ -479,6 +479,7 @@ public sealed class SessionWatcherService : PeriodicService
             ProfileName = DescribeProfile(session.ProfileKey),
             Destination = session.Destination,
             ProcessId = session.ProcessId,
+            WindowHandle = session.WindowHandle,
             StartedAt = session.StartedAt,
             EndedAt = ended ? session.EndedAt ?? now : null,
             RemoteSupportTypeId =

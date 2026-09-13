@@ -32,6 +32,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Die Aufzeichnung einer einzelnen Sitzung ist intern: Sie gehoert dem Dienst und
+         niemandem sonst. Gepruft werden muss sie trotzdem - und zwar gegen ein echtes
+         Fenster, eine echte Datei und eine echte Buchfuehrung. -->
+    <InternalsVisibleTo Include="TanssLogWatcher.App.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Zweimal mit Absicht: eingebettet, damit der Zustand "Nicht eingerichtet" die Vorlage
          auch dann noch anbieten kann, wenn neben der Anwendung nichts mehr liegt - und als
          Datei daneben, damit man sie ohne Start ansehen kann. Siehe Runtime/ConfigTemplate.cs. -->

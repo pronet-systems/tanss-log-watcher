@@ -90,6 +90,15 @@ public sealed class SessionRecorder : IDisposable
     public string LastReason { get; private set; } = string.Empty;
 
     /// <summary>
+    /// Die Abmessungen der zuletzt begonnenen Datei; <c>null</c>, solange keine begonnen wurde.
+    /// </summary>
+    /// <remarks>
+    /// Ausdrücklich hier gemerkt und nicht beim Direktor erfragt: Jener vergisst seine Leinwand
+    /// beim Beenden, und die Begleitdatei wird erst danach geschrieben.
+    /// </remarks>
+    public (int Width, int Height)? Canvas { get; private set; }
+
+    /// <summary>
     /// Ein Takt: entscheiden lassen, ausführen, Bild schreiben.
     /// </summary>
     /// <param name="input">Was dieser Takt vorfindet.</param>
@@ -108,7 +117,7 @@ public sealed class SessionRecorder : IDisposable
 
         if (_director.IsRecording && _file is not null)
         {
-            PullAndWrite();
+            PullAndWrite(input.Now);
         }
 
         return !_director.IsFinished;
@@ -191,6 +200,7 @@ public sealed class SessionRecorder : IDisposable
         }
 
         _segment++;
+        Canvas = (canvas.Width, canvas.Height);
         string path = _pathForSegment(_segment);
 
         _file = VideoFile.Create(path, canvas.Width, canvas.Height, _options.FramesPerSecond);
@@ -266,7 +276,17 @@ public sealed class SessionRecorder : IDisposable
         }
     }
 
-    private void PullAndWrite()
+    /// <summary>
+    /// Holt die Bilder, setzt sie zusammen und schreibt — wenn der Takt es zulässt.
+    /// </summary>
+    /// <remarks>
+    /// Der Takt wird an der <b>aufgezeichneten Wanduhr</b> gemessen und nicht an der Zahl der
+    /// geschriebenen Bilder. Am Bildzähler gemessen stünde die Uhr, sobald nichts mehr
+    /// geschrieben wird — der Herzschlag käme dann nie, und ein stehender Bildschirm
+    /// hinterliesse ein einziges Bild für eine Viertelstunde Lesen.
+    /// </remarks>
+    /// <param name="now">Die Wanduhr dieses Taktes.</param>
+    private void PullAndWrite(DateTimeOffset now)
     {
         if (_director.Canvas is not { } canvas || _file is null)
         {
@@ -276,7 +296,7 @@ public sealed class SessionRecorder : IDisposable
         bool changed = Compose(canvas);
         _anythingChanged |= changed;
 
-        TimeSpan elapsed = _clock.Duration;
+        TimeSpan elapsed = _clock.Elapsed(now);
         FrameReason reason = _cadence.Decide(elapsed, _anythingChanged);
 
         if (reason is FrameReason.Skip)
@@ -286,7 +306,7 @@ public sealed class SessionRecorder : IDisposable
 
         try
         {
-            TimeSpan timestamp = _clock.NextFrameTimestamp();
+            TimeSpan timestamp = _clock.NextFrameTimestamp(now);
 
             _file.Write(_canvas, timestamp,
                         TimeSpan.FromTicks(TimeSpan.TicksPerSecond / _options.FramesPerSecond));

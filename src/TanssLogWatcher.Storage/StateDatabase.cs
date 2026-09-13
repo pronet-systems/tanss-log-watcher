@@ -33,7 +33,7 @@ public sealed class StateDatabase : IDisposable
     /// ungeklärt) und <c>session_log.window_title</c> (die eigens benannte
     /// Fensterbeschriftung, die geschwärzt werden kann).
     /// </remarks>
-    public const int SchemaVersion = 2;
+    public const int SchemaVersion = 3;
 
     private readonly SqliteConnection _connection;
     private readonly Lock _gate = new();
@@ -290,5 +290,36 @@ public sealed class StateDatabase : IDisposable
 
         CREATE INDEX IF NOT EXISTS idx_session_log_ts ON session_log(ts);
         CREATE INDEX IF NOT EXISTS idx_session_log_session ON session_log(remote_maintenance_id);
+
+        -- Bildschirmaufzeichnungen. Die Wahrheit ueber Faelligkeit und Verbleib steht HIER
+        -- und nicht im Dateisystem: Ein Verzeichnisdurchlauf als Grundlage haette zwei
+        -- Schwaechen, die beide teuer sind. Er faende Dateien, die jemand von Hand
+        -- hineinkopiert hat, und loeschte sie; und er verloere jede Spur von dem, was schon
+        -- geloescht wurde - fuer eine Auskunft nach Art. 15 DSGVO waere das wertlos.
+        CREATE TABLE IF NOT EXISTS recordings (
+          id                    INTEGER PRIMARY KEY,
+          remote_maintenance_id TEXT    NOT NULL,
+          -- Relativ zur eingestellten Wurzel. Geloescht wird spaeter ausschliesslich, was
+          -- nach dem Zusammensetzen unterhalb dieser Wurzel liegt - ein absoluter Pfad in
+          -- der Datenbank waere eine Einladung, irgendwohin zu loeschen.
+          relative_path         TEXT    NOT NULL,
+          segment               INTEGER NOT NULL DEFAULT 1,
+          started_at            INTEGER NOT NULL,
+          ended_at              INTEGER,
+          -- Die aufgezeichnete Zeit OHNE Pausen, in Sekunden. Sie ist nicht die Differenz
+          -- aus Beginn und Ende, und genau das ist der Punkt.
+          recorded_seconds      INTEGER NOT NULL DEFAULT 0,
+          bytes                 INTEGER NOT NULL DEFAULT 0,
+          -- Der zugesagte Loeschzeitpunkt, absolut und beim Abschluss festgeschrieben.
+          -- Eine mitlaufende Frist waere keine: Sie liefe nur, solange das Werkzeug laeuft.
+          delete_after          INTEGER NOT NULL,
+          deleted_at            INTEGER,
+          delete_reason         TEXT,
+          state                 TEXT    NOT NULL DEFAULT 'recording'
+              CHECK (state IN ('recording','kept','purged','missing'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_recordings_due ON recordings(state, delete_after);
+        CREATE INDEX IF NOT EXISTS idx_recordings_session ON recordings(remote_maintenance_id);
         """;
 }

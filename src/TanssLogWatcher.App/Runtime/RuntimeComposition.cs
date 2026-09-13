@@ -10,6 +10,7 @@ using TanssLogWatcher.Storage;
 using TanssLogWatcher.Storage.Config;
 using TanssLogWatcher.Storage.Logging;
 using TanssLogWatcher.Storage.Queue;
+using TanssLogWatcher.Storage.Recordings;
 using TanssLogWatcher.Storage.Secrets;
 
 namespace TanssLogWatcher.App.Runtime;
@@ -45,6 +46,7 @@ public sealed class RuntimeComposition : IDisposable
     private readonly Lazy<StateDatabase> _database;
     private readonly Lazy<UploadQueue> _queue;
     private readonly Lazy<SessionLog> _log;
+    private readonly Lazy<RecordingStore> _recordings;
     private readonly Lazy<HostNameResolver> _hostNames;
     private readonly Lazy<SessionEngine> _engine;
     private bool _disposed;
@@ -91,6 +93,11 @@ public sealed class RuntimeComposition : IDisposable
 
         // Ausschliesslich ueber FromConfig: hier wirkt logging.redact_window_titles.
         _log = new Lazy<SessionLog>(() => SessionLog.FromConfig(config, Database));
+
+        // Auf derselben Datenbank wie die Warteschlange: Eine zweite Datei waere eine zweite
+        // Sicherungsstrategie, und die Buchfuehrung ueber Aufzeichnungen ist der Nachweis, an
+        // dem eine Auskunft nach Art. 15 DSGVO haengt.
+        _recordings = new Lazy<RecordingStore>(() => new RecordingStore(Database));
 
         _hostNames = new Lazy<HostNameResolver>(
             () => new HostNameResolver(logger: loggers.CreateLogger<HostNameResolver>()));
@@ -153,6 +160,16 @@ public sealed class RuntimeComposition : IDisposable
     /// <summary>Das Änderungsprotokoll — mit <c>logging.redact_window_titles</c>.</summary>
     public SessionLog Log => _log.Value;
 
+    /// <summary>
+    /// Die Buchführung über Bildschirmaufzeichnungen — auf derselben Datenbank.
+    /// </summary>
+    /// <remarks>
+    /// Sie entsteht auch dann, wenn nicht aufgezeichnet wird: Was ein früherer Lauf mit
+    /// eingeschalteter Aufzeichnung hinterlassen hat, muss gelöscht werden, wenn seine Frist
+    /// abläuft — und zwar unabhängig davon, ob heute noch aufgezeichnet wird.
+    /// </remarks>
+    public RecordingStore Recordings => _recordings.Value;
+
     /// <summary>Die Rückwärtsauflösung mit Zwischenspeicher.</summary>
     public IHostNameResolver HostNames => _hostNames.Value;
 
@@ -202,6 +219,11 @@ public sealed class RuntimeComposition : IDisposable
         if (_queue.IsValueCreated)
         {
             _queue.Value.Dispose();
+        }
+
+        if (_recordings.IsValueCreated)
+        {
+            _recordings.Value.Dispose();
         }
 
         if (_database.IsValueCreated)

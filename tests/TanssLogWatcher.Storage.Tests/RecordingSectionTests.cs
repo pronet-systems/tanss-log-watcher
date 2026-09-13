@@ -56,6 +56,57 @@ public sealed class RecordingSectionTests
         Assert.True(Vollstaendig().HasAcknowledgement);
     }
 
+    /// <summary>
+    /// Der Grund steht neben der Entscheidung. Ein Werkzeug, das an einer Stelle entscheidet
+    /// und an einer anderen begründet, begründet irgendwann etwas anderes, als es entschieden
+    /// hat.
+    /// </summary>
+    [Theory]
+    [InlineData(false, true, true, "abgeschaltet")]
+    [InlineData(true, false, true, "Kenntnisnahme")]
+    [InlineData(true, true, false, "Rechtsgrundlage")]
+    public void Zu_jedem_Nein_gehoert_ein_Satz(bool enabled, bool acknowledged, bool legal,
+                                               string expected)
+    {
+        RecordingSection section = Vollstaendig() with
+        {
+            Enabled = enabled,
+            AcknowledgedAt = acknowledged ? "2026-09-13 10:00:00 +02:00" : null,
+            LegalBasis = legal ? "Betriebsvereinbarung" : null,
+        };
+
+        Assert.False(section.IsUsable);
+        Assert.Contains(expected, section.UnusableReason, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Zu_einem_Ja_gehoert_kein_Satz()
+    {
+        Assert.Null(Vollstaendig().UnusableReason);
+    }
+
+    /// <summary>
+    /// Entscheidung und Begründung dürfen nicht auseinanderlaufen: Genau dann, wenn es einen
+    /// Grund gibt, wird nicht aufgezeichnet.
+    /// </summary>
+    [Theory]
+    [InlineData(false, false, false)]
+    [InlineData(true, false, false)]
+    [InlineData(true, true, false)]
+    [InlineData(true, true, true)]
+    public void Grund_und_Entscheidung_sagen_dasselbe(bool enabled, bool acknowledged, bool legal)
+    {
+        RecordingSection section = Vollstaendig() with
+        {
+            Enabled = enabled,
+            AcknowledgedAt = acknowledged ? "2026-09-13 10:00:00 +02:00" : null,
+            LegalBasis = legal ? "Betriebsvereinbarung" : null,
+            LegalReference = legal ? "BV 2026-03 Fernwartung" : null,
+        };
+
+        Assert.Equal(section.IsUsable, section.UnusableReason is null);
+    }
+
     [Fact]
     public void Die_Voreinstellung_zeichnet_nicht_auf()
     {

@@ -118,6 +118,51 @@ public sealed class SessionRecorderTests : IDisposable
     }
 
     /// <summary>
+    /// Wenige Bilder über eine lange Spanne ergeben eine lange Datei — nicht eine kurze.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Fall, der die ganze Zeitachse trägt: Ein stehender Bildschirm liefert kaum
+    /// Bilder, die Sitzung läuft trotzdem. Läge der Zeitstempel am Bildzähler, ergäben zehn
+    /// Bilder bei vier je Sekunde zweieinhalb Sekunden Datei — für zehn Sekunden Sitzung. Der
+    /// Abspieler zeigte dann eine Dauer, die es nie gab, und das Video liefe im
+    /// Schnelldurchlauf.</para>
+    /// <para>Die Wanduhr wird vorgestellt statt abgewartet: Zehn echte Sekunden zu warten
+    /// prüfte dasselbe und hielte den Testlauf zehn Sekunden auf.</para>
+    /// </remarks>
+    [CaptureFact]
+    public void Wenige_Bilder_ueber_eine_lange_Spanne_ergeben_eine_lange_Datei()
+    {
+        using TestWindow window = TestWindow.Open(System.Drawing.Color.Red, 400, 300);
+
+        RecordingOptions options = new()
+        {
+            FramesPerSecond = 4,
+            Heartbeat = TimeSpan.FromMilliseconds(500),
+            MinimumFreeMegabytes = 0,
+        };
+
+        using SessionRecorder recorder = new(options, n => Path.Combine(_folder, $"lang-{n}.mp4"));
+
+        WindowBox box = Box(window);
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+
+        // Zehn Takte im Abstand einer Sekunde: zehn Sekunden Sitzung, hoechstens zehn Bilder.
+        for (int i = 0; i < 10; i++)
+        {
+            Assert.True(recorder.Tick(new RecordingInput(now, [box], false, 100_000)));
+
+            Thread.Sleep(40);
+            now = now.AddSeconds(1);
+        }
+
+        recorder.Stop();
+
+        TimeSpan duration = Mp4Duration.Of(Assert.Single(recorder.Files))!.Value;
+
+        Assert.InRange(duration.TotalSeconds, 8.0, 10.5);
+    }
+
+    /// <summary>
     /// Wird das Fenster minimiert, pausiert die Aufzeichnung — und die Datei bleibt kurz. Das
     /// ist die Zusage, die den ganzen Aufwand rechtfertigt.
     /// </summary>

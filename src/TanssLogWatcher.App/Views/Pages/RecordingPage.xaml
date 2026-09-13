@@ -1,0 +1,247 @@
+<Page x:Class="TanssLogWatcher.App.Views.Pages.RecordingPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+      Title="Aufzeichnung"
+      Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="980" HorizontalAlignment="Left">
+
+            <ui:TextBlock Text="Bildschirmaufzeichnung" FontTypography="Title" />
+            <ui:TextBlock Margin="0,4,0,20" TextWrapping="Wrap" HorizontalAlignment="Left"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                          Text="Zeichnet die Fenster einer laufenden Fernwartung auf und legt das Video in einem Ordner eurer Wahl ab. Nichts verlässt diesen Rechner." />
+
+            <!-- Der Hinweis steht VOR dem Schalter und nicht darunter: Wer einschaltet, soll
+                 vorher gelesen haben, was dabei entsteht. -->
+            <ui:InfoBar Margin="0,0,0,16" Severity="Warning" IsClosable="False" IsOpen="True"
+                        Title="Was dabei entsteht"
+                        Message="Eine Aufzeichnung zeigt den Bildschirm des Kunden — mit dessen Daten und den Daten Dritter — und den Bildschirm des Technikers. Letzteres ist Leistungs- und Verhaltenskontrolle im Sinne von §87 Abs. 1 Nr. 6 BetrVG und in einem Betrieb mit Betriebsrat mitbestimmungspflichtig. Deshalb genügt hier kein Schalter: Es braucht eine Kenntnisnahme mit benannter Rechtsgrundlage." />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Warning" IsClosable="False"
+                        IsOpen="{Binding NeedsSetup}"
+                        Title="Noch nicht eingerichtet"
+                        Message="{Binding Status.Advice}" />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Error" IsClosable="False"
+                        IsOpen="{Binding IsProblem}"
+                        Title="Das geht so nicht"
+                        Message="{Binding Message}" />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Success" IsClosable="False"
+                        IsOpen="{Binding HasGoodMessage}"
+                        Title="Rückmeldung"
+                        Message="{Binding Message}" />
+
+            <!-- Ein und aus -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                            <ui:TextBlock Text="Aufzeichnen" FontTypography="BodyStrong"
+                                          HorizontalAlignment="Left" />
+                            <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap"
+                                          HorizontalAlignment="Left"
+                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                          Text="Aufgezeichnet wird nur, was auch gebucht wird: Sitzungen von Anwendungen, die unter „Überwachung“ einem Fernwartungstyp zugeordnet sind." />
+                        </StackPanel>
+
+                        <ui:ToggleSwitch Grid.Column="1" VerticalAlignment="Top"
+                                         IsChecked="{Binding Enabled, Mode=TwoWay}" />
+                    </Grid>
+
+                    <Separator Margin="0,12" />
+
+                    <ui:TextBlock Text="{Binding StateText}" TextWrapping="Wrap"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Text="{Binding StorageText}" TextWrapping="Wrap" Margin="0,4,0,0"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Kenntnisnahme -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <ui:TextBlock Text="Kenntnisnahme" FontTypography="BodyStrong"
+                                  Margin="0,0,0,4" HorizontalAlignment="Left" />
+                    <ui:TextBlock Margin="0,0,0,12" TextWrapping="Wrap" HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Text="Ohne sie wird nicht aufgezeichnet — auch dann nicht, wenn der Schalter oben steht. Die Rechtsgrundlage ist bewusst nicht vorbelegt: Was in eurem Haus trägt, weiß nur euer Haus." />
+
+                    <ui:TextBlock Text="Rechtsgrundlage" Margin="0,0,0,4"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ComboBox Margin="0,0,0,12" IsEditable="True"
+                              ItemsSource="{Binding Bases}"
+                              Text="{Binding LegalBasis, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <ui:TextBlock Text="Beleg — Betriebsvereinbarung, Beschluss, Vertragsnummer"
+                                  Margin="0,0,0,4" HorizontalAlignment="Left" TextWrapping="Wrap"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBox Margin="0,0,0,12"
+                                PlaceholderText="z. B. BV Fernwartung vom 01.03.2026"
+                                Text="{Binding LegalReference, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <CheckBox IsChecked="{Binding Acknowledged, Mode=TwoWay}">
+                        <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                                   Text="Ich habe zur Kenntnis genommen, dass dabei der Bildschirm des Kunden und der des Technikers aufgezeichnet werden, und bestätige, dass die oben benannte Rechtsgrundlage dafür vorliegt." />
+                    </CheckBox>
+
+                    <ui:TextBlock Text="{Binding AcknowledgementText}" Margin="0,8,0,0"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                    <ui:InfoBar Margin="0,12,0,0" Severity="Warning" IsClosable="False"
+                                IsOpen="{Binding NeedsAcknowledgement}"
+                                Title="Eingeschaltet, aber es wird nichts aufgezeichnet"
+                                Message="Die Kenntnisnahme ist unvollständig. Zeitpunkt, Person, Rechtsgrundlage und Beleg gehören zusammen — eine Kenntnisnahme ohne benannte Grundlage ist ein Haken und kein Nachweis." />
+                </StackPanel>
+            </Border>
+
+            <!-- Ablage und Löschfrist -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <ui:TextBlock Text="Ablage und Löschfrist" FontTypography="BodyStrong"
+                                  Margin="0,0,0,12" HorizontalAlignment="Left" />
+
+                    <ui:TextBlock Text="Ordner" Margin="0,0,0,4" HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ui:TextBox Grid.Column="0" Margin="0,0,8,0"
+                                    PlaceholderText="leer lassen für den vorgesehenen Ort im Profil"
+                                    Text="{Binding Directory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" design:Gap.Size="8">
+                            <ui:Button Content="Wählen" Icon="{ui:SymbolIcon FolderOpen24}"
+                                       Appearance="Secondary" Command="{Binding BrowseCommand}" />
+                            <ui:Button Content="Öffnen" Icon="{ui:SymbolIcon Open24}"
+                                       Appearance="Secondary" Command="{Binding OpenFolderCommand}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <ui:TextBlock Text="{Binding EffectiveDirectory}" TextWrapping="Wrap"
+                                  Margin="0,0,0,16" HorizontalAlignment="Left"
+                                  Style="{StaticResource TabularText}"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                    <ui:TextBlock Text="Aufbewahrung in Tagen" Margin="0,0,0,4"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <Grid Margin="0,0,0,4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <ui:NumberBox Grid.Column="0" Minimum="1" Maximum="3650"
+                                      SpinButtonPlacementMode="Inline"
+                                      Value="{Binding RetentionDays, Mode=TwoWay}" />
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal"
+                                    VerticalAlignment="Center" Margin="12,0,0,0">
+                            <ui:Button Content="Jetzt aufräumen" Icon="{ui:SymbolIcon Delete24}"
+                                       Appearance="Secondary"
+                                       ToolTip="Löscht sofort, was seine Frist überschritten hat"
+                                       Command="{Binding CleanUpNowCommand}" />
+                        </StackPanel>
+                    </Grid>
+
+                    <ui:TextBlock Text="{Binding RetentionText}" TextWrapping="Wrap"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+
+            <!-- Die Feinheiten. Eingeklappt, weil die Voreinstellungen tragen und jede
+                 Änderung hier nur Dateigröße gegen Bildrate tauscht. -->
+            <Expander Header="Bildrate, Abschnitte, Platzbedarf" IsExpanded="False" Margin="0,0,0,12">
+                <StackPanel Margin="0,12,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="260" />
+                            <ColumnDefinition Width="160" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <ui:TextBlock Grid.Row="0" Grid.Column="0" Text="Bilder je Sekunde"
+                                      VerticalAlignment="Center" Margin="0,0,12,8"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:NumberBox Grid.Row="0" Grid.Column="1" Margin="0,0,12,8"
+                                      Minimum="1" Maximum="15" SpinButtonPlacementMode="Inline"
+                                      Value="{Binding FramesPerSecond, Mode=TwoWay}" />
+                        <ui:TextBlock Grid.Row="0" Grid.Column="2" TextWrapping="Wrap"
+                                      VerticalAlignment="Center" Margin="0,0,0,8"
+                                      HorizontalAlignment="Left"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Vier reichen: Belegt werden soll, welcher Bildschirmzustand bestand — nicht, wie sich die Maus bewegte." />
+
+                        <ui:TextBlock Grid.Row="1" Grid.Column="0" Text="Herzschlag in Sekunden"
+                                      VerticalAlignment="Center" Margin="0,0,12,8"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:NumberBox Grid.Row="1" Grid.Column="1" Margin="0,0,12,8"
+                                      Minimum="1" Maximum="60" SpinButtonPlacementMode="Inline"
+                                      Value="{Binding HeartbeatSeconds, Mode=TwoWay}" />
+                        <ui:TextBlock Grid.Row="1" Grid.Column="2" TextWrapping="Wrap"
+                                      VerticalAlignment="Center" Margin="0,0,0,8"
+                                      HorizontalAlignment="Left"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Auch ohne Bildänderung wird ein Bild geschrieben, damit die Zeitachse weiterläuft und der Abspieler nicht über die Stille hinwegspringt." />
+
+                        <ui:TextBlock Grid.Row="2" Grid.Column="0" Text="Abschnitt in Minuten"
+                                      VerticalAlignment="Center" Margin="0,0,12,8"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:NumberBox Grid.Row="2" Grid.Column="1" Margin="0,0,12,8"
+                                      Minimum="1" Maximum="120" SpinButtonPlacementMode="Inline"
+                                      Value="{Binding SegmentMinutes, Mode=TwoWay}" />
+                        <ui:TextBlock Grid.Row="2" Grid.Column="2" TextWrapping="Wrap"
+                                      VerticalAlignment="Center" Margin="0,0,0,8"
+                                      HorizontalAlignment="Left"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Eine lange Aufzeichnung in einer einzigen Datei ist beim ersten Fehler ganz verloren. Abschnitte begrenzen den Schaden auf den letzten angefangenen." />
+
+                        <ui:TextBlock Grid.Row="3" Grid.Column="0" Text="Mindestens frei in MB"
+                                      VerticalAlignment="Center" Margin="0,0,12,0"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:NumberBox Grid.Row="3" Grid.Column="1" Margin="0,0,12,0"
+                                      Minimum="128" Maximum="1048576"
+                                      SpinButtonPlacementMode="Inline"
+                                      Value="{Binding MinimumFreeMegabytes, Mode=TwoWay}" />
+                        <ui:TextBlock Grid.Row="3" Grid.Column="2" TextWrapping="Wrap"
+                                      VerticalAlignment="Center" HorizontalAlignment="Left"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Darunter wird nicht mehr aufgezeichnet. Eine volle Platte nimmt auch der Warteschlange den Platz, und die trägt die Arbeitszeit." />
+                    </Grid>
+                </StackPanel>
+            </Expander>
+
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                        design:Gap.Size="8" Margin="0,4,0,0">
+                <ui:Button Content="Verwerfen" Appearance="Secondary"
+                           IsEnabled="{Binding IsDirty}" Command="{Binding ResetCommand}" />
+                <ui:Button Content="Speichern" Icon="{ui:SymbolIcon Save24}" Appearance="Primary"
+                           IsEnabled="{Binding IsDirty}" Command="{Binding SaveCommand}" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Page>
