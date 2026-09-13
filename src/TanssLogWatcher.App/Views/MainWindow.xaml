@@ -285,7 +285,7 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
                             design:Gap.Size="16">
-                    <!-- DIE NEUE FASSUNG.
+                    <!-- DIE NEUE VERSION.
 
                          Geprueft wurde schon immer - eine Minute nach dem Start und danach
                          taeglich. Gesagt wurde es nur auf der Seite "Verbindung", und die
