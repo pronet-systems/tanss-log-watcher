@@ -11,8 +11,8 @@ namespace TanssLogWatcher.Storage;
 /// <remarks>
 /// <para>Sie trägt alles, was ein Absturz nicht verschlucken darf: die Warteschlange noch
 /// nicht hochgeladener Fernwartungen, die gerade laufenden Sitzungen und das
-/// Änderungsprotokoll. Das Original hatte davon nichts — ein Netzfehler kostete dort die
-/// Sitzung ersatzlos, und ein Absturz während einer laufenden Fernwartung ebenso.</para>
+/// Änderungsprotokoll. Fehlte sie, kostete ein Netzfehler die Sitzung ersatzlos, und ein
+/// Absturz während einer laufenden Fernwartung ebenso.</para>
 ///
 /// <para><b>WAL ist keine Feinabstimmung, sondern Bedingung.</b> Der Beobachtungstakt
 /// schreibt die laufenden Sitzungen fort, während der Versandarbeiter in dieselbe Datei

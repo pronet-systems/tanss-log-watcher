@@ -11,7 +11,7 @@ namespace TanssLogWatcher.App.ViewModels;
 /// <para><b>Warum jede Seite den Zustand kennt.</b> Eine Seite, die ihre Liste zeigt, ohne zu
 /// wissen, ob überhaupt etwas eingerichtet ist, zeigt im Normalfall des ersten Starts eine
 /// leere Tabelle — und eine leere Tabelle sieht aus wie „nichts los“ und nicht wie „hier fehlt
-/// die Einrichtung“. Genau diese Verwechslung hat die Vorlage dem Techniker zugemutet.</para>
+/// die Einrichtung“. Genau diese Verwechslung darf dem Techniker nicht zugemutet werden.</para>
 ///
 /// <para><b>Die Anmeldung wird wieder abgemeldet.</b> Die Seiten entstehen bei jedem Wechsel
 /// der Navigation neu. Ohne <see cref="Dispose()"/> hielte der Host nach zwanzig Wechseln zwanzig

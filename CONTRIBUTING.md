@@ -159,8 +159,8 @@ Grund. Deutsch oder Englisch — Hauptsache, der Grund steht da.
 - **Keine Zugangsdaten, keine Token, keine Kundendaten.** Nicht im Quelltext, nicht in Tests,
   nicht in einem Issue und nicht in einem Protokollauszug. `config.json`, `credentials.dat`,
   `*.pfx` und `*.log` stehen deshalb in `.gitignore`.
-- **Kein Nachbau des Updaters** aus dem Vorgängerwerkzeug. Aktualisiert wird über eine neue
-  Fassung des Setups.
+- **Kein eigener Aktualisierungsmechanismus.** Aktualisiert wird über eine neue Fassung des
+  Setups.
 
 ## Sicherheitslücken
 

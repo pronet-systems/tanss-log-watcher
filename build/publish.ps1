@@ -311,7 +311,13 @@ foreach ($source in @($AppPublish, $CliPublish)) {
 
 # Symboldateien fliegen wieder raus: sie blähen das Setup auf und helfen nur
 # demjenigen, der ohnehin den Quelltext hat.
-Get-ChildItem -LiteralPath $PayloadDir -Recurse -File -Filter '*.pdb' |
+#
+# Die XML-Dokumentation ebenso, und dort wiegt es schwerer: Sie wird zur Laufzeit
+# von nichts gelesen - sie ist ausschliesslich für die Entwicklungsumgebung da,
+# wenn jemand diese Baugruppen als Verweis einbindet. Im Setup lag damit die
+# gesamte Dokumentation dieses Hauses beim Kunden auf der Platte, mitsamt jeder
+# Begründung, die in einem /// -Kommentar steht.
+Get-ChildItem -LiteralPath $PayloadDir -Recurse -File -Include '*.pdb', '*.xml' |
     ForEach-Object { Remove-Item -LiteralPath $_.FullName -Force }
 
 foreach ($required in @('TanssLogWatcher.exe', 'tanss-logwatch.exe')) {

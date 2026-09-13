@@ -13,9 +13,9 @@ namespace TanssLogWatcher.Monitoring.Native;
 /// Momentaufnahme aller Prozesse über <c>CreateToolhelp32Snapshot</c>.
 /// </summary>
 /// <remarks>
-/// <b>Eine Aufnahme je Durchlauf, keine WMI-Abfrage.</b> Die Vorlage fragte je überwachtem Prozess
-/// zweimal <c>win32_process</c> ab — gemessen 172 bis 220 ms je Abfrage; bei fünf überwachten
-/// Anwendungen kostete das mehr Zeit, als zwischen zwei Durchläufen vergehen sollte. Die komplette
+/// <b>Eine Aufnahme je Durchlauf, keine WMI-Abfrage.</b> Zweimal <c>win32_process</c> je
+/// überwachtem Prozess kostet gemessen 172 bis 220 ms je Abfrage; bei fünf überwachten
+/// Anwendungen ist das mehr Zeit, als zwischen zwei Durchläufen vergehen sollte. Die komplette
 /// Tabelle aus Toolhelp32 liefert dieselben Angaben in 16 bis 24 ms.
 /// </remarks>
 public sealed class ProcessSource : IProcessSource
@@ -82,9 +82,9 @@ public sealed class ProcessSource : IProcessSource
     /// </summary>
     /// <remarks>
     /// Dieses Recht genügt auch für Prozesse in fremdem Kontext und für erhöht laufende; das
-    /// weitergehende <c>PROCESS_QUERY_INFORMATION</c> der Vorlage scheiterte dort mit
-    /// „Zugriff verweigert“ und riss den ganzen Durchlauf mit. Bleibt der Zeitpunkt dennoch
-    /// verschlossen, ist <c>null</c> die ehrliche Antwort.
+    /// weitergehende <c>PROCESS_QUERY_INFORMATION</c> scheitert dort mit „Zugriff verweigert“ und
+    /// reißt den ganzen Durchlauf mit. Bleibt der Zeitpunkt dennoch verschlossen, ist <c>null</c>
+    /// die ehrliche Antwort.
     /// </remarks>
     private static DateTimeOffset? TryGetStartTime(uint processId)
     {

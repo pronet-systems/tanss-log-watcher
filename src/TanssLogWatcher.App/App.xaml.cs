@@ -16,9 +16,9 @@ namespace TanssLogWatcher.App;
 /// Einstiegspunkt der Anwendung.
 /// </summary>
 /// <remarks>
-/// <para><b>Einzelinstanz mit <c>Local\</c>-Präfix.</b> Das Original benutzte ein maschinenweites
-/// Wartehandle (<c>MachineName + GUID</c>). Auf einem Terminalserver sperrt damit der erste
-/// angemeldete Benutzer alle weiteren aus — sie starten das Werkzeug und es passiert nichts.
+/// <para><b>Einzelinstanz mit <c>Local\</c>-Präfix.</b> Ein maschinenweites Wartehandle
+/// (<c>MachineName + GUID</c>) sperrt auf einem Terminalserver mit dem ersten angemeldeten
+/// Benutzer alle weiteren aus — sie starten das Werkzeug und es passiert nichts.
 /// <c>Local\</c> bindet die Sperre an die Anmeldesitzung, wo sie hingehört: das Werkzeug ist
 /// ein Einzelarbeitsplatzwerkzeug je Benutzer, nicht je Maschine.</para>
 /// <para><b>Startargumente.</b> Neben <c>--minimized</c> nimmt der Start drei Schalter, die
@@ -107,8 +107,8 @@ public partial class App : IDisposable
         _instanceLock = new Mutex(initiallyOwned: true, InstanceName, out bool isFirstInstance);
         if (!isFirstInstance)
         {
-            // Eine zweite Instanz sagt das und geht. Das Original rief hier Activate() auf einem
-            // Fenster auf, das nie gezeigt worden war - der erneute Start wirkte folgenlos.
+            // Eine zweite Instanz sagt das und geht. Ein Activate() traefe hier ein Fenster, das
+            // nie gezeigt worden ist - der erneute Start wirkte folgenlos.
             MessageBox.Show(
                 "Der TANSS Log-Watcher läuft bereits. Das Symbol finden Sie im Infobereich "
                 + "der Taskleiste, rechts unten neben der Uhr.",
@@ -482,7 +482,7 @@ public partial class App : IDisposable
     {
         // Hier wird mit Absicht gewartet. Das geordnete Ende schliesst laufende Fernwartungen
         // ab und reiht sie ein; wer an dieser Stelle durchliefe, verlöre genau die Sitzung, die
-        // gerade noch lief - der Mangel der Vorlage, der bares Geld kostete.
+        // gerade noch lief - und das kostet bares Geld.
         try
         {
             _ = _host?.StopAsync().Wait(ShutdownGrace);

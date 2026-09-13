@@ -4,9 +4,10 @@ namespace TanssLogWatcher.Monitoring.Model;
 /// Auf welchem Weg das Ziel einer Sitzung bestimmt wird.
 /// </summary>
 /// <remarks>
-/// Die Reihenfolge ist die der Vorlage und damit Teil der gespeicherten Einstellungen:
+/// Die Zahlenwerte sind Teil der gespeicherten Einstellungen:
 /// <c>WindowTitleRegex = 0</c>, <c>WindowTitle = 1</c>, <c>RemoteHostIpConnection = 2</c>.
-/// Ein Umsortieren würde bestehende Konfigurationen still auf ein anderes Verfahren umstellen.
+/// Ein Umsortieren würde bestehende Konfigurationen still auf ein anderes Verfahren umstellen —
+/// die Zahl in der Datei bliebe dieselbe, ihre Bedeutung nicht.
 /// </remarks>
 public enum DestinationResolveMethod
 {

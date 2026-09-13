@@ -96,10 +96,9 @@ Bei Anwendungen, die über die Netzwerkverbindung erkannt werden, zählt eine Ve
 Minuten nach Prozessstart — sonst wäre jeder Aktualisierungsabruf beim Programmstart eine
 Fernwartung.
 
-**Die 36 mitgelieferten Anwendungsprofile sind ein Ausgangspunkt, keine Garantie.** Die
-Titelmuster stammen aus der Analyse einer älteren Programmfassung und wurden nicht gegen jede
-aktuelle Anwendungsversion geprüft. Ändert ein Hersteller seine Fenstertitel, greift das Muster
-nicht mehr, und es entsteht stillschweigend keine Sitzung. Dafür gibt es die Ansicht **Diagnose**
+**Die 36 mitgelieferten Anwendungsprofile sind ein Ausgangspunkt, keine Garantie.** Sie sind
+nicht gegen jede aktuelle Anwendungsversion geprüft. Ändert ein Hersteller seine Fenstertitel,
+greift das Muster nicht mehr, und es entsteht stillschweigend keine Sitzung. Dafür gibt es die Ansicht **Diagnose**
 und den Befehl `tanss-logwatch windows`: sie zeigen alle sichtbaren Fenster mit ihren echten
 Titeln, und die Muster lassen sich in der Konfiguration überschreiben.
 

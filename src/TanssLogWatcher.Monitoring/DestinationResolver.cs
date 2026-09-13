@@ -101,8 +101,8 @@ public sealed class DestinationResolver
     {
         string? pattern = setting.RegexPatternOverride ?? profile.RegexPattern;
 
-        // Ein leerer Ausdruck ist eine gueltige Einstellung — er bedeutet „ohne Muster“, und die
-        // Vorlage liefert dafuer den Platzhalter. Ein GESETZTER, aber unuebersetzbarer Ausdruck ist
+        // Ein leerer Ausdruck ist eine gueltige Einstellung — er bedeutet „ohne Muster“ und
+        // liefert dafuer den Platzhalter. Ein GESETZTER, aber unuebersetzbarer Ausdruck ist
         // dagegen ein Konfigurationsfehler; ihn wie „ohne Muster“ zu behandeln, setzte
         // MonitorOnlyRegexMatchedWindow stillschweigend ausser Kraft.
         if (!string.IsNullOrEmpty(pattern))
@@ -177,7 +177,7 @@ public sealed class DestinationResolver
 
     /// <remarks>
     /// <see cref="MonitoringProfile.MonitorOnlyMainWindowHandle"/> wirkt hier bewusst <b>nicht</b>.
-    /// Royal TS setzt die Angabe, das Original wertete sie in diesem Zweig aber nie aus; wer sie
+    /// Royal TS setzt die Angabe, in diesem Zweig wurde sie aber noch nie ausgewertet; wer sie
     /// jetzt beachtete, würde bei genau dieser Anwendung stillschweigend andere Sitzungen liefern
     /// als jede bisherige Fassung.
     /// </remarks>

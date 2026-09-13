@@ -15,12 +15,12 @@ namespace TanssLogWatcher.Monitoring.Native;
 /// Die sichtbaren Fenster der obersten Ebene über <c>EnumDesktopWindows</c>.
 /// </summary>
 /// <remarks>
-/// <para><b>Titel bleiben UTF-16.</b> Die Vorlage schickte jeden Titel durch die ANSI-Codepage des
-/// Systems mit verwerfendem Rückfall und verstümmelte damit still jeden Namen mit Zeichen
-/// außerhalb dieser Seite — ein Kundenname mit kyrillischen oder türkischen Buchstaben landete als
-/// Bruchstück in der Fernwartung. Hier bleibt, was Windows liefert.</para>
-/// <para><b>Die Länge wird erfragt, nicht geraten.</b> Die Vorlage deckelte auf 255 Zeichen und
-/// schnitt längere Titel ab.</para>
+/// <para><b>Titel bleiben UTF-16.</b> Ein Weg über die ANSI-Codepage des Systems mit verwerfendem
+/// Rückfall verstümmelt still jeden Namen mit Zeichen außerhalb dieser Seite — ein Kundenname mit
+/// kyrillischen oder türkischen Buchstaben landet dann als Bruchstück in der Fernwartung. Hier
+/// bleibt, was Windows liefert.</para>
+/// <para><b>Die Länge wird erfragt, nicht geraten.</b> Ein fester Deckel von 255 Zeichen schnitte
+/// längere Titel ab.</para>
 /// </remarks>
 public sealed class WindowSource : IWindowSource
 {
@@ -101,8 +101,8 @@ public sealed class WindowSource : IWindowSource
 
         // Der ApplicationFrameHost ist nur die Huelle einer Store-Anwendung. Findet sich dahinter
         // keine ABWEICHENDE Kennung, ist die echte Anwendung nicht bestimmbar — dann wird das
-        // Fenster verworfen. Die Vorlage gab in diesem Fall die Huellen-Kennung zurueck und ordnete
-        // damit jede Store-Anwendung demselben Prozess zu.
+        // Fenster verworfen. Die Huellen-Kennung zurueckzugeben ordnete statt dessen jede
+        // Store-Anwendung demselben Prozess zu.
         uint? hosted = TryGetHostedProcessId(handle, processId);
         if (hosted is { } hostedId)
         {
@@ -113,7 +113,7 @@ public sealed class WindowSource : IWindowSource
     /// <summary>
     /// Besitzt ein Fenster einen Besitzer, ist es ein Dialog oder ein Werkzeugfenster und niemals
     /// das Hauptfenster seines Prozesses. Genau diese Unterscheidung trifft auch
-    /// <c>Process.MainWindowHandle</c>, an dem sich die Vorlage orientierte.
+    /// <c>Process.MainWindowHandle</c>.
     /// </summary>
     private static bool IsOwnedWindow(HWND handle) =>
         !PInvoke.GetWindow(handle, GET_WINDOW_CMD.GW_OWNER).IsNull;

@@ -7,9 +7,8 @@ namespace TanssLogWatcher.Storage.Queue;
 /// Die Warteschlange noch nicht hochgeladener Fernwartungen.
 /// </summary>
 /// <remarks>
-/// <para>Der Teil, an dem das Original am deutlichsten scheitert: Es hatte gar keine
-/// Warteschlange. Ein Netzfehler kostete die Sitzung ersatzlos — kein Hinweis, kein zweiter
-/// Versuch, die Arbeit war fort.</para>
+/// <para>Ohne eine solche Warteschlange kostet ein Netzfehler die Sitzung ersatzlos — kein
+/// Hinweis, kein zweiter Versuch, die Arbeit ist fort. Deshalb gibt es sie.</para>
 ///
 /// <para><b>Sie ist der Fehlerpfad und nicht der Regelweg.</b> Das Fensterprogramm bucht eine
 /// beendete Sitzung unmittelbar aus dem Abschlussdialog heraus; hier landet sie erst, wenn das

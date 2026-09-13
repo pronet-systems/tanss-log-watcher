@@ -9,6 +9,52 @@ Die Fassungsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
+## [0.3.1] — 2026-09-13
+
+### Entfernt — die Entwicklerdokumentation wird nicht mehr ausgeliefert
+
+Das Setup enthielt sechs `.xml`-Dateien: die aus den Quelltextkommentaren erzeugte
+Dokumentation aller Baugruppen. Sie wird zur Laufzeit von nichts gelesen — sie ist
+ausschliesslich für die Entwicklungsumgebung da, wenn jemand diese Baugruppen als Verweis
+einbindet. Damit lag sie ohne Grund auf jedem Rechner, auf dem installiert wurde.
+
+Der Veröffentlichungslauf entfernt sie jetzt aus der Nutzlast, genau wie die Symboldateien;
+der Installer schliesst sie zusätzlich aus. Das Setup wird dadurch auch kleiner.
+
+### Geändert — Dokumentation und Kommentare durchgesehen
+
+Rund vierzig Stellen in Kommentaren, XML-Dokumentation und den Begleittexten sind neu
+formuliert. Die sachliche Begründung — warum der Code ist, wie er ist — steht unverändert
+dort; geändert hat sich nur, wie sie erzählt wird. Kein Verhalten ist davon berührt.
+
+### Hinzugefügt — Plakette am Block „Rechtschreibung und Ausformulieren“
+
+Auf der Seite „Einstellungen“ steht neben der Überschrift jetzt ein Wort: *eingeschaltet*,
+*gesperrt* oder *aus*. Der Satz darunter sagte dasselbe, brauchte dafür aber drei Zeilen —
+und die Frage beim Überfliegen lautet nur: an oder aus?
+
+„Gesperrt“ ist dabei etwas anderes als „aus“: Ohne Einwilligung *kann* nichts übermittelt
+werden, mit Einwilligung und abgeschalteter Unterstützung *soll* es nur gerade nicht.
+
+### Behoben — im Fenster zur Sprachmodell-Unterstützung war kein Anbieter ausgewählt
+
+Beim Öffnen stand die Auswahl leer, obwohl in der Konfiguration ein Anbieter eingetragen war.
+Beide Auswahlknöpfe hingen an demselben Wahrheitswert, einer davon über einen invertierenden
+Umsetzer; wählt WPF einen Knopf der Gruppe ab, läuft dieser Wert durch den Umsetzer zurück in
+die Quelle, und welcher Knopf zuerst gebunden wird, entscheidet über das Ergebnis. Jeder Knopf
+hat jetzt seine eigene Eigenschaft, und der Setzer handelt nur auf „angewählt“.
+
+### Geändert — das Fenster schliesst sich nach dem Speichern
+
+Aus „Schliessen“ wird **„Abbrechen“**, und **„Speichern“** schliesst das Fenster gleich mit —
+ein Klick weniger.
+
+Misslingt das Speichern, bleibt es offen und nennt den Grund. Dabei fiel auf, dass ein
+gescheitertes Schreiben der Konfigurationsdatei bisher nur eine Meldung setzte, aber nicht als
+Fehlschlag galt; das Fenster hätte sich darüber hinweg geschlossen.
+
+---
+
 ## [0.3.0] — 2026-09-13
 
 ### Geändert — „Später“ parkt, statt sofort zu senden
@@ -748,6 +794,7 @@ mehrere Arbeitstage und die Beteiligung der Mitbestimmung.
 - Der Rechte-Vorabtest für das Prägen wird nicht selbsttätig ausgeführt: Er erzeugt in TANSS
   ein echtes, nicht widerrufbares Token. Fehlt das Recht, meldet es der Versuch selbst.
 
+[0.3.1]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.1
 [0.3.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.0
 [0.2.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.2.0
 [0.1.1]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.1.1

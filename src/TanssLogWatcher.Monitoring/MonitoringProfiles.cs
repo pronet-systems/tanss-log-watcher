@@ -8,9 +8,10 @@ namespace TanssLogWatcher.Monitoring;
 /// Der feste Katalog der überwachbaren Anwendungen.
 /// </summary>
 /// <remarks>
-/// Wortgetreu aus der Vorlage übernommen, einschließlich der regulären Ausdrücke. Jedes Zeichen
-/// darin ist an einem echten Fenstertitel erprobt worden; eine Glättung ohne Gegenprobe an der
-/// jeweiligen Anwendung ändert stillschweigend, welche Sitzungen erkannt werden.
+/// An den regulären Ausdrücken wird nicht geglättet. Jedes Zeichen darin ist an einem echten
+/// Fenstertitel erprobt worden; eine Änderung ohne Gegenprobe an der jeweiligen Anwendung
+/// ändert stillschweigend, welche Sitzungen erkannt werden — und zwar ohne Fehlermeldung, denn
+/// ein Muster, das nicht greift, sieht aus wie eine Anwendung, die gerade nicht läuft.
 /// <para>Der Katalog enthält ausdrücklich auch Anwendungen, die keine Fernwartung sind — etwa
 /// Visual Studio oder eine Eingabeaufforderung. Sie sind, wie alle anderen, ab Werk abgeschaltet;
 /// erst die Zuordnung auf einen TANSS-Fernwartungstyp schaltet sie ein.</para>
@@ -25,7 +26,7 @@ public static class MonitoringProfiles
     private static readonly ReadOnlyDictionary<string, MonitoringProfile> ByKeyLookup =
         AllProfiles.ToDictionary(p => p.Key, StringComparer.Ordinal).AsReadOnly();
 
-    /// <summary>Alle Profile in der Reihenfolge der Vorlage.</summary>
+    /// <summary>Alle Profile in der Reihenfolge, in der sie hier stehen.</summary>
     public static IReadOnlyList<MonitoringProfile> All => AllProfiles;
 
     /// <summary>Alle Profile nach Schlüssel.</summary>

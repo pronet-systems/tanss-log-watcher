@@ -15,9 +15,9 @@ public static class IpFilter
     /// Prüft, ob eine Adresse in einem CIDR-Bereich liegt.
     /// </summary>
     /// <remarks>
-    /// <b>Jede Eingabe ist Benutzereingabe und daher unzuverlässig.</b> Die Vorlage griff ohne
-    /// Bereichsprüfung auf <c>bytes[prefix / 8]</c> zu; ein Tippfehler wie <c>10.0.0.0/40</c> warf
-    /// deshalb in jedem Durchlauf eine Ausnahme und legte — zusammen mit dem stummen
+    /// <b>Jede Eingabe ist Benutzereingabe und daher unzuverlässig.</b> Ein Zugriff ohne
+    /// Bereichsprüfung auf <c>bytes[prefix / 8]</c> wirft bei einem Tippfehler wie
+    /// <c>10.0.0.0/40</c> in jedem Durchlauf eine Ausnahme und legt — zusammen mit dem stummen
     /// <c>catch</c> um die Schleife — die gesamte Erkennung dauerhaft lahm. Hier gilt: alles, was
     /// nicht eindeutig passt, ergibt <c>false</c>.
     /// <para>Adressen unterschiedlicher Familien passen nie zueinander; eine IPv6-Adresse gegen

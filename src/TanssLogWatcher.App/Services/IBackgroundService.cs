@@ -120,8 +120,8 @@ public interface IBackgroundService
     /// </summary>
     /// <remarks>
     /// Geordnet heisst: Was noch offen ist, wird gesichert, nicht verworfen. Beim
-    /// Sitzungsdienst sind das die laufenden Fernwartungen — der Mangel der Vorlage, der bares
-    /// Geld kostete.
+    /// Sitzungsdienst sind das die laufenden Fernwartungen — jede verworfene kostet bares
+    /// Geld.
     /// </remarks>
     /// <param name="ct">Abbruchmarke; sie begrenzt das Warten, nicht das Aufräumen.</param>
     Task StopAsync(CancellationToken ct = default);

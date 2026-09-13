@@ -449,8 +449,8 @@ public sealed class SessionWatcherService : PeriodicService
     /// Das geordnete Ende: laufende Sitzungen abschliessen und einreihen, nicht verwerfen.
     /// </summary>
     /// <remarks>
-    /// Der Mangel der Vorlage, der bares Geld kostete. Eine Fernwartung, die beim Schliessen des
-    /// Fensters verschwindet, ist eine Stunde Arbeit, die niemand mehr belegen kann.
+    /// Hier geht es um bares Geld. Eine Fernwartung, die beim Schliessen des Fensters
+    /// verschwindet, ist eine Stunde Arbeit, die niemand mehr belegen kann.
     /// </remarks>
     protected override Task ShutdownAsync(RuntimeComposition composition)
     {

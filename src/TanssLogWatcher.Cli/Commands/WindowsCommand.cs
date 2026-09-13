@@ -36,11 +36,10 @@ public sealed record WindowsInputs
 /// Listet die sichtbaren Fenster mit allem, woran die Erkennung hängt.
 /// </summary>
 /// <remarks>
-/// <para>Im Original war diese Ansicht hinter einem Rechts-Doppelklick auf das Tray-Symbol
-/// versteckt. Sie gehört aber an die Oberfläche: Sie ist der einzige Weg, an dem ein Techniker
-/// sieht, <b>warum</b> ein Muster nicht mehr greift — ein Programm hat seinen Prozessnamen
-/// geändert, ein Fenster trägt plötzlich einen Bindestrich mehr, eine Sitzung läuft über einen
-/// Kindprozess.</para>
+/// <para>Diese Ansicht gehört an die Oberfläche und nicht in ein verstecktes Menü: Sie ist der
+/// einzige Weg, an dem ein Techniker sieht, <b>warum</b> ein Muster nicht mehr greift — ein
+/// Programm hat seinen Prozessnamen geändert, ein Fenster trägt plötzlich einen Bindestrich
+/// mehr, eine Sitzung läuft über einen Kindprozess.</para>
 /// <para><b>Fenstertitel werden hier im Klartext gezeigt.</b> Das ist kein Widerspruch zur
 /// Schwärzung im Protokoll: Der Techniker sieht seinen eigenen Bildschirm und braucht genau
 /// diesen Titel, um sein Muster zu bauen. Geschwärzt wird, was auf die Platte geht.</para>

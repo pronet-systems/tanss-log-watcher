@@ -24,8 +24,8 @@ public interface IWindowSource
 /// Liefert eine Momentaufnahme der laufenden Prozesse.
 /// </summary>
 /// <remarks>
-/// <b>Genau eine Momentaufnahme je Durchlauf.</b> Die Vorlage fragte statt dessen je überwachtem
-/// Prozess zweimal WMI ab — gemessen 172 bis 220 ms je Abfrage. Die vollständige Tabelle aus
+/// <b>Genau eine Momentaufnahme je Durchlauf.</b> Zweimal WMI je überwachtem Prozess kostet
+/// gemessen 172 bis 220 ms je Abfrage. Die vollständige Tabelle aus
 /// <c>CreateToolhelp32Snapshot</c> kostet 16 bis 24 ms und beantwortet dieselbe Frage.
 /// </remarks>
 public interface IProcessSource
@@ -45,8 +45,7 @@ public interface ITcpConnectionSource
     /// <remarks>
     /// Aussortiert werden Schleifenadressen, <c>0.0.0.0</c> und <c>255.255.255.255</c> sowie die
     /// Zustände <c>TIME_WAIT</c> und <c>CLOSE_WAIT</c>. Ohne die Zustandsprüfung hielten
-    /// nachhängende Verbindungen eine Sitzung noch Minuten nach dem Trennen am Leben — genau das
-    /// tat die Vorlage.
+    /// nachhängende Verbindungen eine Sitzung noch Minuten nach dem Trennen am Leben.
     /// </remarks>
     /// <param name="processId">Der beobachtete Prozess.</param>
     /// <param name="childIds">Dessen Kindprozesse; leer, wenn es keine gibt.</param>
@@ -57,10 +56,10 @@ public interface ITcpConnectionSource
 /// Löst Adressen rückwärts in Namen auf.
 /// </summary>
 /// <remarks>
-/// <b>Im Durchlauf wird nie gewartet.</b> Eine Rückwärtsauflösung kann sekundenlang hängen; die
-/// Vorlage tat das mitten in der Schleife und ließ dabei die gesamte Erkennung stehen. Deshalb
-/// zwei Wege: <see cref="GetCachedHostName"/> antwortet sofort und stößt im Fehlfall die Auflösung
-/// im Hintergrund an, <see cref="ResolveAsync"/> wartet tatsächlich.
+/// <b>Im Durchlauf wird nie gewartet.</b> Eine Rückwärtsauflösung kann sekundenlang hängen; mitten
+/// in der Schleife ließe sie die gesamte Erkennung stehen. Deshalb zwei Wege:
+/// <see cref="GetCachedHostName"/> antwortet sofort und stößt im Fehlfall die Auflösung im
+/// Hintergrund an, <see cref="ResolveAsync"/> wartet tatsächlich.
 /// </remarks>
 public interface IHostNameResolver
 {

@@ -10,9 +10,9 @@ namespace TanssLogWatcher.Monitoring;
 /// Rückwärtsauflösung mit Zwischenspeicher, die den Durchlauf niemals anhält.
 /// </summary>
 /// <remarks>
-/// <para>Die Vorlage rief <c>Dns.GetHostEntry</c> mitten in der Erkennungsschleife auf, ohne
-/// Zwischenspeicher und ohne Zeitgrenze. Eine einzige nicht antwortende Gegenstelle legte damit
-/// die gesamte Sitzungserkennung für Sekunden still.</para>
+/// <para>Ein <c>Dns.GetHostEntry</c> mitten in der Erkennungsschleife — ohne Zwischenspeicher,
+/// ohne Zeitgrenze — legt bei einer einzigen nicht antwortenden Gegenstelle die gesamte
+/// Sitzungserkennung für Sekunden still. Deshalb beides.</para>
 /// <para><b>Veraltete Einträge werden weiter ausgeliefert, während im Hintergrund erneuert wird.</b>
 /// Das ist Absicht: ein zwischendurch ausgefallener Namensdienst würde sonst den Zieltext ändern,
 /// und jede Änderung des Ziels ist für die Zustandsmaschine ein Ereignis.</para>

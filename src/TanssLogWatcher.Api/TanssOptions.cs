@@ -20,7 +20,7 @@ public sealed record TanssOptions
     public ProxyOptions? Proxy { get; init; }
 }
 
-/// <summary>Vorgeschalteter Proxy, wie ihn das Original ebenfalls kannte.</summary>
+/// <summary>Vorgeschalteter Proxy für Netze ohne Direktzugang nach draußen.</summary>
 public sealed record ProxyOptions
 {
     public required string Address { get; init; }

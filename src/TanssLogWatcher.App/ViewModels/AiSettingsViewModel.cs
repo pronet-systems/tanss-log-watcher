@@ -74,10 +74,41 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     }
 
     /// <summary>Ist OpenAI gewählt? Sonst gilt Anthropic.</summary>
+    /// <remarks>
+    /// Der eigentliche Zustand. <see cref="IsAnthropic"/> ist nur die andere Seite davon —
+    /// zwei Anbieter, ein Wert.
+    /// </remarks>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProviderName))]
     [NotifyPropertyChangedFor(nameof(ConsentText))]
+    [NotifyPropertyChangedFor(nameof(IsAnthropic))]
     private bool _isOpenAi;
+
+    /// <summary>Ist Anthropic gewählt?</summary>
+    /// <remarks>
+    /// <para><b>Eine eigene Eigenschaft und kein umgekehrter Umsetzer in der Bindung.</b> Im
+    /// Fenster hingen beide Auswahlknöpfe derselben Gruppe an <see cref="IsOpenAi"/>, einer
+    /// davon über einen invertierenden Umsetzer. Das ist die brüchige Bauart: Wählt WPF einen
+    /// Knopf der Gruppe ab, setzt es dessen <c>IsChecked</c> selbst auf
+    /// <see langword="false"/> — und weil <c>IsChecked</c> in beide Richtungen bindet, läuft
+    /// dieser Wert durch den Umsetzer zurück in die Quelle. Wer zuerst dran ist, entscheidet
+    /// dann über das Ergebnis.</para>
+    /// <para><b>Der Setzer handelt nur auf <see langword="true"/>.</b> Genau das nimmt der
+    /// Gruppenlogik die Wirkung: Ein Abwählen schreibt <see langword="false"/> und bleibt
+    /// folgenlos; gesetzt wird allein durch das Anwählen des anderen Knopfes. Zwei Knöpfe,
+    /// zwei Eigenschaften, ein Zustand — und keine Reihenfolge, auf die es ankäme.</para>
+    /// </remarks>
+    public bool IsAnthropic
+    {
+        get => !IsOpenAi;
+        set
+        {
+            if (value)
+            {
+                IsOpenAi = false;
+            }
+        }
+    }
 
     /// <summary>Der Name des gewählten Anbieters.</summary>
     public string ProviderName => IsOpenAi ? "OpenAI" : "Anthropic (Claude)";
@@ -449,7 +480,10 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Message = "Das Speichern ist fehlgeschlagen: " + Redaction.Scrub(ex.Message);
+            // Fail und nicht bloss Message: Daran haengt IsProblem, und daran haengt seit dem
+            // Umbau, ob sich das Fenster schliessen darf. Stuende hier nur eine Meldung, ginge
+            // der Dialog nach einem misslungenen Speichern zu und naehme den Grund mit.
+            Fail("Das Speichern ist fehlgeschlagen: " + Redaction.Scrub(ex.Message));
             return;
         }
 

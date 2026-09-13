@@ -55,7 +55,7 @@ public sealed record WatchCycleResult(int Started, int Enqueued, int Skipped);
 /// ausdrücklich auf einen Fernwartungstyp abgebildet hat.</para>
 ///
 /// <para><b>Strg-C beendet geordnet.</b> Laufende Sitzungen werden abgeschlossen und
-/// eingereiht, nicht verworfen — der Mangel der Vorlage, der bares Geld kostete. Der
+/// eingereiht, nicht verworfen — jede verworfene Sitzung kostet bares Geld. Der
 /// Abbruchweg ist deshalb kein Notausgang, sondern der vorgesehene Weg hinaus.</para>
 ///
 /// <para><b>Erst auf die Platte, dann ins Netz.</b> Eine abgeschlossene Sitzung geht in die

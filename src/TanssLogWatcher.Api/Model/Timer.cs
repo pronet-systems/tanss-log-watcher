@@ -6,9 +6,9 @@ namespace TanssLogWatcher.Api.Model;
 /// Ein TANSS-Timer.
 /// </summary>
 /// <remarks>
-/// Anders als in der Cloud des Originals gibt es <b>kein</b> Feld <c>isRunning</c>: ein Timer
-/// läuft genau dann, wenn <see cref="StartTime"/> ungleich 0 ist. Kommentare hängen nicht am
-/// Timer, sondern an seinen <see cref="Fragments"/>.
+/// Wer ein Feld <c>isRunning</c> erwartet, findet <b>keines</b>: ein Timer läuft genau dann,
+/// wenn <see cref="StartTime"/> ungleich 0 ist. Kommentare hängen nicht am Timer, sondern an
+/// seinen <see cref="Fragments"/>.
 /// </remarks>
 public sealed record TanssTimer
 {

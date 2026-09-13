@@ -56,8 +56,8 @@ namespace TanssLogWatcher.App.ViewModels;
 /// und gibt sie frei; sie geht mit der automatischen Beschreibung hinaus und bleibt in der
 /// Warteschlange sichtbar. „Verwerfen“ lässt sie verschwinden — die seltene, folgenreiche Wahl,
 /// und die einzige, die Arbeitszeit kostet; der Protokolleintrag <c>queue.discard</c> bleibt
-/// als einzige Spur. Die Vorlage kannte allein Speichern und Verwerfen, und Verwerfen löschte
-/// die Sitzung spurlos.</para>
+/// als einzige Spur. Gäbe es allein Speichern und Verwerfen, verschwände die Sitzung beim
+/// Verwerfen ganz ohne Spur.</para>
 ///
 /// <para><b>Wer gar nicht antwortet, verliert nichts.</b> Beim Schliessen des Fensters ohne
 /// Entscheidung wird die Sitzung eingereiht und wartet dort auf eine Antwort

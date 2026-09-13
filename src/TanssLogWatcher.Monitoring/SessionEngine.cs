@@ -46,8 +46,8 @@ public sealed record SessionRunResult(
 /// <para><b>Eine Sitzung ist eindeutig über (Prozesskennung, Bezeichner).</b> Das Fensterhandle
 /// dient allein der Zuordnung bei Umbenennungen.</para>
 /// <para><b>Fehler werden je Prozess eingegrenzt.</b> Ein Prozess, der mitten im Durchlauf stirbt,
-/// darf den Durchlauf nicht abbrechen — die Vorlage tat genau das und verlor damit stumm alle
-/// übrigen Sitzungswechsel.</para>
+/// darf den Durchlauf nicht abbrechen — ein Abbruch verlöre stumm alle übrigen
+/// Sitzungswechsel.</para>
 /// <para><b>Datenschutz:</b> Fenstertitel und Ziele erscheinen in keinem Protokolleintrag. Sie
 /// tragen Kundennamen, Rechnernamen und E-Mail-Betreffe.</para>
 /// </remarks>
@@ -147,8 +147,8 @@ public sealed class SessionEngine
     /// Beendet alle laufenden Sitzungen, etwa beim Herunterfahren.
     /// </summary>
     /// <remarks>
-    /// Ohne diesen Weg gingen laufende Sitzungen beim Beenden des Programms verloren — ein Mangel
-    /// der Vorlage, der bares Geld kostete.
+    /// Ohne diesen Weg gingen laufende Sitzungen beim Beenden des Programms verloren — und das
+    /// kostet bares Geld.
     /// </remarks>
     public IReadOnlyList<WatchedSession> EndAll()
     {
@@ -368,9 +368,9 @@ public sealed class SessionEngine
                              candidate.Profile, candidate.Setting, candidate.Process,
                              mainWindowHandle, processWindows, children))
                 {
-                    // Zwei Fenster mit gleichem Titel sind eine Sitzung, nicht zwei. Die Vorlage
-                    // legte hier doppelt an und fragte den Techniker zweimal nach demselben
-                    // Kommentar.
+                    // Zwei Fenster mit gleichem Titel sind eine Sitzung, nicht zwei. Ohne diese
+                    // Pruefung entstuende sie doppelt, und der Techniker wuerde zweimal nach
+                    // demselben Kommentar gefragt.
                     if (seen.Add((candidate.Process.Id, destination.IdentityKey)))
                     {
                         current.Add(new SessionCandidate(
@@ -411,17 +411,17 @@ public sealed class SessionEngine
     /// Das Hauptfenster eines Prozesses: sein erstes <b>besitzerloses</b> Fenster.
     /// </summary>
     /// <remarks>
-    /// <para>Die Vorlage nahm hier <c>Process.MainWindowHandle</c>. Dessen Auswahl überspringt
+    /// <para>Die Auswahl folgt der von <c>Process.MainWindowHandle</c>: sie überspringt
     /// besessene Fenster — Dialoge und frei schwebende Werkzeugfenster — und bleibt deshalb stabil,
     /// während sich die Z-Reihenfolge ständig ändert. Schlicht das oberste Fenster zu nehmen, machte
     /// jeden offenen Dialog zum vermeintlichen Hauptfenster und unterdrückte bei
     /// <see cref="MonitoringProfile.MonitorOnlyMainWindowHandle"/> genau das Fenster, auf das es
     /// ankommt.</para>
-    /// <para>Ein bewusster Unterschied zur Vorlage: hier zählen nur Fenster <b>mit Titel</b>, denn
+    /// <para>Mit einer bewussten Abweichung: hier zählen nur Fenster <b>mit Titel</b>, denn
     /// nur solche liefert <see cref="IWindowSource"/>. Ein Prozess, dessen besitzerloses Fenster
     /// titellos ist, hat damit kein Hauptfenster — und unterdrückt bei
-    /// <see cref="MonitoringProfile.MonitorOnlyMainWindowHandle"/> alles, genau wie die Vorlage es
-    /// mit einem nicht passenden Handle täte.</para>
+    /// <see cref="MonitoringProfile.MonitorOnlyMainWindowHandle"/> alles, genau wie es ein nicht
+    /// passendes Handle täte.</para>
     /// </remarks>
     private static nint MainWindowHandle(List<WindowInfo> processWindows)
     {

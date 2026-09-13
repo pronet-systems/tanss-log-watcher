@@ -205,7 +205,11 @@ Name: "autostart"; Description: "{cm:AutostartTask}"; GroupDescription: "{cm:Aut
 ; Der ganze Veröffentlichungsordner. Die Kommandozeile tanss-logwatch.exe
 ; liegt darin und gehört zum Werkzeug: sie macht dieselbe Arbeit ohne
 ; Oberfläche und ist das Mittel der Wahl zur Fehlersuche beim Kunden.
-Source: "{#AddBackslash(PayloadDir)}*"; DestDir: "{app}"; Excludes: "*.pdb"; Flags: ignoreversion recursesubdirs createallsubdirs
+; *.xml ist die Entwicklerdokumentation der Baugruppen. Zur Laufzeit liest sie
+; niemand; der Veröffentlichungslauf entfernt sie bereits aus der Nutzlast. Hier
+; steht sie ein zweites Mal, damit sie auch dann nicht mitgeht, wenn die Nutzlast
+; einmal anders entsteht.
+Source: "{#AddBackslash(PayloadDir)}*"; DestDir: "{app}"; Excludes: "*.pdb,*.xml"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "{#RepoRoot}\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "{#RepoRoot}\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
 

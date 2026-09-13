@@ -293,7 +293,7 @@ public sealed record SystemRow
     /// <remarks>
     /// Ein leeres Auswahlfeld sagt nicht, ob nichts zugeordnet oder nichts geladen ist. Der
     /// synthetische Eintrag mit der Kennung <see cref="MonitoringSetting.NotMonitored"/> macht
-    /// den Normalfall sichtbar; die Vorlage führte ihn aus demselben Grund.
+    /// den Normalfall sichtbar und benennt ihn.
     /// </remarks>
     public static SystemRow None { get; } = new()
     {

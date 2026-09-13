@@ -9,9 +9,9 @@ namespace TanssLogWatcher.App.Views;
 /// Der Dialog beim Sitzungsende.
 /// </summary>
 /// <remarks>
-/// <para>Drei Ausgänge statt zwei. Die Vorlage kannte nur Speichern und Verwerfen — und
-/// Verwerfen löschte die Sitzung endgültig und ohne Spur. „Später“ lässt sie statt dessen in
-/// der Warteschlange stehen, wo sie sichtbar bleibt und nachträglich zu kommentieren ist.</para>
+/// <para>Drei Ausgänge statt zwei. Gäbe es nur Speichern und Verwerfen, löschte Verwerfen die
+/// Sitzung endgültig und ohne Spur. „Später“ lässt sie statt dessen in der Warteschlange
+/// stehen, wo sie sichtbar bleibt und nachträglich zu kommentieren ist.</para>
 /// <para><b>Dieses Fenster hält die Sitzung.</b> Beim Sitzungsende entsteht seit dem Umbau
 /// KEINE Warteschlangenzeile mehr — die Warteschlange ist der Fehlerpfad und nicht mehr der
 /// Regelweg. „In TANSS buchen“ sendet unmittelbar; eingereiht wird nur, wenn das Senden

@@ -13,10 +13,10 @@ namespace TanssLogWatcher.Storage;
 /// nur eine unentschlüsselbare Datei ergeben, die Zustandsdatenbank wiederum beschreibt
 /// Vorgänge genau dieses Rechners.</para>
 ///
-/// <para><b>Bewusst kein Verzeichnis je Version.</b> Das Original legte unterhalb seines
-/// Ordners je Programmstand ein eigenes Verzeichnis an und hinterließ so vier verwaiste
-/// Ordner, von denen keiner erkennbar der gültige war. Hier gibt es genau einen Pfad je
-/// Datei, über alle Programmstände hinweg.</para>
+/// <para><b>Bewusst kein Verzeichnis je Version.</b> Ein eigenes Verzeichnis je
+/// Programmstand unterhalb des Produktordners hinterlässt nach vier Fassungen vier
+/// verwaiste Ordner, von denen keiner erkennbar der gültige ist. Hier gibt es genau einen
+/// Pfad je Datei, über alle Programmstände hinweg.</para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
 public static class StoragePaths

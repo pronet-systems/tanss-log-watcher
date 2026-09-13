@@ -64,8 +64,8 @@ public sealed record MonitoringProfile
     public IReadOnlyList<IPAddress> IgnoredIpAddresses { get; init; } = [];
 
     /// <summary>
-    /// Namensendungen, die kein Ziel ergeben. Reiner Suffixtest ohne Punktgrenze, wie in der
-    /// Vorlage: <c>wp.com</c> schließt deshalb auch <c>notwp.com</c> aus.
+    /// Namensendungen, die kein Ziel ergeben. Reiner Suffixtest ohne Punktgrenze:
+    /// <c>wp.com</c> schließt deshalb auch <c>notwp.com</c> aus.
     /// </summary>
     public IReadOnlyList<string> IgnoredDnsDomains { get; init; } = [];
 

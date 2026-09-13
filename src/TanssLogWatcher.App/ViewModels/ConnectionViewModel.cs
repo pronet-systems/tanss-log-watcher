@@ -378,6 +378,37 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
         }
     }
 
+    /// <summary>
+    /// Ein Wort für die Plakette am Block — der Satz daneben sagt das Übrige.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum ein Wort und kein Satz.</b> Der Satz steht schon darunter. Was auf einen
+    /// Blick fehlte, war die Antwort auf die eine Frage, die man beim Überfliegen hat: Ist das
+    /// an oder aus? Dafür taugt ein Satz nicht, der mit „Abgeschaltet — es liegt keine
+    /// Einwilligung vor“ beginnt und drei Zeilen läuft.</para>
+    /// <para><b>Drei Zustände und nicht zwei.</b> „Gesperrt“ ist etwas anderes als „aus“: Ohne
+    /// Einwilligung <i>kann</i> nichts übermittelt werden, mit Einwilligung und abgeschalteter
+    /// Unterstützung <i>soll</i> es nur gerade nicht. Beides zu „aus“ zusammenzuziehen
+    /// verschwiege, dass im einen Fall noch eine Entscheidung aussteht.</para>
+    /// </remarks>
+    public string AiBadgeText
+    {
+        get
+        {
+            if (Host.Config?.Ai is not { } ai)
+            {
+                return "nicht eingerichtet";
+            }
+
+            if (!ai.HasConsent)
+            {
+                return "gesperrt";
+            }
+
+            return ai.IsUsable ? "eingeschaltet" : "aus";
+        }
+    }
+
     /// <summary>Öffnet die Einstellungen zur Sprachmodell-Unterstützung.</summary>
     [RelayCommand]
     private void OpenAiSettings() => AiSettingsRequested?.Invoke(this, EventArgs.Empty);
@@ -477,6 +508,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     {
         ReadConfig();
         OnPropertyChanged(nameof(AiStateText));
+        OnPropertyChanged(nameof(AiBadgeText));
 
         // Neu LESEN und nicht das Zwischengespeicherte nehmen: Nach einer frischen Einrichtung
         // liegt ein anderes Token im Profil, aber der Tokendienst laeuft nur einmal taeglich.

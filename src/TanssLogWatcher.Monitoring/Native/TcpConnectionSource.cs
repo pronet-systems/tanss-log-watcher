@@ -12,10 +12,10 @@ namespace TanssLogWatcher.Monitoring.Native;
 /// <remarks>
 /// <para><b>Halb geschlossene Verbindungen zählen nicht.</b> <c>TIME_WAIT</c> hält eine Gegenstelle
 /// nach dem Trennen noch bis zu vier Minuten in der Tabelle, <c>CLOSE_WAIT</c> unbegrenzt lange.
-/// Die Vorlage filterte den Zustand nicht und schrieb deshalb Fernwartungen, die Minuten nach dem
-/// tatsächlichen Ende weiterliefen.</para>
-/// <para>Nur IPv4 — wie in der Vorlage. Für IPv6 wäre <c>AF_INET6</c> ein zweiter Aufruf; solange
-/// keine der überwachten Anwendungen darüber arbeitet, bleibt der Aufwand ungerechtfertigt.</para>
+/// Ohne diesen Filter entstehen Fernwartungen, die Minuten nach dem tatsächlichen Ende
+/// weiterlaufen.</para>
+/// <para>Nur IPv4. Für IPv6 wäre <c>AF_INET6</c> ein zweiter Aufruf; solange keine der
+/// überwachten Anwendungen darüber arbeitet, bleibt der Aufwand ungerechtfertigt.</para>
 /// </remarks>
 public sealed class TcpConnectionSource : ITcpConnectionSource
 {

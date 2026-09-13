@@ -59,10 +59,17 @@
                     <StackPanel design:Gap.Size="12">
                         <ui:TextBlock Text="Anbieter" FontTypography="BodyStrong" />
 
+                        <!-- Jeder Knopf an seiner EIGENEN Eigenschaft, kein invertierender
+                             Umsetzer. Hingen beide an demselben Wert, schriebe die Gruppenlogik
+                             von WPF beim Abwaehlen durch den Umsetzer in die Quelle zurueck -
+                             und welcher Knopf zuerst gebunden wird, entschiede ueber das
+                             Ergebnis. Die Begruendung steht bei AiSettingsViewModel.IsAnthropic. -->
                         <StackPanel Orientation="Horizontal" design:Gap.Size="16">
                             <RadioButton Content="Anthropic (Claude)" GroupName="Provider"
-                                         IsChecked="{Binding IsOpenAi, Converter={StaticResource InverseBool}}" />
+                                         AutomationProperties.AutomationId="AnbieterAnthropic"
+                                         IsChecked="{Binding IsAnthropic}" />
                             <RadioButton Content="OpenAI" GroupName="Provider"
+                                         AutomationProperties.AutomationId="AnbieterOpenAi"
                                          IsChecked="{Binding IsOpenAi}" />
                         </StackPanel>
 
@@ -343,9 +350,12 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
                             design:Gap.Size="8">
-                    <ui:Button Content="Schließen" Appearance="Secondary" Click="OnClose" />
+                    <ui:Button Content="Abbrechen" Appearance="Secondary"
+                               ToolTip="Schliesst das Fenster, ohne etwas zu speichern. Bereits zurückgenommene Einwilligungen bleiben zurückgenommen — die wirken sofort."
+                               Click="OnClose" />
                     <ui:Button Content="Speichern" Appearance="Primary"
                                Icon="{ui:SymbolIcon Save24}"
+                               ToolTip="Legt die Einstellungen ab und schliesst das Fenster. Misslingt das Speichern, bleibt es offen und nennt den Grund."
                                IsEnabled="{Binding CanSave}" Click="OnSave" />
                 </StackPanel>
             </Grid>

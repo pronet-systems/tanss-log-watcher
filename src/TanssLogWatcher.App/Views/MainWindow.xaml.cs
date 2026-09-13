@@ -121,7 +121,7 @@ public partial class MainWindow
     /// Das Schließen des Fensters beendet die Überwachung <b>nicht</b>, es blendet sie aus.
     /// </summary>
     /// <remarks>
-    /// Das ist bei einem Werkzeug im Infobereich üblich und entspricht dem Original. Damit
+    /// Das ist bei einem Werkzeug im Infobereich üblich und hier deshalb ebenso gehalten. Damit
     /// daraus kein verdeckter Betrieb wird, bleibt das Symbol im Infobereich sichtbar und der
     /// Menüpunkt „Beenden“ steht direkt daneben.
     /// </remarks>

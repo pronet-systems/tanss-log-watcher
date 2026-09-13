@@ -225,9 +225,9 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- „Verwerfen“ steht links und unauffällig: es ist die seltene, folgenreiche
-                     Wahl. Im Original war es gleichrangig neben dem Speichern. Nach dem
-                     Buchen ist es fort - es gäbe nichts mehr zu verwerfen, die Fernwartung
-                     steht in TANSS. -->
+                     Wahl. Gleichrangig neben dem Speichern läse sie sich wie eine Wahl unter
+                     zweien. Nach dem Buchen ist es fort - es gäbe nichts mehr zu verwerfen,
+                     die Fernwartung steht in TANSS. -->
                 <ui:Button Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,12,0"
                            Content="Verwerfen"
                            ToolTip="Entfernt den wartenden Eintrag. Die Sitzung geht nicht nach TANSS; das Verwerfen steht mit Grund im Änderungsprotokoll."

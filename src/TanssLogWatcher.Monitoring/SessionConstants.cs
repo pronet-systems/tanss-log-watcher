@@ -9,8 +9,9 @@ public static class SessionConstants
     /// mit Platzhalter nimmt später das erste echte Ziel desselben Prozesses an und behält dabei
     /// ihren Beginn. Ohne ihn ginge die Zeit zwischen Programmstart und erstem Fenstertitel
     /// verloren.
-    /// <para>Wortlaut aus der Vorlage; er wird auch in bereits hochgeladenen Kommentaren
-    /// wiedererkannt und darf deshalb nicht geändert werden.</para>
+    /// <para>Dieser Wortlaut steht bereits in hochgeladenen Kommentaren und wird dort
+    /// wiedererkannt. Er darf deshalb nicht geändert werden — eine neue Schreibweise machte
+    /// jede ältere Fernwartung unauffindbar.</para>
     /// </summary>
     public const string NoDestinationTitle = "<<< Kein Titel ermittelt >>>";
 

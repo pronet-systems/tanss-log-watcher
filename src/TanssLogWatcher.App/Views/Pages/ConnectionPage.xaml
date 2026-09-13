@@ -120,9 +120,37 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
 
-                        <ui:TextBlock Grid.Column="0" Text="Rechtschreibung und Ausformulieren"
-                                      FontTypography="BodyStrong" HorizontalAlignment="Left"
-                                      TextWrapping="Wrap" Margin="0,0,12,0" />
+                        <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                    HorizontalAlignment="Left" Margin="0,0,12,0">
+                            <ui:TextBlock Text="Rechtschreibung und Ausformulieren"
+                                          FontTypography="BodyStrong"
+                                          VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                            <!-- Die Frage beim Ueberfliegen lautet: an oder aus? Der Satz
+                                 darunter beantwortet sie auch, aber erst nach drei Zeilen.
+
+                                 Die Farbe folgt dem Zustand ueber Ausloeser und nicht ueber
+                                 einen Pinsel im Ansichtsmodell: Ein Pinsel dort waere beim
+                                 Wechsel zwischen heller und dunkler Darstellung eingefroren.
+                                 Derselbe Griff wie bei der Zustandsplakette in der Fusszeile. -->
+                            <Border VerticalAlignment="Center">
+                                <Border.Style>
+                                    <Style TargetType="Border" BasedOn="{StaticResource StatePillOnColor}">
+                                        <Setter Property="Background" Value="{DynamicResource StateIdleBrush}" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding AiBadgeText}" Value="eingeschaltet">
+                                                <Setter Property="Background" Value="{DynamicResource StateRunningBrush}" />
+                                            </DataTrigger>
+                                            <DataTrigger Binding="{Binding AiBadgeText}" Value="gesperrt">
+                                                <Setter Property="Background" Value="{DynamicResource StatePendingBrush}" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <ui:TextBlock Text="{Binding AiBadgeText}" FontSize="11" />
+                            </Border>
+                        </StackPanel>
+
                         <ui:Button Grid.Column="1" HorizontalAlignment="Right" Content="Einstellen"
                                    Icon="{ui:SymbolIcon Sparkle24}" Appearance="Secondary"
                                    Command="{Binding OpenAiSettingsCommand}" />
