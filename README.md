@@ -736,5 +736,7 @@ greift.
 
 MIT — siehe [LICENSE](LICENSE). Copyright (c) 2026 ProNet Systems GmbH.
 
-TANSS ist eine Marke der TANSS GmbH. TANSS X ist ein Produkt der COERO GmbH. Dieses Projekt steht
-in keiner Verbindung zu diesen Unternehmen und wird von ihnen weder unterstützt noch geprüft.
+TANSS ist ein Produkt der HUCK IT GmbH, Roßdorf (Amtsgericht Darmstadt, HRB 95700). Dieses
+Projekt ist ein unabhängiges Werkzeug, steht in keiner Verbindung zur HUCK IT GmbH und wird von
+ihr weder unterstützt noch geprüft. Marken gehören ihren jeweiligen Inhabern; die Nennung dient
+allein dazu, zu sagen, wofür dieses Werkzeug gemacht ist.
