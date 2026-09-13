@@ -15,13 +15,18 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,16">
-            <StackPanel HorizontalAlignment="Left">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,16,0">
                 <ui:TextBlock Text="Timer" FontTypography="Title" />
-                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left"
+                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap" HorizontalAlignment="Left"
                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                               Text="Dieselben Timer wie in TANSS. Ein Timer läuft, solange er eine Startzeit trägt — TANSS kennt nur diesen einen Umschalter." />
             </StackPanel>
-            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Top"
+            <ui:Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top"
                        Content="Neu laden" Icon="{ui:SymbolIcon ArrowSync24}" Appearance="Secondary"
                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                        Command="{Binding LoadCommand}" />
@@ -33,24 +38,52 @@
 
             <!-- Anlegen. Startzeit und Dauer setzt TANSS selbst — ein neuer Timer läuft sofort. -->
             <Border Style="{StaticResource CardBorder}">
-                <StackPanel Orientation="Horizontal" design:Gap.Size="8">
-                    <ui:TextBox Width="300" VerticalAlignment="Center"
+                <!-- Ein Raster und kein StackPanel: Die beiden Eingabefelder teilen sich,
+                     was da ist, und die Schaltfläche behält ihre Spalte. Vorher standen hier
+                     feste Breiten - bei schmalem Fenster wurde „Timer anlegen“ erst halb
+                     abgeschnitten, dann ganz verdrängt, und ein Timer war nicht mehr anzulegen.
+                     Umbrechen wäre die falsche Abhilfe gewesen: Ein Knopf, der die Zeile
+                     wechselt, ist beim nächsten Blick woanders. Statt dessen schrumpfen die
+                     Felder - bis zu ihrer MinWidth, und darunter kommt das Fenster gar nicht
+                     erst (MainWindow.MinWidth). -->
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="200" MaxWidth="300" />
+                        <ColumnDefinition Width="*" MinWidth="220" MaxWidth="360" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <ui:TextBox Grid.Column="0" Margin="0,0,8,0" VerticalAlignment="Center"
                                 PlaceholderText="Titel des neuen Timers"
                                 Text="{Binding NewTitle, UpdateSourceTrigger=PropertyChanged}" />
-                    <ui:TextBox Width="130" VerticalAlignment="Center"
-                                PlaceholderText="Ticket (optional)"
-                                Icon="{ui:SymbolIcon Tag24}"
-                                Text="{Binding NewTicket, UpdateSourceTrigger=PropertyChanged}" />
-                    <ui:Button Content="Timer anlegen" Icon="{ui:SymbolIcon Add24}"
+                    <!-- Auswahl statt Zahlenfeld: Hier stand eine freie Eingabe, die jede
+                         Zahl annahm - auch eine, zu der es kein Ticket gibt. Die Liste kommt
+                         vom Server und enthält nur OFFENE Tickets des Technikers. -->
+                    <ComboBox Grid.Column="1" Margin="0,0,8,0" VerticalAlignment="Center"
+                              IsEditable="True" IsTextSearchEnabled="True"
+                              TextSearch.TextPath="Display"
+                              DisplayMemberPath="Display"
+                              ItemsSource="{Binding Tickets}"
+                              SelectedItem="{Binding SelectedTicket, Mode=TwoWay}"
+                              ToolTip="Tippen sucht in Nummer und Titel. Leer lassen für einen Timer ohne Ticket." />
+                    <ui:Button Grid.Column="2" Content="Timer anlegen" Icon="{ui:SymbolIcon Add24}"
                                Appearance="Primary" VerticalAlignment="Center"
                                IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                                Command="{Binding CreateCommand}" />
-                </StackPanel>
+                </Grid>
             </Border>
+
+            <ui:TextBlock Text="{Binding TicketHint}" FontSize="11" Margin="0,6,0,0"
+                          TextWrapping="Wrap" HorizontalAlignment="Left"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
         </StackPanel>
 
-        <ItemsControl Grid.Row="2" ItemsSource="{Binding Timers}"
-                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+        <!-- Die Rollfläche gehört hierher und nicht an das ItemsControl: Dessen Vorlage enthält
+             keine, die angehängte Eigenschaft lief deshalb ins Leere. Bei mehr Timern, als auf
+             die Seite passen, waren die unteren schlicht nicht erreichbar - kein Bildlauf, kein
+             Hinweis, sie waren einfach weg. -->
+        <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+        <ItemsControl ItemsSource="{Binding Timers}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <Border Style="{StaticResource CardBorder}" Margin="0,0,0,10">
@@ -104,10 +137,17 @@
                                           Text="{Binding ElapsedText}" FontSize="22"
                                           Style="{StaticResource TabularText}" />
 
-                            <!-- Die Notizfläche ist entfallen: Sie hatte keine Wirkung, und eine
-                                 Schaltfläche, die nichts tut, ist schlimmer als keine. -->
+                            <!-- Buchen steht vor Löschen und trägt Text: Es ist der Weg, den
+                                 ein Timer normalerweise nimmt. Löschen bleibt ein Symbol - die
+                                 erfasste Zeit ist danach weg. -->
                             <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center"
                                         design:Gap.Size="4">
+                                <ui:Button Content="Leistung" Icon="{ui:SymbolIcon ClipboardTextEdit24}"
+                                           Appearance="Secondary"
+                                           ToolTip="Aus diesem Timer eine Leistung in TANSS machen — mit einer Beschreibung je Zeitabschnitt"
+                                           Command="{Binding DataContext.BookCommand,
+                                                     RelativeSource={RelativeSource AncestorType=Page}}"
+                                           CommandParameter="{Binding}" />
                                 <ui:Button Icon="{ui:SymbolIcon Delete24}" Appearance="Transparent"
                                            ToolTip="Timer in TANSS löschen — erfasste Zeit ist danach weg"
                                            Command="{Binding DataContext.DeleteCommand,
@@ -119,5 +159,6 @@
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>
+        </ScrollViewer>
     </Grid>
 </Page>

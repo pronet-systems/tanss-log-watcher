@@ -189,6 +189,15 @@ public sealed record UploadRunResult
     /// <summary>Wie viele Einträge aus „unterwegs“ zurückgeholt wurden.</summary>
     public int Requeued { get; init; }
 
+    /// <summary>
+    /// Wie viele zurückgehaltene Einträge auf Befehl vorgezogen wurden.
+    /// </summary>
+    /// <remarks>
+    /// Nur bei „Jetzt senden“ von Hand. Der Takt zieht nichts vor — die Schonfrist ist genau
+    /// dafür da, dass der Abschlussdialog in Ruhe fertig geschrieben werden kann.
+    /// </remarks>
+    public int Released { get; init; }
+
     /// <summary>Wie viele Einträge versucht wurden.</summary>
     public int Attempted { get; init; }
 
@@ -208,14 +217,39 @@ public sealed record UploadRunResult
     public IReadOnlyList<UploadReport> Reports { get; init; } = [];
 
     /// <summary>Ein Satz für die Statuszeile.</summary>
-    public string Summary => Attempted == 0
-        ? (Requeued > 0
-            ? string.Create(CultureInfo.CurrentCulture,
-                $"Nichts fällig. {Requeued} Eintrag/Einträge wurden zurückgeholt.")
-            : "Nichts fällig.")
-        : string.Create(CultureInfo.CurrentCulture,
-            $"{Attempted} versucht: {Uploaded} hochgeladen, {AlreadyPresent} standen bereits "
-            + $"in TANSS, {Deferred} zurückgestellt, {GivenUp} aufgegeben.");
+    /// <remarks>
+    /// <b>„Nichts fällig“ ist der gefährlichste Satz hier.</b> Er stand auch dann da, wenn die
+    /// Warteschlange daneben „1 ausstehend“ zeigte — und liess die Schaltfläche „Jetzt senden“
+    /// wie kaputt aussehen. Er darf deshalb nur noch erscheinen, wenn tatsächlich nichts
+    /// dasteht; wartet etwas, sagt der Satz, worauf.
+    /// </remarks>
+    public string Summary
+    {
+        get
+        {
+            if (Attempted > 0)
+            {
+                return string.Create(CultureInfo.CurrentCulture,
+                    $"{Attempted} versucht: {Uploaded} hochgeladen, {AlreadyPresent} standen "
+                    + $"bereits in TANSS, {Deferred} zurückgestellt, {GivenUp} aufgegeben.");
+            }
+
+            if (Released > 0)
+            {
+                // Freigegeben, aber nichts versucht: Der Eintrag ist zwischen Freigabe und
+                // Zugriff von jemand anderem geholt worden - ein zweiter Lauf, ein zweites
+                // Fenster. Sagen, was gemessen wurde, und nicht, was plausibel klingt.
+                return string.Create(CultureInfo.CurrentCulture,
+                    $"{Released} zurückgehaltene(r) Eintrag/Einträge wurden freigegeben, gingen "
+                    + $"aber in diesem Lauf nicht hinaus. Der nächste Versuch folgt sofort.");
+            }
+
+            return Requeued > 0
+                ? string.Create(CultureInfo.CurrentCulture,
+                    $"Nichts fällig. {Requeued} Eintrag/Einträge wurden zurückgeholt.")
+                : "Nichts fällig.";
+        }
+    }
 }
 
 /// <summary>Der Stand des Arbeitstokens.</summary>

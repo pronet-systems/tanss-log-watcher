@@ -16,7 +16,7 @@ namespace TanssLogWatcher.App.ViewModels;
 /// ist, wäre eine zweite Zustandsmaschine neben der, die es schon gibt — mit der Aussicht, dass
 /// beide irgendwann Verschiedenes für richtig halten.</para>
 ///
-/// <para><b>Die Dauer tickt im eigenen Takt.</b> Die Beobachtung meldet alle zehn Sekunden; eine
+/// <para><b>Die Dauer tickt im eigenen Takt.</b> Die Beobachtung meldet in ihrem eigenen; eine
 /// Dauer, die nur dann weiterspränge, sähe aus wie eine stehengebliebene Anzeige. Der Takt hier
 /// rechnet bloß die vorhandenen Zeilen neu und fragt nichts ab.</para>
 /// </remarks>
@@ -25,6 +25,16 @@ public sealed partial class SessionsViewModel : RuntimeViewModel
 {
     private readonly SystemLookup _systems;
     private readonly DispatcherTimer _ticker;
+
+    /// <summary>
+    /// Wann der Aufwand zuletzt in den Satz über der Liste übernommen wurde.
+    /// </summary>
+    /// <remarks>
+    /// Im Sekundentakt käme jede Sekunde eine neue Zahl — „29 ms“, „31 ms“, „28 ms“ —, und ein
+    /// Satz, in dem ohne Zutun dauernd etwas zappelt, zieht den Blick auf die unwichtigste
+    /// Stelle der Seite. Alle fünf Sekunden reicht für die Frage, die der Wert beantwortet.
+    /// </remarks>
+    private DateTimeOffset _cadenceShownAt = DateTimeOffset.MinValue;
 
     /// <summary>Baut die Seite und meldet sich an der Beobachtung an.</summary>
     /// <param name="host">Die Laufzeit.</param>
@@ -37,6 +47,7 @@ public sealed partial class SessionsViewModel : RuntimeViewModel
         _isWatching = host.Sessions.IsEnabled;
 
         host.Sessions.ActiveSessionsChanged += OnActiveSessionsChanged;
+        host.Sessions.ActivityChanged += OnActivityChanged;
 
         _ticker = new DispatcherTimer(DispatcherPriority.Background)
         {
@@ -71,6 +82,41 @@ public sealed partial class SessionsViewModel : RuntimeViewModel
     public bool IsEmpty => Sessions.Count == 0;
 
     /// <summary>
+    /// Der Satz über der Liste: in welchem Takt geprüft wird und was ein Durchlauf kostet.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Beide Zahlen kommen von dort, wo sie entstehen.</b> Hier stand fest eingebaut
+    /// „Alle 10 Sekunden geprüft“. Das war schon falsch, sobald jemand
+    /// <c>watcher.poll_interval_seconds</c> anfasste — und niemand hätte es bemerkt, weil der
+    /// Satz ja weiterhin dastand.</para>
+    /// <para>Die gemessene Dauer steht daneben, weil sie die einzige Antwort auf die Frage ist,
+    /// ob der gewählte Takt auf diesem Rechner trägt.</para>
+    /// </remarks>
+    public string CadenceText
+    {
+        get
+        {
+            TimeSpan interval = Host.Config is { } config
+                ? TimeSpan.FromSeconds(config.Watcher.PollIntervalSeconds)
+                : TimeSpan.Zero;
+
+            string cadence = interval <= TimeSpan.Zero
+                ? "Noch nicht eingerichtet — es wird nichts geprüft."
+                : interval == TimeSpan.FromSeconds(1)
+                    ? "Jede Sekunde geprüft."
+                    : $"Alle {Texts.Seconds(interval)} geprüft.";
+
+            string cost = Host.Sessions.Activity.LastCycle is { } last
+                ? $" Der letzte Durchlauf dauerte {Texts.Millis(last)}."
+                : string.Empty;
+
+            return cadence + cost
+                + " Eine Sitzung endet, wenn das Fenster schließt — dann wird nach Kommentar "
+                + "und Ticket gefragt.";
+        }
+    }
+
+    /// <summary>
     /// Holt den Stand neu.
     /// </summary>
     /// <remarks>
@@ -91,6 +137,7 @@ public sealed partial class SessionsViewModel : RuntimeViewModel
     {
         OnPropertyChanged(nameof(IsDryRun));
         OnPropertyChanged(nameof(DryRunReason));
+        OnPropertyChanged(nameof(CadenceText));
 
         // Mit einer frisch geladenen Konfiguration stehen auch die Anbindungen wieder zur
         // Verfuegung - vorher gab es keinen Zugang, ueber den sie zu holen gewesen waeren.
@@ -105,12 +152,38 @@ public sealed partial class SessionsViewModel : RuntimeViewModel
             _ticker.Stop();
             _ticker.Tick -= OnTick;
             Host.Sessions.ActiveSessionsChanged -= OnActiveSessionsChanged;
+            Host.Sessions.ActivityChanged -= OnActivityChanged;
         }
 
         base.Dispose(disposing);
     }
 
     partial void OnIsWatchingChanged(bool value) => Host.Sessions.IsEnabled = value;
+
+    /// <summary>
+    /// Übernimmt den gemessenen Aufwand des letzten Durchlaufs in den Satz über der Liste.
+    /// </summary>
+    /// <remarks>
+    /// Der Dienst meldet zweimal je Takt — „Arbeitet“ und danach den Stand. Nur der zweite
+    /// trägt einen Messwert; der erste würde die Anzeige bei jedem Takt kurz leeren.
+    /// </remarks>
+    private void OnActivityChanged(object? sender, Services.ServiceActivity activity)
+    {
+        if (activity.LastCycle is null)
+        {
+            return;
+        }
+
+        DateTimeOffset now = Host.Clock.GetLocalNow();
+
+        if (now - _cadenceShownAt < TimeSpan.FromSeconds(5))
+        {
+            return;
+        }
+
+        _cadenceShownAt = now;
+        OnPropertyChanged(nameof(CadenceText));
+    }
 
     private async Task InitializeAsync()
     {

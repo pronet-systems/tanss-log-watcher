@@ -10,31 +10,40 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,16">
-            <StackPanel HorizontalAlignment="Left">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,16,0">
                 <ui:TextBlock Text="Sichtbare Fenster" FontTypography="Title" />
-                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left"
+                <ui:TextBlock Margin="0,4,0,0" TextWrapping="Wrap" HorizontalAlignment="Left"
                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                               Text="Das Werkzeug zum Nachsehen, warum eine Anwendung nicht erkannt wird. Ändert ein Hersteller seine Fenstertitel, steht hier der neue Titel — und das Muster lässt sich danach anpassen." />
             </StackPanel>
-            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Top"
+            <ui:Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top"
                        Content="Aktualisieren" Icon="{ui:SymbolIcon ArrowSync24}" Appearance="Secondary"
                        Command="{Binding RefreshCommand}" />
         </Grid>
 
+        <!-- Eigene Zeilen statt eines gemeinsamen Feldes mit festem Rand: Der Satz oben
+             bricht um, je schmaler das Fenster wird, und schob sich dabei unter die
+             Hinweisleiste. Eine Auto-Zeile wächst mit, ein Margin nicht. -->
         <ui:TextBlock Grid.Row="1" Text="{Binding Summary}" TextWrapping="Wrap"
                       Margin="0,0,0,12" HorizontalAlignment="Left"
                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
-        <ui:InfoBar Grid.Row="1" Margin="0,26,0,16" VerticalAlignment="Bottom"
+        <ui:InfoBar Grid.Row="2" Margin="0,0,0,16"
                     Severity="Informational" IsOpen="True" IsClosable="False"
                     Title="Fenstertitel verlassen diesen Rechner nicht"
                     Message="Sie werden nur angezeigt und, wo die Einstellung es verlangt, im lokalen Protokoll durch einen Abdruck ersetzt. Was in TANSS landet, ist allein das Ziel der erkannten Sitzung." />
 
-        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

@@ -92,22 +92,38 @@ public sealed partial class MonitoringViewModel : RuntimeViewModel
             return;
         }
 
-        // Was diese Seite nicht anfasst, bleibt erhalten: Ausschlusslisten und eigene
-        // Titelmuster stehen in derselben Regel und wuerden sonst beim ersten Umstellen eines
-        // Auswahlfelds stillschweigend verschwinden.
+        // Was diese Seite nicht anfasst, bleibt erhalten: eigene Titelmuster stehen in
+        // derselben Regel und wuerden sonst beim ersten Umstellen eines Auswahlfelds
+        // stillschweigend verschwinden.
         Dictionary<string, MonitoringEntry> previous = current.Monitoring
             .ToDictionary(e => e.Key, e => e, StringComparer.OrdinalIgnoreCase);
 
-        List<MonitoringEntry> entries = Profiles
-            .Where(p => p.IsMapped)
-            .Select(p => previous.TryGetValue(p.Key, out MonitoringEntry? old)
-                ? old with { RemoteSupportTypeId = p.SelectedSystem!.Id }
+        List<MonitoringEntry> entries = [];
+
+        foreach (MappingRow profile in Profiles.Where(p => p.IsMapped))
+        {
+            // Geprueft wird vor dem ersten Schreibzugriff und ueber alle Zeilen hinweg: Eine
+            // halb geschriebene Datei mit einer gueltigen und einer fehlerhaften Regel waere
+            // beim naechsten Laden komplett ungueltig - auch die Zeilen, an denen niemand war.
+            if (!TrySplitExcludes(profile, out IReadOnlyList<string> excludes, out string? problem))
+            {
+                Message = problem;
+                return;
+            }
+
+            entries.Add(previous.TryGetValue(profile.Key, out MonitoringEntry? old)
+                ? old with
+                {
+                    RemoteSupportTypeId = profile.SelectedSystem!.Id,
+                    ExcludeIpAddresses = excludes,
+                }
                 : new MonitoringEntry
                 {
-                    Key = p.Key,
-                    RemoteSupportTypeId = p.SelectedSystem!.Id,
-                })
-            .ToList();
+                    Key = profile.Key,
+                    RemoteSupportTypeId = profile.SelectedSystem!.Id,
+                    ExcludeIpAddresses = excludes,
+                });
+        }
 
         if (entries.Count == 0)
         {
@@ -133,6 +149,36 @@ public sealed partial class MonitoringViewModel : RuntimeViewModel
             ? string.Create(CultureInfo.CurrentCulture,
                 $"Gespeichert. {entries.Count} Anwendung(en) werden ab sofort beobachtet.")
             : "Gespeichert, aber das Neuladen ist fehlgeschlagen. Die Meldung steht unter „Verbindung“.";
+    }
+
+    /// <summary>
+    /// Zerlegt die Eingabe einer Zeile in geprüfte Ausschlüsse.
+    /// </summary>
+    /// <remarks>
+    /// Geprüft wird mit <see cref="IpRange.TrySplit"/> — derselben Prüfung, die auch
+    /// <see cref="ConfigValidator"/> beim Laden über jeden Eintrag laufen lässt. Täte diese
+    /// Seite es lockerer, liesse sie eine Datei entstehen, die beim nächsten Start als ungültig
+    /// zurückkommt: gespeichert, aber unbrauchbar — und der Fehler stünde dann an einer Stelle,
+    /// an der niemand mehr an dieses Feld denkt.
+    /// </remarks>
+    /// <param name="row">Die Zeile mit der Eingabe.</param>
+    /// <param name="excludes">Die geprüften Einträge; leer, wenn etwas nicht stimmt.</param>
+    /// <param name="problem">Was nicht stimmt, oder eine leere Zeichenkette.</param>
+    /// <returns><c>true</c>, wenn jeder Eintrag lesbar war.</returns>
+    private static bool TrySplitExcludes(MappingRow row, out IReadOnlyList<string> excludes,
+                                         out string problem)
+    {
+        if (IpRange.TrySplit(row.ExcludedIps, IpFilter.ExcludeSeparator, out excludes,
+                             out string? invalid))
+        {
+            problem = string.Empty;
+            return true;
+        }
+
+        problem = $"„{invalid}“ bei {row.Application} ist weder Adresse noch Netz. "
+            + "Erwartet wird eine einzelne Adresse (10.0.0.5) oder ein Netz in "
+            + "CIDR-Schreibweise (10.0.0.0/8), mehrere davon durch Semikolon getrennt.";
+        return false;
     }
 
     /// <inheritdoc />
@@ -170,7 +216,10 @@ public sealed partial class MonitoringViewModel : RuntimeViewModel
             {
                 selected = Systems.FirstOrDefault(s => s.Id == entry.RemoteSupportTypeId)
                     ?? SystemRow.None;
-                excluded = string.Join(' ', entry.ExcludeIpAddresses);
+                // Dasselbe Trennzeichen wie in der Eingabe - was hier steht, muss sich
+                // unveraendert zurueckschreiben lassen.
+                excluded = string.Join(
+                    $"{IpFilter.ExcludeSeparator} ", entry.ExcludeIpAddresses);
             }
 
             MappingRow row = new(setting.Key, profile?.TypeDescription ?? setting.Key, selected,

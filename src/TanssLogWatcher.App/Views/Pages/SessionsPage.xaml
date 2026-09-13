@@ -17,16 +17,21 @@
 
         <!-- Kopf -->
         <Grid Grid.Row="0" Margin="0,0,0,16">
-            <StackPanel HorizontalAlignment="Left">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,16,0">
                 <ui:TextBlock Text="Laufende Sitzungen" FontTypography="Title" />
                 <ui:TextBlock Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                              Text="Alle 10 Sekunden geprüft. Eine Sitzung endet, wenn das Fenster schließt — dann wird nach Kommentar und Ticket gefragt."
-                              TextWrapping="Wrap" MaxWidth="640" HorizontalAlignment="Left"
+                              Text="{Binding CadenceText}"
+                              TextWrapping="Wrap" HorizontalAlignment="Left"
                               Margin="0,4,0,0" />
             </StackPanel>
 
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" VerticalAlignment="Top"
-                        design:Gap.Size="8">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Top" design:Gap.Size="8">
                 <ui:Button Content="Jetzt prüfen" Icon="{ui:SymbolIcon ArrowSync24}"
                            Appearance="Secondary" Command="{Binding RefreshCommand}" />
                 <ui:ToggleSwitch Content="Überwachung aktiv" VerticalAlignment="Center"
@@ -54,6 +59,11 @@
         </StackPanel>
 
         <!-- Liste -->
+        <!-- Keine waagerechte Rollfläche: Eine Spalte mit Width="*" wird darin mit
+             unbegrenzter Breite gemessen und nimmt sich, was ihr Inhalt wünscht - die Tabelle
+             rollte dann bei JEDER Fenstergröße, auch bei einer sehr breiten. Die Breite regelt
+             statt dessen MainWindow.MinWidth: Das Fenster lässt sich gar nicht erst so schmal
+             ziehen, dass hier etwas abgeschnitten würde. -->
         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
             <Grid>
                 <Grid.RowDefinitions>

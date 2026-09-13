@@ -37,6 +37,16 @@ public sealed record AppConfig
     /// </remarks>
     public AiSection Ai { get; init; } = new();
 
+    /// <summary>
+    /// Bildschirmaufzeichnung der Fernwartungssitzungen. Standardmässig abgeschaltet.
+    /// </summary>
+    /// <remarks>
+    /// Abgeschaltet, bis jemand sie ausdrücklich einschaltet und die Kenntnisnahme erteilt.
+    /// Das ist dieselbe Haltung wie bei <see cref="Ai"/>: Eine Funktion, die personenbezogene
+    /// Daten erzeugt, geht nicht von selbst an.
+    /// </remarks>
+    public RecordingSection Recording { get; init; } = new();
+
     /// <summary>Zugang zur TANSS-Instanz des Kunden.</summary>
     public required TanssSection Tanss { get; init; }
 
@@ -149,11 +159,16 @@ public sealed record WatcherSection
     /// Abstand zwischen zwei Durchläufen in Sekunden.
     /// </summary>
     /// <remarks>
-    /// Die Sitzungsgrenzen werden aus Momentaufnahmen abgeleitet; der Takt ist damit die
-    /// Messgenauigkeit von Beginn und Ende. Zehn Sekunden sind der Ausgleich zwischen
-    /// Genauigkeit und dem Aufwand, die Prozessliste zu durchmustern.
+    /// <para>Die Sitzungsgrenzen werden aus Momentaufnahmen abgeleitet; der Takt ist damit die
+    /// Messgenauigkeit von Beginn und Ende. Eine Sekunde heisst: Das Ende einer Fernwartung wird
+    /// spätestens eine Sekunde nach dem Schliessen des Fensters bemerkt, und der Abschlussdialog
+    /// geht auf, solange der Techniker noch davorsitzt. Bei zehn Sekunden — der früheren
+    /// Voreinstellung — war er oft schon weitergezogen.</para>
+    /// <para>Was der Takt kostet, steht nicht hier, sondern auf der Diagnoseseite: Sie zeigt die
+    /// gemessene Dauer des letzten Durchlaufs. Bleibt sie deutlich unter dem Takt, ist er
+    /// tragbar; nähert sie sich ihm, gehört der Wert hier heraufgesetzt.</para>
     /// </remarks>
-    public int PollIntervalSeconds { get; init; } = 10;
+    public int PollIntervalSeconds { get; init; } = 1;
 
     /// <summary>
     /// Wie lange eine verschwundene Verbindung zu derselben Gegenstelle noch als dieselbe
@@ -346,4 +361,135 @@ public sealed record AiSection
     /// </remarks>
     [JsonIgnore]
     public bool IsUsable => Enabled && HasConsent && !string.IsNullOrWhiteSpace(Model);
+}
+
+/// <summary>
+/// Bildschirmaufzeichnung der Fernwartungssitzungen.
+/// </summary>
+/// <remarks>
+/// <para><b>Warum das schärfer geregelt ist als alles andere in dieser Datei.</b> Eine
+/// Aufzeichnung zeigt den Bildschirm des Kunden — mit dessen Daten und den Daten Dritter — und
+/// den Bildschirm des Technikers, was Leistungs- und Verhaltenskontrolle im Sinne von
+/// §87 Abs. 1 Nr. 6 BetrVG ist. Deshalb genügt hier kein Schalter: Es braucht eine
+/// Kenntnisnahme, und die ist nur gültig, wenn die Grundlage benannt ist.</para>
+///
+/// <para><b>Die Löschfrist ist ein Versprechen, kein Vorschlag.</b> Sie steht hier in Tagen;
+/// der tatsächliche Löschzeitpunkt einer einzelnen Aufzeichnung wird beim Abschluss daraus
+/// berechnet und festgeschrieben. Wer die Frist später verkürzt, verkürzt auch die
+/// bestehenden; wer sie verlängert, verlängert die bestehenden <b>nicht</b> — ein gegebenes
+/// Versprechen wird nicht nachträglich gedehnt.</para>
+/// </remarks>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record RecordingSection
+{
+    /// <summary>Der vorgegebene Aufbewahrungszeitraum in Tagen.</summary>
+    /// <remarks>
+    /// Dreissig Tage sind die Voreinstellung, weil eine Fernwartung üblicherweise binnen eines
+    /// Monats beanstandet wird — danach überwiegt das Interesse an der Löschung. Der Wert ist
+    /// eine Voreinstellung und keine Empfehlung: Was zulässig ist, ergibt sich aus dem
+    /// Vertrag mit dem Kunden, nicht aus dieser Zahl.
+    /// </remarks>
+    public const int DefaultRetentionDays = 30;
+
+    /// <summary>Soll überhaupt aufgezeichnet werden?</summary>
+    public bool Enabled { get; init; }
+
+    /// <summary>
+    /// Wohin die Aufzeichnungen gehen; leer heisst: der vorgesehene Ort im Profil.
+    /// </summary>
+    /// <remarks>
+    /// Ein eigener Ort ist der Normalfall — Videodateien gehören selten auf dieselbe Platte
+    /// wie das Betriebssystem. Gelöscht wird ausschliesslich unterhalb dieses Ordners, und
+    /// zwar nur, was das Werkzeug selbst angelegt hat.
+    /// </remarks>
+    public string Directory { get; init; } = string.Empty;
+
+    /// <summary>Nach wie vielen Tagen eine Aufzeichnung gelöscht wird.</summary>
+    public int RetentionDays { get; init; } = DefaultRetentionDays;
+
+    /// <summary>
+    /// Wie viele Bilder je Sekunde höchstens aufgezeichnet werden.
+    /// </summary>
+    /// <remarks>
+    /// <para>Vier, und die Zahl folgt dem Zweck. Belegt werden soll, welcher Bildschirmzustand
+    /// bestand, während der Techniker handelte — nicht, wie sich die Maus bewegte. Der
+    /// kleinste belegenswerte Zustand ist einer, den ein Mensch lesen und auf den er reagieren
+    /// kann; Dialoge und Bestätigungsabfragen stehen Sekunden. Bei vier Bildern je Sekunde
+    /// liegt jeder Zustand ab einer Viertelsekunde in mindestens einem Bild.</para>
+    /// <para>Flüssige Mausbewegung bräuchte das Vier- bis Achtfache an Daten für eine
+    /// Information, die die Frage „was wurde getan“ nicht anders beantwortet.</para>
+    /// </remarks>
+    public int FramesPerSecond { get; init; } = 4;
+
+    /// <summary>
+    /// Nach wie vielen Sekunden ohne Bildänderung trotzdem ein Bild geschrieben wird.
+    /// </summary>
+    /// <remarks>
+    /// Ein stehender Bildschirm liefert keine Bilder; ohne diesen Herzschlag hätte die Datei
+    /// an dieser Stelle eine Lücke und der Abspieler spränge darüber hinweg. Zwei Sekunden
+    /// kosten bei stehendem Bild fast nichts und halten die Zeitachse ehrlich.
+    /// </remarks>
+    public int HeartbeatSeconds { get; init; } = 2;
+
+    /// <summary>Nach wie vielen Minuten eine neue Datei begonnen wird.</summary>
+    /// <remarks>
+    /// Eine lange Fernwartung in einer einzigen Datei ist beim ersten Fehler ganz verloren —
+    /// ohne Abschluss gibt es keinen Index und damit nichts Abspielbares. Abschnitte begrenzen
+    /// den Schaden auf den letzten angefangenen.
+    /// </remarks>
+    public int SegmentMinutes { get; init; } = 10;
+
+    /// <summary>
+    /// Unterhalb wie vieler freier Megabyte nicht mehr aufgezeichnet wird.
+    /// </summary>
+    /// <remarks>
+    /// Eine volle Platte ist schlimmer als eine fehlende Aufzeichnung: Sie nimmt auch der
+    /// Warteschlange den Platz, und die trägt die Arbeitszeit. Die Aufzeichnung tritt deshalb
+    /// zurück, bevor es eng wird, und sagt es.
+    /// </remarks>
+    public int MinimumFreeMegabytes { get; init; } = 2048;
+
+    /// <summary>Wann die Kenntnisnahme erteilt wurde; <c>null</c> heisst: gar nicht.</summary>
+    public string? AcknowledgedAt { get; init; }
+
+    /// <summary>Der Windows-Benutzer, der die Kenntnisnahme erteilt hat.</summary>
+    public string? AcknowledgedBy { get; init; }
+
+    /// <summary>
+    /// Die Rechtsgrundlage für die Aufzeichnung des Technikerbildschirms.
+    /// </summary>
+    /// <remarks>
+    /// Bewusst ohne Vorbelegung. Eine vorausgefüllte Rechtsgrundlage wäre eine Behauptung des
+    /// Werkzeugs über einen Sachverhalt, den nur der Betrieb kennt — etwa das Bestehen einer
+    /// Betriebsvereinbarung. Hier steht, was jemand ausgewählt und verantwortet hat.
+    /// </remarks>
+    public string? LegalBasis { get; init; }
+
+    /// <summary>
+    /// Der Beleg: Betriebsvereinbarung, Beschluss, Vertragsnummer — was auch immer trägt.
+    /// </summary>
+    /// <remarks>
+    /// Freitext, weil kein Werkzeug wissen kann, wie der Beleg im jeweiligen Haus heisst.
+    /// Er muss vorhanden sein, damit die Kenntnisnahme zählt: Eine Kenntnisnahme ohne
+    /// benannte Grundlage ist ein Haken, kein Nachweis.
+    /// </remarks>
+    public string? LegalReference { get; init; }
+
+    /// <summary>Liegt eine erteilte Kenntnisnahme vor?</summary>
+    [JsonIgnore]
+    public bool HasAcknowledgement => !string.IsNullOrWhiteSpace(AcknowledgedAt);
+
+    /// <summary>
+    /// Darf tatsächlich aufgezeichnet werden?
+    /// </summary>
+    /// <remarks>
+    /// Die einzige Stelle, an der diese Frage beantwortet wird — wie
+    /// <see cref="AiSection.IsUsable"/>. Vier Bedingungen: eingeschaltet, Kenntnisnahme
+    /// erteilt, Rechtsgrundlage benannt, Beleg benannt.
+    /// </remarks>
+    [JsonIgnore]
+    public bool IsUsable => Enabled
+        && HasAcknowledgement
+        && !string.IsNullOrWhiteSpace(LegalBasis)
+        && !string.IsNullOrWhiteSpace(LegalReference);
 }

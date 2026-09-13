@@ -1,0 +1,7 @@
+EnumWindows
+GetWindowThreadProcessId
+IsWindowVisible
+IsIconic
+GetWindowRect
+DwmGetWindowAttribute
+DWMWINDOWATTRIBUTE

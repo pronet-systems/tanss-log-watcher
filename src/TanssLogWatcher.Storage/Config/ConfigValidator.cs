@@ -60,6 +60,7 @@ public static class ConfigValidator
         CheckMonitoring(config.Monitoring, problems);
         CheckProxy(config.Proxy, problems);
         CheckLogging(config.Logging, problems);
+        CheckRecording(config.Recording, problems);
         return problems;
     }
 
@@ -300,6 +301,85 @@ public static class ConfigValidator
 
         RequireRange(problems, "logging.retention_days", logging.RetentionDays, 1, 3650,
             "0 löschte das Protokoll sofort und nähme jeder Rückfrage die Grundlage.");
+    }
+
+    /// <summary>
+    /// Prüft den Abschnitt zur Bildschirmaufzeichnung.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Geprüft wird auch, was abgeschaltet ist.</b> Ein unsinniger Wert in einem
+    /// ruhenden Abschnitt fällt sonst erst an dem Tag auf, an dem jemand die Aufzeichnung
+    /// einschaltet — und das ist selten ein guter Tag dafür.</para>
+    /// <para><b>Die Kenntnisnahme wird hier nicht verlangt.</b> Ob aufgezeichnet werden darf,
+    /// beantwortet <see cref="RecordingSection.IsUsable"/> und sonst niemand. Diese Prüfung
+    /// sagt nur, ob die Datei in sich stimmig ist — eine Konfiguration ohne Kenntnisnahme ist
+    /// vollkommen gültig, sie zeichnet eben nicht auf.</para>
+    /// </remarks>
+    /// <param name="recording">Der Abschnitt.</param>
+    /// <param name="problems">Die Sammelliste der Beanstandungen.</param>
+    private static void CheckRecording(RecordingSection recording, List<string> problems)
+    {
+        RequireRange(problems, "recording.retention_days", recording.RetentionDays, 1, 3650,
+            "0 löschte die Aufzeichnung noch am selben Tag und machte sie damit wertlos; "
+            + "zehn Jahre sind die äusserste Grenze, oberhalb derer keine Aufbewahrung mehr "
+            + "zu rechtfertigen wäre.");
+
+        RequireRange(problems, "recording.frames_per_second", recording.FramesPerSecond, 1, 15,
+            "Unter einem Bild je Sekunde entgehen Dialoge, die nur kurz stehen. Über fünfzehn "
+            + "wächst allein die Datei — die Frage „was wurde getan“ beantwortet eine höhere "
+            + "Bildrate nicht besser.");
+
+        RequireRange(problems, "recording.heartbeat_seconds", recording.HeartbeatSeconds, 1, 60,
+            "Ohne Herzschlag bekäme ein stehender Bildschirm keine Zeitachse, und der "
+            + "Abspieler spränge über die Stille hinweg. Länger als eine Minute wäre keine "
+            + "Zeitachse mehr, sondern eine Andeutung.");
+
+        RequireRange(problems, "recording.segment_minutes", recording.SegmentMinutes, 1, 120,
+            "Abschnitte begrenzen den Schaden eines Absturzes auf den letzten angefangenen. "
+            + "Zwei Stunden in einer Datei sind zwei Stunden, die bei einem Fehler ganz "
+            + "verloren sind.");
+
+        RequireRange(problems, "recording.minimum_free_megabytes",
+            recording.MinimumFreeMegabytes, 128, 1_048_576,
+            "Eine volle Platte nimmt auch der Warteschlange den Platz, und die trägt die "
+            + "Arbeitszeit. Die Aufzeichnung muss vorher zurücktreten.");
+
+        if (recording.HeartbeatSeconds * recording.FramesPerSecond < 1)
+        {
+            problems.Add(
+                "recording.heartbeat_seconds und recording.frames_per_second passen nicht "
+                + "zusammen: Der Herzschlag müsste häufiger kommen als die Bildrate überhaupt "
+                + "zulässt.");
+        }
+
+        // Die Kenntnisnahme ist kein Pflichtfeld - aber eine halb ausgefuellte ist ein Nachweis,
+        // der im Ernstfall nichts belegt. Entweder ganz oder gar nicht.
+        bool anyLegal = !string.IsNullOrWhiteSpace(recording.AcknowledgedAt)
+            || !string.IsNullOrWhiteSpace(recording.AcknowledgedBy)
+            || !string.IsNullOrWhiteSpace(recording.LegalBasis)
+            || !string.IsNullOrWhiteSpace(recording.LegalReference);
+
+        bool allLegal = !string.IsNullOrWhiteSpace(recording.AcknowledgedAt)
+            && !string.IsNullOrWhiteSpace(recording.AcknowledgedBy)
+            && !string.IsNullOrWhiteSpace(recording.LegalBasis)
+            && !string.IsNullOrWhiteSpace(recording.LegalReference);
+
+        if (anyLegal && !allLegal)
+        {
+            problems.Add(
+                "recording: Die Kenntnisnahme ist unvollständig. Zeitpunkt, Person, "
+                + "Rechtsgrundlage und Beleg gehören zusammen — eine Kenntnisnahme ohne "
+                + "benannte Grundlage ist ein Haken und kein Nachweis. Entweder alle vier "
+                + "Angaben oder keine.");
+        }
+
+        if (recording.Directory.Length > 0 && !Path.IsPathFullyQualified(recording.Directory))
+        {
+            problems.Add(
+                $"recording.directory: „{recording.Directory}“ ist kein vollständiger Pfad. "
+                + "Ein relativer Pfad zeigte je nach Startverzeichnis woandershin — und "
+                + "gelöscht wird später ausschliesslich unterhalb dieses Ordners.");
+        }
     }
 
     private static void RequireRange(List<string> problems, string field, int value,

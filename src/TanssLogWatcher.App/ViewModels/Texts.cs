@@ -116,4 +116,35 @@ internal static class Texts
 
     /// <summary>Eine Zahl ohne Begleitwort, in der Kultur der Anzeige.</summary>
     public static string Number(int value) => value.ToString(CultureInfo.CurrentCulture);
+
+    /// <summary>Ein Takt in Sekunden oder Minuten, je nachdem, was sich besser liest.</summary>
+    /// <param name="value">Die Spanne.</param>
+    public static string Seconds(TimeSpan value)
+    {
+        if (value < TimeSpan.FromMinutes(1))
+        {
+            return Count((int)Math.Round(value.TotalSeconds), "Sekunde", "Sekunden");
+        }
+
+        return Count((int)Math.Round(value.TotalMinutes), "Minute", "Minuten");
+    }
+
+    /// <summary>
+    /// Eine gemessene Dauer, fein genug für einen einzelnen Durchlauf.
+    /// </summary>
+    /// <remarks>
+    /// Unter einer Sekunde in Millisekunden, darüber mit einer Nachkommastelle in Sekunden. Ein
+    /// Durchlauf, der „0 Sekunden“ dauert, sagt nichts; „14 ms“ sagt alles, was man wissen will.
+    /// </remarks>
+    /// <param name="value">Die gemessene Dauer.</param>
+    public static string Millis(TimeSpan value)
+    {
+        if (value < TimeSpan.FromSeconds(1))
+        {
+            return string.Create(CultureInfo.CurrentCulture,
+                $"{(int)Math.Round(value.TotalMilliseconds)} ms");
+        }
+
+        return string.Create(CultureInfo.CurrentCulture, $"{value.TotalSeconds:0.0} s");
+    }
 }

@@ -42,7 +42,7 @@
                         <StackPanel design:Gap.Size="12">
                             <StackPanel>
                                 <ui:TextBlock Text="Basisadresse" FontWeight="SemiBold" />
-                                <ui:TextBlock FontSize="11" Margin="0,2,0,4"
+                                <ui:TextBlock FontSize="11" Margin="0,2,0,4" TextWrapping="Wrap"
                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                               Text="Muss auf /backend enden — sonst zeigt sie auf die Weboberfläche statt auf die Schnittstelle." />
                                 <ui:TextBox Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}"
@@ -61,7 +61,7 @@
 
                             <StackPanel>
                                 <ui:TextBlock Text="Zweiter Faktor" FontWeight="SemiBold" />
-                                <ui:TextBlock FontSize="11" Margin="0,2,0,4"
+                                <ui:TextBlock FontSize="11" Margin="0,2,0,4" TextWrapping="Wrap"
                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                               Text="Leer lassen, wenn die Instanz keinen verlangt." />
                                 <ui:TextBox Text="{Binding TwoFactorToken, UpdateSourceTrigger=PropertyChanged}" />
@@ -146,12 +146,22 @@
                 Background="{DynamicResource LayerFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0" Padding="24,12">
+            <!-- Zwei Spalten: Links und rechts lagen im selben Gitterfeld, nur durch
+                 HorizontalAlignment getrennt. Wird die Fussleiste schmal, schiebt sich die
+                 rechte Gruppe ueber die linke und verdeckt sie - sie steht in der Kinderliste
+                 hinten und liegt damit obenauf. -->
             <Grid>
-                <ui:ProgressRing HorizontalAlignment="Left" VerticalAlignment="Center"
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ui:ProgressRing Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center"
                                  Width="20" Height="20" IsIndeterminate="True"
                                  Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" design:Gap.Size="8">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                            design:Gap.Size="8">
                     <ui:Button Content="Abbrechen" Appearance="Secondary" Click="OnCancel" />
 
                     <ui:Button Content="Anmelden und prüfen" Appearance="Primary"

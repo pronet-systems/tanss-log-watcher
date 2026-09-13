@@ -12,7 +12,7 @@ wissen muss, bevor man etwas ändert — vor allem die zwei Stellen, an denen ei
 
 | | |
 |---|---|
-| Betriebssystem | Windows 10 oder 11. Die Überwachung ist Win32, das Zielframework `net10.0-windows`. |
+| Betriebssystem | Windows 10 oder 11. Die Überwachung ist Win32, das Zielframework `net10.0-windows10.0.26100.0` bei `SupportedOSPlatformVersion` 10.0.19041.0 — das versionierte Ziel verlangt die WinRT-Projektion der Bildschirmaufzeichnung, die Untergrenze hält die Zusage auf Windows 10. |
 | SDK | .NET 10 |
 | Für das Setup | Inno Setup 6 (`winget install JRSoftware.InnoSetup`) — nur, wer ein Setup packen will |
 | TANSS-Instanz | **nicht nötig.** Die Testsuite läuft ohne Netz und ohne Zugangsdaten. |

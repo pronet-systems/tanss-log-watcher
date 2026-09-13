@@ -115,6 +115,15 @@
                               Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
             </StackPanel>
 
+            <!-- Der halbfertige Zustand: Einwilligung erteilt, Unterstützung aber aus. Ohne
+                 diesen Satz fehlen die Schaltflächen oben wortlos, und das sieht aus wie ein
+                 Fehler. Ohne Einwilligung steht hier nichts - dann ist auch nichts zu
+                 erwarten. -->
+            <ui:TextBlock Text="{Binding AiHint}" FontSize="11" TextWrapping="Wrap"
+                          Margin="0,10,0,0" HorizontalAlignment="Left"
+                          Visibility="{Binding HasAiHint, Converter={StaticResource BoolToVis}}"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
             <ui:TextBlock Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Left"
                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                           Text="Dieser Text steht anschließend als Kommentar an der Fernwartung in TANSS. Fenstertitel sind bewusst nicht enthalten — sie tragen Kundennamen und E-Mail-Betreffe." />
@@ -131,13 +140,24 @@
                 Background="{DynamicResource LayerFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0">
+            <!-- Zwei Spalten: Links und rechts lagen im selben Gitterfeld, nur durch
+                 HorizontalAlignment getrennt. Wird die Fussleiste schmal, schiebt sich die
+                 rechte Gruppe ueber die linke und verdeckt sie - sie steht in der Kinderliste
+                 hinten und liegt damit obenauf. -->
             <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
                 <!-- „Verwerfen“ steht links und unauffällig: es ist die seltene, folgenreiche
                      Wahl. Im Original war es gleichrangig neben dem Speichern. -->
-                <ui:Button HorizontalAlignment="Left" Content="Verwerfen"
+                <ui:Button Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,12,0"
+                           Content="Verwerfen"
                            Appearance="Transparent" Command="{Binding DiscardCommand}" />
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" design:Gap.Size="8">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                            design:Gap.Size="8">
                     <ui:Button Content="Später" Appearance="Secondary"
                                Command="{Binding LaterCommand}" />
                     <ui:Button Content="In TANSS buchen" Appearance="Primary"

@@ -96,9 +96,18 @@ public sealed class UploadService : PeriodicService
     /// Sendet sofort, statt auf den nächsten Takt zu warten.
     /// </summary>
     /// <remarks>
-    /// Für die Schaltfläche „Jetzt senden“. Läuft über dieselbe Sperre wie der Takt: Zwei
+    /// <para>Für die Schaltfläche „Jetzt senden“. Läuft über dieselbe Sperre wie der Takt: Zwei
     /// gleichzeitige Läufe teilten sich zwar die Einträge sauber auf, würden aber beide den
-    /// Rückstau desselben misslungenen Eintrags fortschreiben.
+    /// Rückstau desselben misslungenen Eintrags fortschreiben.</para>
+    ///
+    /// <para><b>Von Hand heisst jetzt.</b> Zurückgehaltene Einträge werden vorher freigegeben —
+    /// sonst tut diese Schaltfläche buchstäblich nichts, solange die fünf Minuten Schonfrist für
+    /// den Abschlussdialog laufen oder ein Rückstau nach einem Fehlversuch steht. Genau so war
+    /// es: „1 ausstehend“ daneben, ein Klick, und die Meldung „Nichts fällig“ — nicht zu
+    /// unterscheiden von einer kaputten Schaltfläche.</para>
+    ///
+    /// <para>Der Takt tut das <b>nicht</b>. Die Schonfrist hat ihren Sinn, solange niemand
+    /// ausdrücklich etwas anderes verlangt; der Klick ist dieses Verlangen.</para>
     /// </remarks>
     /// <param name="ct">Abbruchmarke.</param>
     public async Task<UploadRunResult> FlushNowAsync(CancellationToken ct = default)
@@ -108,7 +117,43 @@ public sealed class UploadService : PeriodicService
             return UploadRunResult.None;
         }
 
-        return await FlushAsync(composition, ct).ConfigureAwait(false);
+        int released = ReleaseHeld(composition);
+        UploadRunResult result = await FlushAsync(composition, ct).ConfigureAwait(false);
+
+        return result with { Released = released };
+    }
+
+    /// <summary>
+    /// Zieht alle zurückgehaltenen Einträge auf jetzt vor.
+    /// </summary>
+    /// <remarks>
+    /// Hausregel 5: Misslingt es, ist das kein Grund, den Sendelauf ausfallen zu lassen — er
+    /// nimmt dann eben nur das mit, was ohnehin fällig war.
+    /// </remarks>
+    /// <param name="composition">Die Bausteine.</param>
+    /// <returns>Wie viele Einträge vorgezogen wurden.</returns>
+    private int ReleaseHeld(RuntimeComposition composition)
+    {
+        DateTimeOffset now = Context.Clock.GetUtcNow();
+        int released = 0;
+
+        try
+        {
+            foreach (QueuedUpload item in composition.Queue.List(QueueState.Pending).Items)
+            {
+                if (item.NextAttemptAt > now && composition.Queue.Release(item.RemoteMaintenanceId))
+                {
+                    released++;
+                }
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Der Lauf selbst meldet gleich, wenn die Warteschlange nicht lesbar ist.
+            _ = ex;
+        }
+
+        return released;
     }
 
     /// <summary>Erhebt den Stand der Warteschlange und meldet ihn.</summary>

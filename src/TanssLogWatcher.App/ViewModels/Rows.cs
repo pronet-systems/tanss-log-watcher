@@ -100,7 +100,8 @@ public sealed record QueueRow
     /// <summary>Baut eine Zeile aus einem Warteschlangeneintrag.</summary>
     /// <param name="item">Der Eintrag.</param>
     /// <param name="typeName">Der sprechende Name des Fernwartungstyps, falls bekannt.</param>
-    public QueueRow(QueuedUpload item, string? typeName)
+    /// <param name="now">Der Bezugszeitpunkt für „wartet bis“.</param>
+    public QueueRow(QueuedUpload item, string? typeName, DateTimeOffset now)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -131,6 +132,18 @@ public sealed record QueueRow
                 QueueState.Failed => "aufgegeben",
                 _ => item.State.ToString(),
             };
+
+        // Der Grund, warum "Jetzt senden" scheinbar nichts tat: Der Eintrag stand als
+        // "ausstehend" da, war aber zurueckgehalten - und nirgends stand, bis wann.
+        IsHeld = item.State == QueueState.Pending && item.NextAttemptAt > now;
+
+        HoldText = IsHeld
+            ? (item.Attempts == 0
+                ? $"Zurückgehalten bis {Texts.Clock(item.NextAttemptAt.ToLocalTime())} — "
+                  + "Zeit für den Abschlussbericht. „Jetzt senden“ zieht ihn vor."
+                : $"Rückstau nach einem Fehlversuch, nächster Versuch um "
+                  + $"{Texts.Clock(item.NextAttemptAt.ToLocalTime())}. „Jetzt senden“ zieht ihn vor.")
+            : string.Empty;
     }
 
     /// <summary>Die Kennung des Eintrags.</summary>
@@ -150,6 +163,12 @@ public sealed record QueueRow
 
     /// <summary>Der Zustand als Plakettentext.</summary>
     public string StateText { get; }
+
+    /// <summary>Wird dieser Eintrag gerade zurückgehalten?</summary>
+    public bool IsHeld { get; }
+
+    /// <summary>Warum und bis wann er zurückgehalten wird; leer, wenn er es nicht wird.</summary>
+    public string HoldText { get; }
 }
 
 /// <summary>Ein Timer aus TANSS, wie eine Zeile ihn zeigt.</summary>
@@ -222,6 +241,42 @@ public sealed partial class TimerRow : ObservableObject
         return string.Create(CultureInfo.CurrentCulture,
             $"{(int)clamped.TotalHours:00}:{clamped.Minutes:00}:{clamped.Seconds:00}");
     }
+}
+
+/// <summary>Ein Ticket, wie eine Auswahl es zeigt.</summary>
+/// <remarks>
+/// <b>Es gibt keine Zeile „kein Ticket“ mit der Kennung 0.</b> Wer keines will, wählt nichts —
+/// und ein leeres Auswahlfeld sagt dasselbe, ohne dass eine erfundene Kennung durch den Code
+/// wandert. Anders als bei den Fernwartungsanbindungen, wo „nicht überwachen“ eine echte
+/// Einstellung ist und deshalb eine eigene Zeile bekommt.
+/// </remarks>
+public sealed record TicketRow
+{
+    /// <summary>Baut eine Zeile aus einem Ticket.</summary>
+    /// <param name="ticket">Das Ticket aus TANSS.</param>
+    public TicketRow(Ticket ticket)
+    {
+        ArgumentNullException.ThrowIfNull(ticket);
+
+        Id = ticket.Id;
+        Title = string.IsNullOrWhiteSpace(ticket.Title) ? "Ohne Titel" : ticket.Title.Trim();
+    }
+
+    /// <summary>Die Ticketnummer.</summary>
+    public int Id { get; }
+
+    /// <summary>Der Titel.</summary>
+    public string Title { get; }
+
+    /// <summary>Nummer und Titel, wie sie im Auswahlfeld stehen.</summary>
+    /// <remarks>
+    /// Die Nummer vorn: Danach wird gesucht, und danach fragt der Kunde. Die Suche des
+    /// Auswahlfelds läuft über diesen Text, also über beides — Nummer und Titel.
+    /// </remarks>
+    public string Display => string.Create(CultureInfo.CurrentCulture, $"#{Id} — {Title}");
+
+    /// <inheritdoc />
+    public override string ToString() => Display;
 }
 
 /// <summary>Eine Fernwartungsanbindung aus TANSS.</summary>

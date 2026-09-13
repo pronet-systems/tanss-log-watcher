@@ -86,6 +86,51 @@ public sealed class IpRange : IEquatable<IpRange>
         return true;
     }
 
+    /// <summary>
+    /// Zerlegt eine getrennte Liste und prüft <b>jeden</b> Eintrag für sich.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Jeder Eintrag einzeln, und beim ersten Fehler Schluss.</b> Eine Liste wie
+    /// <c>10.0.0.0/8; 192.168.0.999; 172.16.0.0/12</c> darf nicht zu zwei übernommenen und
+    /// einem verworfenen Netz führen: Der Benutzer sähe zwei Drittel seiner Eingabe
+    /// wiederkehren und hielte das für vollständig. Entweder die ganze Liste ist lesbar, oder
+    /// es wird nichts übernommen und der schuldige Eintrag benannt.</para>
+    /// <para>Leere Abschnitte fallen weg. Wer eine Liste tippt, setzt gewohnheitsmässig ein
+    /// Trennzeichen hinter den letzten Eintrag; daraus einen Fehler zu machen wäre Schikane.</para>
+    /// <para>Der Rückgabewert ist die getrimmte Ursprungsschreibweise, nicht der geparste
+    /// Bereich: In <c>config.json</c> soll stehen, was der Benutzer eingetragen hat —
+    /// <c>192.168.1.7/24</c> und nicht das daraus maskierte <c>192.168.1.0/24</c>.</para>
+    /// </remarks>
+    /// <param name="text">Die Liste; <c>null</c> oder leer ergibt eine leere Liste.</param>
+    /// <param name="separator">Das Trennzeichen, üblicherweise das Semikolon.</param>
+    /// <param name="entries">Die geprüften Einträge; leer, wenn einer nicht lesbar war.</param>
+    /// <param name="invalid">Der erste unlesbare Eintrag, oder <c>null</c>.</param>
+    /// <returns><c>true</c>, wenn jeder Eintrag eine Adresse oder ein Netz ist.</returns>
+    public static bool TrySplit(string? text, char separator,
+                                out IReadOnlyList<string> entries,
+                                [NotNullWhen(false)] out string? invalid)
+    {
+        List<string> parsed = [];
+
+        foreach (string part in (text ?? string.Empty).Split(
+                     separator,
+                     StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (!TryParse(part, out _))
+            {
+                entries = [];
+                invalid = part;
+                return false;
+            }
+
+            parsed.Add(part);
+        }
+
+        entries = parsed;
+        invalid = null;
+        return true;
+    }
+
     /// <summary>Liegt <paramref name="address"/> in diesem Bereich?</summary>
     public bool Contains(IPAddress? address)
     {

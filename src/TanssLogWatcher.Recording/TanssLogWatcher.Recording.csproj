@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <!--
+      Das versionierte Windows-Ziel ist keine Geschmacksfrage: Die WinRT-Projektion
+      (Windows.Graphics.Capture) kommt ausschliesslich ueber einen versionierten Moniker.
+      Gemessen: net10.0-windows allein kennt GraphicsCaptureSession nicht.
+
+      26100 statt 19041, weil IsBorderRequired erst ab dem Windows-11-Vertrag in der Projektion
+      steht - gemessen: bei 19041 meldet die Reflexion die Eigenschaft als nicht vorhanden,
+      bei 22621 und hoeher als vorhanden.
+
+      SupportedOSPlatformVersion bleibt bei 19041, weil die README Windows 10 zusagt. Die Folge
+      ist gewollt: Der Analysator CA1416 verlangt an jeder neueren Schnittstelle eine
+      Laufzeitpruefung, und genau die brauchen wir - zwei Eigenschaften werfen auf Build 22631
+      nachweislich eine InvalidCastException, obwohl sie in der Projektion stehen.
+    -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
+    <Platforms>x64</Platforms>
+    <RootNamespace>TanssLogWatcher.Recording</RootNamespace>
+    <!-- Die erzeugten Aufrufe arbeiten mit Zeigern; dieselbe Einstellung wie im
+         Ueberwachungsprojekt. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.183">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+</Project>

@@ -541,14 +541,38 @@ public sealed class SessionWatcherService : PeriodicService
     }
 
     /// <summary>Tauscht die Liste der laufenden Sitzungen und meldet sie.</summary>
+    /// <summary>
+    /// Übernimmt den Stand und meldet ihn — aber nur, wenn er ein anderer ist.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Vergleich ist die Voraussetzung für den Sekundentakt.</b> Die Ansicht
+    /// ersetzt ihre Liste bei jeder Meldung vollständig; eine Meldung je Takt hiesse also, die
+    /// Zeilen jede Sekunde neu aufzubauen — sichtbar als Flackern, und die Auswahl wäre nach
+    /// jedem Takt weg. Bei zehn Sekunden fiel das kaum auf, bei einer Sekunde sofort.</para>
+    /// <para>Der Vergleich ist zulässig, weil <see cref="SessionSnapshot"/> ein
+    /// <c>record</c> ist und alle angezeigten Angaben trägt. Die Dauer gehört ausdrücklich
+    /// nicht dazu: Sie läuft in der Ansicht in deren eigenem Takt weiter und braucht dafür
+    /// keine Meldung von hier.</para>
+    /// </remarks>
+    /// <param name="sessions">Der neue Stand.</param>
     private void SetActive(IReadOnlyList<SessionSnapshot> sessions)
     {
+        bool changed;
+
         lock (_activeGate)
         {
-            _active.Clear();
-            _active.AddRange(sessions);
+            changed = !_active.SequenceEqual(sessions);
+
+            if (changed)
+            {
+                _active.Clear();
+                _active.AddRange(sessions);
+            }
         }
 
-        Context.Notifier.Raise(ActiveSessionsChanged, this, sessions);
+        if (changed)
+        {
+            Context.Notifier.Raise(ActiveSessionsChanged, this, sessions);
+        }
     }
 }

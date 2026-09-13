@@ -56,6 +56,19 @@ public sealed record ServiceActivity
 
     /// <summary>Die letzte Fehlermeldung, bereits geschwärzt; <c>null</c>, wenn es keine gibt.</summary>
     public string? LastError { get; init; }
+
+    /// <summary>
+    /// Wie lange der letzte Takt gebraucht hat; <c>null</c>, solange keiner gelaufen ist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gemessen und nicht geschätzt. Die Beobachtung läuft im Sekundentakt, und ob das auf
+    /// einem bestimmten Rechner trägt, ist keine Frage der Meinung: Liegt die Dauer deutlich
+    /// unter dem Takt, ist Luft; nähert sie sich ihm, folgt ein Takt dem anderen ohne Pause, und
+    /// <c>watcher.poll_interval_seconds</c> gehört heraufgesetzt.</para>
+    /// <para>Die Diagnoseseite zeigt den Wert, damit diese Entscheidung an einer Zahl hängt und
+    /// nicht am Gefühl.</para>
+    /// </remarks>
+    public TimeSpan? LastCycle { get; init; }
 }
 
 /// <summary>

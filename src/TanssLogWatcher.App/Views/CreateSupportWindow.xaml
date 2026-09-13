@@ -1,0 +1,133 @@
+<ui:FluentWindow x:Class="TanssLogWatcher.App.Views.CreateSupportWindow"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+                Title="Leistung aus Timer"
+                Width="700" Height="760"
+                MinWidth="520" MinHeight="480"
+                WindowStartupLocation="CenterScreen"
+                WindowBackdropType="Mica"
+                ExtendsContentIntoTitleBar="True"
+                WindowCornerPreference="Round">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ui:TitleBar Grid.Row="0" Title="Leistung aus Timer" ShowMaximize="False">
+            <ui:TitleBar.Icon>
+                <ui:SymbolIcon Symbol="ClipboardTextEdit24" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
+
+        <StackPanel Grid.Row="1" Margin="24,8,24,0">
+            <ui:TextBlock Text="{Binding TimerTitle}" FontTypography="Title" TextWrapping="Wrap" />
+            <ui:TextBlock Text="{Binding Summary}" TextWrapping="Wrap" Margin="0,4,0,16"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+            <!-- Text und Ticket der Leistung. Nicht in der Abschnittsliste, weil sie für die
+                 ganze Leistung gelten und nicht für einen ihrer Teile. -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,16">
+                <StackPanel>
+                    <ui:TextBlock Text="LEISTUNG" FontSize="11" Margin="0,0,0,6"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBox PlaceholderText="Was insgesamt geleistet wurde"
+                                TextWrapping="Wrap" AcceptsReturn="True" MinHeight="60"
+                                Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <!-- Beschriftung fest, Auswahl dehnbar: So bleibt beides in einer Zeile,
+                         auch wenn das Fenster schmal gezogen wird. -->
+                    <Grid Margin="0,10,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" MaxWidth="420" />
+                        </Grid.ColumnDefinitions>
+
+                        <ui:TextBlock Grid.Column="0" Text="Ticket" VerticalAlignment="Center"
+                                      Margin="0,0,8,0" MinWidth="60"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ComboBox Grid.Column="1" HorizontalAlignment="Left" MinWidth="240"
+                                  VerticalAlignment="Center"
+                                  IsEditable="True" IsTextSearchEnabled="True"
+                                  TextSearch.TextPath="Display" DisplayMemberPath="Display"
+                                  ItemsSource="{Binding Tickets}"
+                                  SelectedItem="{Binding SelectedTicket, Mode=TwoWay}"
+                                  ToolTip="Leer lassen für eine Leistung ohne Ticket." />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
+            <ui:TextBlock Text="ZEITABSCHNITTE — JEDER EINZELN BESCHRIEBEN" FontSize="11"
+                          Margin="0,0,0,6"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <!-- Ein Abschnitt je Start-Stopp-Paar des Timers. Die Gliederung kommt von TANSS und
+             wird hier nicht erfunden: Was der Techniker als getrennte Arbeitsschritte erfasst
+             hat, bleibt getrennt. -->
+        <ScrollViewer Grid.Row="2" Margin="24,0,24,0" VerticalScrollBarVisibility="Auto">
+            <ItemsControl ItemsSource="{Binding Segments}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Border Style="{StaticResource CardBorder}" Margin="0,0,0,8">
+                            <StackPanel>
+                                <!-- Raster statt waagerechter Reihe: Ein StackPanel misst seine
+                                     Kinder mit unbegrenzter Breite, TextWrapping lief darin ins
+                                     Leere und die lange Form („… gemessen, … abgerechnet“) wurde
+                                     rechts abgeschnitten. -->
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <Border Grid.Column="0" CornerRadius="4" Padding="6,1"
+                                            Margin="0,0,8,0" VerticalAlignment="Center"
+                                            Background="{DynamicResource ControlFillColorDefaultBrush}">
+                                        <ui:TextBlock Text="{Binding Number}" FontSize="11"
+                                                      Style="{StaticResource TabularText}" />
+                                    </Border>
+                                    <ui:TextBlock Grid.Column="1" Text="{Binding TimeText}" FontSize="12"
+                                                  VerticalAlignment="Center" TextWrapping="Wrap"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                </Grid>
+                                <ui:TextBox PlaceholderText="Was in diesem Abschnitt getan wurde"
+                                            TextWrapping="Wrap" AcceptsReturn="True" MinHeight="52"
+                                            Text="{Binding Text, UpdateSourceTrigger=PropertyChanged}" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <Border Grid.Row="3" Padding="24,16" Margin="0,8,0,0"
+                Background="{DynamicResource LayerFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="0,1,0,0">
+            <StackPanel>
+                <ui:InfoBar Severity="Informational" IsClosable="False" Margin="0,0,0,12"
+                            IsOpen="{Binding HasMessage}"
+                            Title="Leistung"
+                            Message="{Binding Message}" />
+
+                <!-- Rechts und allein: Buchen ist der folgenreiche Weg, und eine gebuchte
+                     Leistung ist nur noch in TANSS zu berichtigen. -->
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                            design:Gap.Size="8">
+                    <ui:Button Content="Abbrechen" Appearance="Secondary"
+                               Command="{Binding CancelCommand}" />
+                    <ui:Button Content="Leistung buchen" Appearance="Primary"
+                               Icon="{ui:SymbolIcon Save24}"
+                               IsEnabled="{Binding CanBook}"
+                               Command="{Binding BookCommand}" />
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Grid>
+</ui:FluentWindow>

@@ -1,5 +1,7 @@
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Windows;
+using System.Windows.Threading;
 using TanssLogWatcher.App.ViewModels;
 using TanssLogWatcher.App.Views.Pages;
 
@@ -43,8 +45,55 @@ public partial class MainWindow
             ViewModel ??= new ShellViewModel(App.Runtime);
             DataContext = ViewModel;
 
-            _ = Navigation.Navigate(page);
+            ShowStartPage(page);
         };
+    }
+
+    /// <summary>
+    /// Öffnet die Startseite — und gibt nicht auf, wenn der erste Versuch zu früh kommt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Rückgabewert war das Problem.</b> Hier stand <c>_ = Navigation.Navigate(page)</c>.
+    /// Die Navigationsleiste löst das Ziel über ihre Einträge auf; sind die beim Auslösen von
+    /// <see cref="FrameworkElement.Loaded"/> noch nicht aufgebaut, findet sie nichts, meldet
+    /// <see langword="false"/> — und wählt anschliessend von sich aus den letzten Eintrag.
+    /// Das Werkzeug startete dann auf „Verbindung“ statt auf den Sitzungen, und weil der
+    /// Rückgabewert weggeworfen wurde, sah es aus wie eine Design-Entscheidung.</para>
+    ///
+    /// <para><b>Warum es lange gutging.</b> Ob die Einträge rechtzeitig stehen, hängt davon ab,
+    /// wie schnell der Rechner das erste Layout durchrechnet — ein Wettlauf, den dieselbe
+    /// Fassung mal gewinnt und mal verliert. Genau deshalb gehört der Rückgabewert geprüft und
+    /// nicht verworfen.</para>
+    ///
+    /// <para>Zwei Nachfassversuche in aufsteigender Trägheit; danach steht die Anwendung auf
+    /// der Seite, die die Navigationsleiste selbst gewählt hat. Das ist kein Beinbruch — aber
+    /// es bleibt eine Meldung im Protokoll, statt stillschweigend hingenommen zu werden.</para>
+    /// </remarks>
+    /// <param name="page">Die Seite, die zuerst zu zeigen ist.</param>
+    private void ShowStartPage(Type page)
+    {
+        if (Navigation.Navigate(page))
+        {
+            return;
+        }
+
+        _ = Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            if (Navigation.Navigate(page))
+            {
+                return;
+            }
+
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle, () =>
+            {
+                if (!Navigation.Navigate(page))
+                {
+                    Debug.WriteLine(
+                        "Die Startseite liess sich nicht öffnen: " + page.Name
+                        + ". Die Navigationsleiste hat statt dessen selbst gewählt.");
+                }
+            });
+        });
     }
 
     /// <summary>Fußzeile und Hinweistext am Symbol im Infobereich.</summary>

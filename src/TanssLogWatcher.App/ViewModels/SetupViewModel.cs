@@ -517,7 +517,7 @@ public sealed partial class MappingRow : ObservableObject
         Key = key;
         Application = application;
         Method = method;
-        ExcludedIps = excludedIps;
+        _excludedIps = excludedIps;
         _selectedSystem = selected;
     }
 
@@ -530,8 +530,21 @@ public sealed partial class MappingRow : ObservableObject
     /// <summary>Wie das Ziel ermittelt wird — Titel, Muster im Titel oder Netzwerkverbindung.</summary>
     public string Method { get; }
 
-    /// <summary>Die ausgeschlossenen Adressbereiche, durch Leerzeichen getrennt.</summary>
-    public string ExcludedIps { get; }
+    /// <summary>
+    /// Die ausgeschlossenen Adressen und Netze, durch Semikolon getrennt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Beschreibbar, und das ist der Punkt: Hier stand erst ein Feld, dessen Eingaben
+    /// nirgends ankamen, danach eine reine Anzeige. Beides war falsch — ein Ausschluss ist die
+    /// einzige Möglichkeit, das eigene Netz von der Buchung auszunehmen, und ohne ihn wird jede
+    /// Sitzung zum Kunden gebucht, auch die zum Server im Nebenraum.</para>
+    /// <para>Semikolon als Trennzeichen, weil <see cref="Monitoring.IpFilter.ExcludeSeparator"/>
+    /// es so erwartet — dieselbe Schreibweise wie in <c>config.json</c>. Geprüft wird beim
+    /// Speichern, nicht beim Tippen: Wer mitten in „192.168." steht, hat noch keinen Fehler
+    /// gemacht.</para>
+    /// </remarks>
+    [ObservableProperty]
+    private string _excludedIps;
 
     /// <summary>Die gewählte Anbindung.</summary>
     [ObservableProperty]

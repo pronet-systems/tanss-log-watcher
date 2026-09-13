@@ -88,7 +88,15 @@ public sealed class SessionEngineTests
         DateTimeOffset processStart = Start - TimeSpan.FromSeconds(3);
         processes.With(Process(200, "putty", processStart));
         windows.With(new WindowInfo("PuTTY", 200, 1));
-        SessionEngine engine = Build();
+
+        // Der Takt steht hier ausdruecklich: Drei Sekunden gelten nur dann als "gerade
+        // gestartet", wenn der Abstand zweier Momentaufnahmen mindestens so gross ist. Mit der
+        // Voreinstellung von einer Sekunde begaenne die Sitzung jetzt - was richtig ist, aber
+        // eine andere Frage prueft als diese hier.
+        SessionEngine engine = Build(new SessionEngineOptions
+        {
+            SampleInterval = TimeSpan.FromSeconds(10),
+        });
 
         WatchedSession session = Assert.Single(engine.Run(Settings("putty")).Started);
         Assert.True(session.HasNoDestination);
@@ -391,9 +399,57 @@ public sealed class SessionEngineTests
         DateTimeOffset processStart = Start - TimeSpan.FromSeconds(4);
         processes.With(Process(100, "mstsc", processStart));
         windows.With(new WindowInfo("SRV-DC01 - Remotedesktopverbindung", 100, 1));
-        SessionEngine engine = Build();
+        SessionEngine engine = Build(new SessionEngineOptions
+        {
+            SampleInterval = TimeSpan.FromSeconds(10),
+        });
 
         Assert.Equal(processStart, Assert.Single(engine.Run(Settings("mstsc")).Started).StartedAt);
+    }
+
+    /// <summary>
+    /// Im Sekundentakt ist „jung“ eine Sekunde. Ein Prozess, der beim ersten Blick schon vier
+    /// Sekunden läuft, war beim vorigen Durchlauf noch nicht da — und trotzdem beginnt seine
+    /// Sitzung jetzt und nicht rückwirkend.
+    /// </summary>
+    [Fact]
+    public void ImSekundentaktBeginntEinAelterProzessJetzt()
+    {
+        processes.With(Process(100, "mstsc", Start - TimeSpan.FromSeconds(4)));
+        windows.With(new WindowInfo("SRV-DC01 - Remotedesktopverbindung", 100, 1));
+        SessionEngine engine = Build(new SessionEngineOptions
+        {
+            SampleInterval = TimeSpan.FromSeconds(1),
+        });
+
+        Assert.Equal(Start, Assert.Single(engine.Run(Settings("mstsc")).Started).StartedAt);
+    }
+
+    /// <summary>
+    /// Die Schwelle wächst mit dem tatsächlichen Abstand: Braucht ein Durchlauf länger als der
+    /// eingestellte Takt, darf das den echten Beginn der in dieser Zeit gestarteten Sitzungen
+    /// nicht kosten.
+    /// </summary>
+    [Fact]
+    public void EinLangsamerDurchlaufVerliertDenEchtenBeginnNicht()
+    {
+        SessionEngine engine = Build(new SessionEngineOptions
+        {
+            SampleInterval = TimeSpan.FromSeconds(1),
+        });
+
+        // Erster Durchlauf: nichts zu sehen, aber er setzt den Bezugspunkt.
+        Assert.Empty(engine.Run(Settings("mstsc")).Started);
+
+        // Der naechste kommt erst acht Sekunden spaeter - ein Rechner unter Last.
+        clock.Advance(TimeSpan.FromSeconds(8));
+
+        DateTimeOffset processStart = clock.GetUtcNow() - TimeSpan.FromSeconds(5);
+        processes.With(Process(100, "mstsc", processStart));
+        windows.With(new WindowInfo("SRV-DC01 - Remotedesktopverbindung", 100, 1));
+
+        Assert.Equal(processStart,
+                     Assert.Single(engine.Run(Settings("mstsc")).Started).StartedAt);
     }
 
     /// <summary>

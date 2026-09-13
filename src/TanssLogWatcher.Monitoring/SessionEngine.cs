@@ -66,6 +66,21 @@ public sealed class SessionEngine
     private readonly SessionEngineOptions options;
     private readonly IReadOnlyDictionary<string, MonitoringProfile> catalog;
 
+    /// <summary>
+    /// Wann der vorige Durchlauf gemessen hat, oder <c>null</c> vor dem ersten.
+    /// </summary>
+    /// <remarks>
+    /// Gebraucht von <see cref="DetermineStart"/>: Massgeblich ist der <b>tatsächliche</b>
+    /// Abstand zweier Momentaufnahmen, nicht der eingestellte. Bei einem Takt von einer Sekunde
+    /// liegen die beiden selten genau aufeinander — ein Durchlauf, der einmal 1,4 Sekunden
+    /// braucht, verlöre sonst den echten Beginn jeder in dieser Zeitspanne gestarteten Sitzung
+    /// und setzte sie auf „jetzt“.
+    /// </remarks>
+    private DateTimeOffset? lastRunAt;
+
+    /// <summary>Die aktuell geltende Schwelle für „gerade gestartet“.</summary>
+    private TimeSpan startTolerance = SessionConstants.DefaultSampleInterval;
+
     /// <summary>Erzeugt die Zustandsmaschine.</summary>
     /// <param name="windowSource">Quelle der sichtbaren Fenster.</param>
     /// <param name="processSource">Quelle der Prozessmomentaufnahme.</param>
@@ -159,6 +174,17 @@ public sealed class SessionEngine
     private SessionRunResult RunCore(List<MonitoringSetting> activeSettings)
     {
         DateTimeOffset now = clock.GetUtcNow();
+
+        // Vor allem, was werfen koennte: Der Abstand gehoert zu DIESEM Durchlauf, auch wenn er
+        // gleich abbricht - sonst waechst er ueber einen gescheiterten Durchlauf hinweg.
+        TimeSpan sinceLast = lastRunAt is { } previous && previous <= now
+            ? now - previous
+            : TimeSpan.Zero;
+        lastRunAt = now;
+
+        // Der groessere der beiden: der eingestellte Takt als Untergrenze, der gemessene
+        // Abstand, wenn der Durchlauf laenger gedauert hat.
+        startTolerance = sinceLast > options.SampleInterval ? sinceLast : options.SampleInterval;
 
         // a) Fenster und Prozesse. Scheitert eine der beiden Quellen, bleibt der Bestand
         //    unveraendert: eine leere Fensterliste wuerde sonst jede laufende Sitzung beenden und
@@ -532,11 +558,17 @@ public sealed class SessionEngine
     }
 
     /// <summary>
-    /// Der Beginn einer Sitzung: die echte Startzeit nur für Prozesse, die jünger als ein
-    /// Abtastintervall sind. Alles Ältere — vor allem alles, was beim Start des Werkzeugs bereits
-    /// lief — beginnt jetzt. Sonst schriebe das Werkzeug eine Fernwartung über die gesamte
-    /// Laufzeit einer seit Tagen offenen Sitzung.
+    /// Der Beginn einer Sitzung: die echte Startzeit nur für Prozesse, die seit der vorigen
+    /// Momentaufnahme hinzugekommen sind. Alles Ältere — vor allem alles, was beim Start des
+    /// Werkzeugs bereits lief — beginnt jetzt. Sonst schriebe das Werkzeug eine Fernwartung über
+    /// die gesamte Laufzeit einer seit Tagen offenen Sitzung.
     /// </summary>
+    /// <remarks>
+    /// Die Schwelle ist der <b>gemessene</b> Abstand zum vorigen Durchlauf, mindestens aber der
+    /// eingestellte Takt. Beides hat seinen Grund: Der eingestellte Takt allein wäre zu knapp,
+    /// sobald ein Durchlauf einmal länger braucht als er selbst; der gemessene allein wäre beim
+    /// allerersten Durchlauf null und verlöre jeden echten Beginn.
+    /// </remarks>
     private DateTimeOffset DetermineStart(SessionCandidate candidate, DateTimeOffset now)
     {
         if (candidate.StartedAt is not { } startedAt)
@@ -544,7 +576,7 @@ public sealed class SessionEngine
             return now;
         }
 
-        return startedAt <= now && now - startedAt <= options.SampleInterval ? startedAt : now;
+        return startedAt <= now && now - startedAt <= startTolerance ? startedAt : now;
     }
 
     /// <summary>

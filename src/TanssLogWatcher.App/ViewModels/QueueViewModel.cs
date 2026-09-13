@@ -139,6 +139,8 @@ public sealed partial class QueueViewModel : RuntimeViewModel
 
     private void Apply(QueueSnapshot snapshot)
     {
+        DateTimeOffset now = Host.Clock.GetLocalNow();
+
         IsAvailable = snapshot.IsAvailable;
         Pending = snapshot.Pending;
         Failed = snapshot.Failed;
@@ -151,7 +153,7 @@ public sealed partial class QueueViewModel : RuntimeViewModel
         // oben; was liegenbleibt und einen Handgriff braucht, darunter.
         foreach (QueuedUpload item in snapshot.PendingItems.Concat(snapshot.FailedItems))
         {
-            Queue.Add(new QueueRow(item, _systems.NameFor(item.Payload.TypeId)));
+            Queue.Add(new QueueRow(item, _systems.NameFor(item.Payload.TypeId), now));
         }
 
         OnPropertyChanged(nameof(IsEmpty));

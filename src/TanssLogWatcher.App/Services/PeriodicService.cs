@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Runtime.Versioning;
 using TanssLogWatcher.Api.Diagnostics;
 using TanssLogWatcher.App.Runtime;
@@ -32,6 +33,7 @@ public abstract class PeriodicService : IBackgroundService, IDisposable
     private long _cycles;
     private bool _enabled = true;
     private bool _disposed;
+    private TimeSpan? _lastCycle;
 
     /// <summary>Nimmt die gemeinsamen Bausteine auf.</summary>
     /// <param name="context">Der Zugang zu Zustand und Zusammenbau.</param>
@@ -303,13 +305,26 @@ public abstract class PeriodicService : IBackgroundService, IDisposable
                     Message = FaultMessage,
                     LastError = Redaction.Scrub(ex.Message),
                     Cycles = Interlocked.Read(ref _cycles),
+                    LastCycle = _lastCycle,
                     NextRunAt = Context.Clock.GetLocalNow() + Interval,
                 });
             }
 
+            // Abgezogen und nicht angehaengt: Sonst ist der tatsaechliche Abstand Takt PLUS
+            // Arbeit. Bei fuenfzehn Minuten faellt das nicht auf, bei einer Sekunde schon -
+            // aus „sekuendlich“ wuerde je nach Rechner jede anderthalb Sekunden.
+            TimeSpan wait = Interval - (_lastCycle ?? TimeSpan.Zero);
+
+            if (wait <= TimeSpan.Zero)
+            {
+                // Der Takt ist bereits verbraucht. Ein kurzer Atemzug bleibt trotzdem stehen,
+                // damit ein teurer Durchlauf nicht einen Kern dauerhaft belegt.
+                wait = TimeSpan.FromMilliseconds(50);
+            }
+
             try
             {
-                await Task.Delay(Interval, Context.Clock, ct).ConfigureAwait(false);
+                await Task.Delay(wait, Context.Clock, ct).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -357,7 +372,10 @@ public abstract class PeriodicService : IBackgroundService, IDisposable
             Cycles = cycles,
         });
 
+        long started = Stopwatch.GetTimestamp();
         string summary = await RunCycleAsync(composition, ct).ConfigureAwait(false);
+        _lastCycle = Stopwatch.GetElapsedTime(started);
+
         long done = Interlocked.Increment(ref _cycles);
 
         Report(new ServiceActivity
@@ -365,6 +383,7 @@ public abstract class PeriodicService : IBackgroundService, IDisposable
             State = ServiceState.Idle,
             Message = summary,
             Cycles = done,
+            LastCycle = _lastCycle,
             NextRunAt = Context.Clock.GetLocalNow() + Interval,
         });
     }

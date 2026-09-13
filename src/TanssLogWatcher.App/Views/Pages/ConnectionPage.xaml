@@ -8,10 +8,15 @@
       ScrollViewer.CanContentScroll="False">
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="820" HorizontalAlignment="Left">
+        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="980" HorizontalAlignment="Left">
 
             <Grid>
-                <StackPanel HorizontalAlignment="Left">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,16,0">
                     <ui:TextBlock Text="Verbindung zu TANSS" FontTypography="Title" />
                     <ui:TextBlock Margin="0,4,0,20" TextWrapping="Wrap" HorizontalAlignment="Left"
                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -21,7 +26,7 @@
                 <!-- Das Zahnrad. Es steht auch dann bereit, wenn schon alles eingerichtet ist:
                      Die Adresse einer Instanz ändert sich, und dafür soll niemand eine Datei
                      von Hand bearbeiten müssen. -->
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right"
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
                             VerticalAlignment="Top" design:Gap.Size="8">
                     <ui:Button Icon="{ui:SymbolIcon Settings24}" Appearance="Secondary"
                                Content="Einstellungen"
@@ -83,7 +88,8 @@
                         <!-- Die Kennung samt Klammern in EINEM Run: getrennte Runs setzen zwischen
                              sich je ein Leerzeichen, die schliessende Klammer stand dadurch ab
                              ("Mitarbeiter 1 )"). -->
-                        <ui:TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left">
+                        <ui:TextBlock Grid.Row="2" Grid.Column="1" HorizontalAlignment="Left"
+                                      TextTrimming="CharacterEllipsis">
                             <Run Text="{Binding EmployeeName, Mode=OneWay}" />
                             <Run Text="{Binding EmployeeId, Mode=OneWay, StringFormat=(Mitarbeiter {0})}" />
                         </ui:TextBlock>
@@ -94,10 +100,18 @@
             <!-- Sprachmodell-Unterstützung -->
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                 <StackPanel>
+                    <!-- Zwei Spalten: Ueberschrift und Knopf lagen im selben Feld und schoben
+                         sich bei schmaler Karte uebereinander. -->
                     <Grid Margin="0,0,0,12">
-                        <ui:TextBlock Text="Rechtschreibung und Ausformulieren"
-                                      FontTypography="BodyStrong" HorizontalAlignment="Left" />
-                        <ui:Button HorizontalAlignment="Right" Content="Einstellen"
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ui:TextBlock Grid.Column="0" Text="Rechtschreibung und Ausformulieren"
+                                      FontTypography="BodyStrong" HorizontalAlignment="Left"
+                                      TextWrapping="Wrap" Margin="0,0,12,0" />
+                        <ui:Button Grid.Column="1" HorizontalAlignment="Right" Content="Einstellen"
                                    Icon="{ui:SymbolIcon Sparkle24}" Appearance="Secondary"
                                    Command="{Binding OpenAiSettingsCommand}" />
                     </Grid>
@@ -115,9 +129,16 @@
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                 <StackPanel>
                     <Grid Margin="0,0,0,12">
-                        <ui:TextBlock Text="{Binding UpdateHeadline}" FontTypography="BodyStrong"
-                                      HorizontalAlignment="Left" />
-                        <Border Style="{StaticResource StatePillOnColor}" HorizontalAlignment="Right"
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ui:TextBlock Grid.Column="0" Text="{Binding UpdateHeadline}"
+                                      FontTypography="BodyStrong" TextWrapping="Wrap"
+                                      HorizontalAlignment="Left" Margin="0,0,12,0" />
+                        <Border Grid.Column="1" Style="{StaticResource StatePillOnColor}"
+                                HorizontalAlignment="Right"
                                 Background="{DynamicResource StatePendingBrush}"
                                 Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}">
                             <ui:TextBlock Text="neu" FontSize="11" />
@@ -139,22 +160,29 @@
                                 Title="Ohne Gegenprüfung geladen"
                                 Message="Zu dieser Veröffentlichung liegt keine Prüfsumme vor. Ein unvollständiger oder unterwegs veränderter Download fiele damit nicht auf." />
 
-                    <StackPanel Orientation="Horizontal" design:Gap.Size="8">
+                    <!-- Hier ausnahmsweise umbruchfaehig: Das ist keine Reihe mit festen
+                         Plaetzen, sondern eine Gruppe, die zur Laufzeit waechst - Herunterladen
+                         und Installieren erscheinen erst, wenn es etwas zu holen gibt. Alle drei
+                         zusammen sind mit 625 DIP die breiteste Stelle der Seite; ein
+                         waagerechtes StackPanel wuerde den letzten abschneiden, statt ihn
+                         umzusetzen. -->
+                    <WrapPanel Orientation="Horizontal">
                         <ui:Button Content="Nach Aktualisierung suchen" Icon="{ui:SymbolIcon ArrowSync24}"
+                                   Margin="0,0,8,8"
                                    Appearance="Secondary" Command="{Binding CheckUpdateCommand}" />
 
                         <ui:Button Content="Herunterladen" Icon="{ui:SymbolIcon ArrowDownload24}"
-                                   Appearance="Primary"
+                                   Appearance="Primary" Margin="0,0,8,8"
                                    Visibility="{Binding HasUpdate, Converter={StaticResource BoolToVis}}"
                                    IsEnabled="{Binding IsDownloading, Converter={StaticResource InverseBool}}"
                                    Command="{Binding DownloadUpdateCommand}" />
 
                         <ui:Button Content="Installieren und beenden" Icon="{ui:SymbolIcon Box24}"
-                                   Appearance="Primary"
+                                   Appearance="Primary" Margin="0,0,0,8"
                                    ToolTip="Das Werkzeug beendet sich dabei geordnet — laufende Sitzungen werden vorher gesichert."
                                    Visibility="{Binding IsReadyToInstall, Converter={StaticResource BoolToVis}}"
                                    Command="{Binding InstallUpdateCommand}" />
-                    </StackPanel>
+                    </WrapPanel>
 
                     <ui:TextBlock Margin="0,10,0,0" FontSize="11" TextWrapping="Wrap"
                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -166,13 +194,24 @@
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                 <StackPanel>
                     <Grid Margin="0,0,0,12">
-                        <ui:TextBlock Text="Zugangstoken" FontTypography="BodyStrong" HorizontalAlignment="Left" />
-                        <Border Style="{StaticResource StatePillOnColor}" HorizontalAlignment="Right"
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ui:TextBlock Grid.Column="0" Text="Zugangstoken"
+                                      FontTypography="BodyStrong" HorizontalAlignment="Left"
+                                      TextWrapping="Wrap" Margin="0,0,12,0" />
+                        <!-- Beide Plaketten in derselben Spalte: Sie schliessen einander ueber
+                             die Sichtbarkeit aus, es steht immer nur eine da. -->
+                        <Border Grid.Column="1" Style="{StaticResource StatePillOnColor}"
+                                HorizontalAlignment="Right"
                                 Background="{DynamicResource StateRunningBrush}"
                                 Visibility="{Binding HasTokenProblem, Converter={StaticResource InverseBoolToVis}}">
                             <ui:TextBlock Text="gültig" FontSize="11" />
                         </Border>
-                        <Border Style="{StaticResource StatePillOnColor}" HorizontalAlignment="Right"
+                        <Border Grid.Column="1" Style="{StaticResource StatePillOnColor}"
+                                HorizontalAlignment="Right"
                                 Background="{DynamicResource StateFailedBrush}"
                                 Visibility="{Binding HasTokenProblem, Converter={StaticResource BoolToVis}}">
                             <ui:TextBlock Text="beanstandet" FontSize="11" />

@@ -10,18 +10,26 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
         <StackPanel Grid.Row="0" Margin="0,0,0,16">
-            <ui:TextBlock Text="Überwachte Anwendungen" FontTypography="Title" />
-            <ui:TextBlock TextWrapping="Wrap" MaxWidth="700" HorizontalAlignment="Left" Margin="0,4,0,0"
+            <ui:TextBlock Text="Überwachte Anwendungen" FontTypography="Title"
+                          TextTrimming="CharacterEllipsis" />
+            <ui:TextBlock TextWrapping="Wrap" HorizontalAlignment="Left" Margin="0,4,0,0"
                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                           Text="Eine Anwendung wird erst überwacht, wenn sie einem Fernwartungstyp zugeordnet ist. In der Voreinstellung ist keine einzige aktiv." />
         </StackPanel>
 
         <Grid Grid.Row="1" Margin="0,0,0,16">
-            <ui:TextBlock HorizontalAlignment="Left" VerticalAlignment="Center"
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <ui:TextBlock Grid.Column="0" HorizontalAlignment="Left" VerticalAlignment="Center"
+                          TextWrapping="Wrap" Margin="0,0,16,0"
                           Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                 <Run Text="{Binding ActiveProfiles, Mode=OneWay}" FontWeight="SemiBold" />
                 <Run Text="von" />
@@ -31,19 +39,27 @@
             <!-- Gespeichert wird auf Befehl. Eine Zuordnung, die beim Umstellen des
                  Auswahlfelds sofort wirkte, bearbeitete die Konfiguration bei jedem
                  versehentlichen Scrollen über ein Auswahlfeld. -->
-            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Center"
+            <ui:Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center"
                        Content="Zuordnungen speichern" Icon="{ui:SymbolIcon Save24}"
                        Appearance="Primary" IsEnabled="{Binding IsDirty}"
                        Command="{Binding SaveCommand}" />
         </Grid>
 
-        <ui:InfoBar Grid.Row="1" VerticalAlignment="Bottom" Margin="0,56,0,0"
+        <!-- Eigene Zeile: Vorher lag die Hinweisleiste im selben Feld wie die Zählzeile und
+             die Schaltfläche darüber, nur durch Margin 0,56 nach unten geschoben. Sobald die
+             Zählzeile umbrach oder die Meldung zwei Zeilen brauchte, überdeckten sie sich. -->
+        <ui:InfoBar Grid.Row="2" Margin="0,0,0,16"
                     Severity="Informational" IsClosable="False"
                     IsOpen="{Binding HasMessage}"
                     Title="Überwachung"
                     Message="{Binding Message}" />
 
-        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+        <!-- Keine waagerechte Rollfläche: Eine Spalte mit Width="*" wird darin mit
+             unbegrenzter Breite gemessen und nimmt sich, was ihr Inhalt wünscht - die Tabelle
+             rollte dann bei JEDER Fenstergröße, auch bei einer sehr breiten. Die Breite regelt
+             statt dessen MainWindow.MinWidth: Das Fenster lässt sich gar nicht erst so schmal
+             ziehen, dass hier etwas abgeschnitten würde. -->
+        <Border Grid.Row="3" Style="{StaticResource CardBorder}" Padding="0">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -53,9 +69,9 @@
                 <Grid Grid.Row="0" Margin="16,10">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="170" />
-                        <ColumnDefinition Width="230" />
-                        <ColumnDefinition Width="180" />
+                        <ColumnDefinition Width="140" />
+                        <ColumnDefinition Width="220" />
+                        <ColumnDefinition Width="240" />
                     </Grid.ColumnDefinitions>
                     <ui:TextBlock Grid.Column="0" Text="ANWENDUNG" FontSize="11" Margin="0,0,16,0"
                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -76,9 +92,9 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="170" />
-                                            <ColumnDefinition Width="230" />
-                                            <ColumnDefinition Width="180" />
+                                            <ColumnDefinition Width="140" />
+                                            <ColumnDefinition Width="220" />
+                                            <ColumnDefinition Width="240" />
                                         </Grid.ColumnDefinitions>
 
                                         <!-- Der Abstand nach rechts ist Pflicht, nicht Geschmack: ohne ihn
@@ -113,16 +129,27 @@
                                             </ComboBox.ItemTemplate>
                                         </ComboBox>
 
-                                        <!-- Nur lesbar: Die Ausschlusslisten werden hier
-                                             angezeigt, aber nicht bearbeitet. Ein beschreibbares
-                                             Feld, dessen Eingaben nirgends ankommen, ist eine
-                                             Zusage, die es nicht hält. Geändert werden sie
-                                             vorerst in config.json. -->
-                                        <ui:TextBlock Grid.Column="3" VerticalAlignment="Center"
-                                                      Text="{Binding ExcludedIps}" FontSize="12"
-                                                      TextTrimming="CharacterEllipsis"
-                                                      ToolTip="{Binding ExcludedIps}"
-                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <!-- PropertyChanged und nicht LostFocus: Die
+                                             Schaltfläche „Speichern“ hängt an IsDirty, und das
+                                             wird erst gesetzt, wenn die Eingabe ankommt. Bei
+                                             LostFocus bliebe sie ausgegraut, bis der Benutzer
+                                             irgendwo anders hinklickt - also genau dann, wenn er
+                                             speichern will, aber nicht kann.
+                                             Geprüft wird beim Speichern, Eintrag für Eintrag.
+                                             Der Platzhalter trägt „z. B.“, weil er sonst wie
+                                             ein eingetragener Ausschluss aussieht - in jeder
+                                             Zeile derselbe, und keiner davon wirksam.
+                                             Gesperrt, solange die Zeile auf „Nicht überwachen“
+                                             steht: Gespeichert wird nur, was zugeordnet ist -
+                                             ein Ausschluss ohne Regel verschwände beim ersten
+                                             Speichern wortlos. -->
+                                        <ui:TextBox Grid.Column="3" VerticalAlignment="Center"
+                                                    FontSize="12"
+                                                    IsEnabled="{Binding IsMapped}"
+                                                    PlaceholderText="z. B. 10.0.0.0/8; 192.168.0.0/16"
+                                                    ToolTip="Adressen und Netze, die nicht als Fernwartung zählen — eigene Server, Testgeräte, das eigene Rechenzentrum. Einzeladresse (10.0.0.5) oder CIDR-Netz (10.0.0.0/8), mehrere durch Semikolon getrennt."
+                                                    Text="{Binding ExcludedIps, Mode=TwoWay,
+                                                           UpdateSourceTrigger=PropertyChanged}" />
                                     </Grid>
                                 </Border>
                             </DataTemplate>

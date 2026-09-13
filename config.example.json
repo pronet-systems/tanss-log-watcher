@@ -29,7 +29,7 @@
 
   "watcher": {
     // Der Takt ist zugleich die Messgenauigkeit von Sitzungsbeginn und -ende.
-    "poll_interval_seconds": 10,
+    "poll_interval_seconds": 1,
 
     // Schonfrist fuer verbindungsbasierte Profile: ohne sie zerfaellt eine Fernwartung mit
     // kurzem Verbindungsabriss in mehrere Datensaetze, und TANSS dedupliziert nicht.
@@ -85,5 +85,50 @@
     "redact_window_titles": true,
 
     "retention_days": 30
+  },
+
+  // Bildschirmaufzeichnung der Fernwartungssitzungen. Standardmaessig AUS, und das bleibt sie
+  // auch nach dem Einschalten, solange die Kenntnisnahme fehlt: Aufgezeichnet wird der
+  // Bildschirm des Kunden (Daten Dritter) und der des Technikers (Leistungs- und
+  // Verhaltenskontrolle, Mitbestimmungstatbestand nach BetrVG). Ein Schalter allein waere
+  // dafuer die falsche Huerde.
+  "recording": {
+    "enabled": false,
+
+    // Leer heisst: der vorgesehene Ort im Profil. Ein eigener Ort ist der Normalfall -
+    // Videodateien gehoeren selten auf dieselbe Platte wie das Betriebssystem. Der Pfad muss
+    // vollstaendig sein; geloescht wird spaeter ausschliesslich unterhalb dieses Ordners.
+    "directory": "",
+
+    // Nach wie vielen Tagen geloescht wird. Der tatsaechliche Loeschzeitpunkt jeder einzelnen
+    // Aufzeichnung wird beim Abschluss daraus berechnet und festgeschrieben: Wer die Frist
+    // spaeter verkuerzt, verkuerzt auch die bestehenden - wer sie verlaengert, verlaengert die
+    // bestehenden NICHT. Ein gegebenes Versprechen wird nicht nachtraeglich gedehnt.
+    "retention_days": 30,
+
+    // Belegt werden soll, welcher Bildschirmzustand bestand, waehrend der Techniker handelte -
+    // nicht, wie sich die Maus bewegte. Bei vier Bildern je Sekunde liegt jeder Zustand ab
+    // einer Viertelsekunde in mindestens einem Bild. Fluessige Mausbewegung braeuchte das
+    // Vier- bis Achtfache an Daten fuer dieselbe Aussage.
+    "frames_per_second": 4,
+
+    // Ein stehender Bildschirm liefert keine Bilder. Ohne diesen Herzschlag haette die Datei
+    // dort eine Luecke, und der Abspieler spraenge ueber die Stille hinweg.
+    "heartbeat_seconds": 2,
+
+    // Eine lange Fernwartung in einer einzigen Datei ist beim ersten Fehler ganz verloren.
+    "segment_minutes": 10,
+
+    // Eine volle Platte nimmt auch der Warteschlange den Platz, und die traegt die
+    // Arbeitszeit. Die Aufzeichnung tritt vorher zurueck.
+    "minimum_free_megabytes": 2048,
+
+    // Die vier Angaben der Kenntnisnahme gehoeren zusammen. Entweder alle oder keine - eine
+    // Kenntnisnahme ohne benannte Grundlage ist ein Haken und kein Nachweis. Keine
+    // Vorbelegung: Ob bei euch eine Betriebsvereinbarung besteht, weiss dieses Werkzeug nicht.
+    "acknowledged_at": null,
+    "acknowledged_by": null,
+    "legal_basis": null,
+    "legal_reference": null
   }
 }

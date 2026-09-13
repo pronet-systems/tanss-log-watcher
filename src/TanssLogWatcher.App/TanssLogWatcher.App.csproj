@@ -1,7 +1,14 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net10.0-windows</TargetFramework>
+    <!--
+      Versioniertes Windows-Ziel, erzwungen von TanssLogWatcher.Recording: Ein Verweis von
+      net10.0-windows (das ist Plattformstand 7.0) auf ein versioniertes Ziel ergibt NU1201,
+      einen harten Fehler - nachgemessen, nicht vermutet. Die Zusage der README auf Windows 10
+      haelt SupportedOSPlatformVersion.
+    -->
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <UseWPF>true</UseWPF>
     <RootNamespace>TanssLogWatcher.App</RootNamespace>
     <AssemblyName>TanssLogWatcher</AssemblyName>
@@ -35,6 +42,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TanssLogWatcher.Api\TanssLogWatcher.Api.csproj" />
     <ProjectReference Include="..\TanssLogWatcher.Monitoring\TanssLogWatcher.Monitoring.csproj" />
+    <ProjectReference Include="..\TanssLogWatcher.Recording\TanssLogWatcher.Recording.csproj" />
     <ProjectReference Include="..\TanssLogWatcher.Storage\TanssLogWatcher.Storage.csproj" />
   </ItemGroup>
 </Project>

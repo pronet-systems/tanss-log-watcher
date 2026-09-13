@@ -205,6 +205,42 @@ public sealed partial class SaveSessionViewModel : ObservableObject
     /// </remarks>
     public bool IsAiAvailable => _host.Config?.Ai.IsUsable == true;
 
+    /// <summary>
+    /// Warum die Unterstützung hier nicht angeboten wird — oder leer, wenn das keiner Erklärung
+    /// bedarf.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nur für den halbfertigen Zustand.</b> Wer die Einwilligung erteilt hat, hat sich
+    /// mit der Sache befasst und erwartet die Schaltflächen an dieser Stelle. Fehlen sie
+    /// wortlos, sieht das aus wie ein Fehler — gemeldet als „der Knopf fehlt“, obwohl er
+    /// lediglich zugesperrt war.</para>
+    /// <para><b>Ohne Einwilligung bleibt es still.</b> Dann ist nichts eingerichtet, niemand
+    /// erwartet etwas, und ein Hinweis wäre Werbung für eine Funktion, die Daten aus dem Haus
+    /// gibt. Das ist nicht die Aufgabe eines Abschlussdialogs.</para>
+    /// <para>Der Satz nennt, was genau fehlt. „Ist abgeschaltet“ und „kein Modell gewählt“
+    /// führen zu verschiedenen Handgriffen, und beides ist an derselben Stelle zu erledigen.</para>
+    /// </remarks>
+    public string AiHint
+    {
+        get
+        {
+            if (_host.Config?.Ai is not { } ai || !ai.HasConsent || ai.IsUsable)
+            {
+                return string.Empty;
+            }
+
+            string missing = !ai.Enabled
+                ? "ist abgeschaltet"
+                : "hat noch kein Modell";
+
+            return $"Rechtschreibprüfung und Ausformulieren: Die Einwilligung liegt vor, die "
+                + $"Unterstützung {missing}. Einzuschalten unter „Verbindung“ → „Einstellen“.";
+        }
+    }
+
+    /// <summary>Gibt es zur Unterstützung etwas zu sagen?</summary>
+    public bool HasAiHint => AiHint.Length > 0;
+
     /// <summary>Läuft gerade ein Aufruf beim Anbieter?</summary>
     [ObservableProperty]
     private bool _isAiBusy;

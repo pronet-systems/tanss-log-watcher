@@ -14,19 +14,25 @@
         </Grid.RowDefinitions>
 
         <Grid Grid.Row="0" Margin="0,0,0,16">
-            <StackPanel HorizontalAlignment="Left">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,16,0">
                 <ui:TextBlock Text="Warteschlange" FontTypography="Title" />
-                <ui:TextBlock TextWrapping="Wrap" MaxWidth="680" HorizontalAlignment="Left" Margin="0,4,0,0"
+                <ui:TextBlock TextWrapping="Wrap" HorizontalAlignment="Left" Margin="0,4,0,0"
                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                               Text="Fertige Sitzungen bleiben hier, bis TANSS sie bestätigt hat. Ein Netzausfall, ein Neustart oder ein Absturz kostet keine Sitzung." />
             </StackPanel>
-            <ui:Button HorizontalAlignment="Right" VerticalAlignment="Top"
+            <ui:Button Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Top"
                        Content="Jetzt senden" Icon="{ui:SymbolIcon Send24}" Appearance="Primary"
                        Command="{Binding FlushCommand}" />
         </Grid>
 
         <StackPanel Grid.Row="1">
             <ui:TextBlock Text="{Binding CountsText}" Margin="0,0,0,12" FontSize="12"
+                          TextWrapping="Wrap" HorizontalAlignment="Left"
                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
             <ui:InfoBar Margin="0,0,0,16" Severity="Warning" IsClosable="False"
@@ -51,6 +57,11 @@
                         Message="{Binding LastRun}" />
         </StackPanel>
 
+        <!-- Keine waagerechte Rollfläche: Eine Spalte mit Width="*" wird darin mit
+             unbegrenzter Breite gemessen und nimmt sich, was ihr Inhalt wünscht - die Tabelle
+             rollte dann bei JEDER Fenstergröße, auch bei einer sehr breiten. Die Breite regelt
+             statt dessen MainWindow.MinWidth: Das Fenster lässt sich gar nicht erst so schmal
+             ziehen, dass hier etwas abgeschnitten würde. -->
         <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
             <Grid>
                 <Grid.RowDefinitions>
@@ -92,6 +103,13 @@
                                         <ui:TextBlock Text="{Binding Description}" />
                                         <ui:TextBlock Text="{Binding LastError}" FontSize="11" TextWrapping="Wrap"
                                                       HorizontalAlignment="Left" MaxWidth="460"
+                                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        <!-- Ein Eintrag, der „wartet“, aber nicht sagt, worauf,
+                                             lässt die Schaltfläche „Jetzt senden“ wie kaputt
+                                             aussehen. Genau das war der Fall. -->
+                                        <ui:TextBlock Text="{Binding HoldText}" FontSize="11" TextWrapping="Wrap"
+                                                      HorizontalAlignment="Left" MaxWidth="460"
+                                                      Visibility="{Binding IsHeld, Converter={StaticResource BoolToVis}}"
                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                     </StackPanel>
 

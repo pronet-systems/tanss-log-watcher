@@ -25,6 +25,18 @@ public sealed class SystemLookup
     /// <summary>Die Anbindungen, nach Namen sortiert; leer, solange nichts geladen wurde.</summary>
     public IReadOnlyList<SystemRow> Systems { get; private set; } = [];
 
+    /// <summary>
+    /// Die eigenen Tickets, jüngste zuerst.
+    /// </summary>
+    /// <remarks>
+    /// <para>Damit die Oberfläche eine Auswahl anbieten kann statt eines Zahlenfelds. Bisher
+    /// musste der Techniker die Ticketnummer auswendig wissen — die Fähigkeit, sie zu holen,
+    /// lag ungenutzt im Werkzeug.</para>
+    /// <para>Wie bei den Anbindungen ist ein Fehlschlag kein Fehler: Ohne Liste bleibt das Feld
+    /// eine freie Eingabe, und eine von Hand getippte Nummer geht genauso durch.</para>
+    /// </remarks>
+    public IReadOnlyList<TicketRow> Tickets { get; private set; } = [];
+
     /// <summary>Wurde die Liste schon einmal erfolgreich geholt?</summary>
     public bool IsLoaded { get; private set; }
 
@@ -86,6 +98,7 @@ public sealed class SystemLookup
             IsLoaded = true;
 
             await LoadOwnTechnicianAsync(composition, ct).ConfigureAwait(true);
+            await LoadTicketsAsync(composition, ct).ConfigureAwait(true);
             return true;
         }
         catch (OperationCanceledException)
@@ -146,6 +159,40 @@ public sealed class SystemLookup
         catch (Exception)
         {
             // Siehe Kommentar: ohne Namen bleibt die Zeile im Bericht weg.
+        }
+    }
+
+    /// <summary>
+    /// Holt die offenen Tickets des eigenen Mitarbeiters.
+    /// </summary>
+    /// <remarks>
+    /// Misslingt es, bleibt die Liste leer — die Oberfläche zeigt dann eine leere Auswahl und
+    /// sagt, dass nichts geladen werden konnte. Eine eingetippte Nummer wird trotzdem geprüft,
+    /// und zwar einzeln über <c>FindAsync</c>: Die Prüfung hängt nicht an dieser Liste.
+    /// </remarks>
+    private async Task LoadTicketsAsync(RuntimeComposition composition, CancellationToken ct)
+    {
+        int own = composition.Config.Tanss.EmployeeId;
+
+        if (own <= 0)
+        {
+            return;
+        }
+
+        try
+        {
+            IReadOnlyList<Ticket> tickets =
+                await composition.Tickets.SearchOpenAsync(own, ct).ConfigureAwait(true);
+
+            Tickets = [.. tickets.Select(ticket => new TicketRow(ticket))];
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception)
+        {
+            // Siehe Kommentar: die Auswahl bleibt leer, die Pruefung funktioniert weiter.
         }
     }
 }

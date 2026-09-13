@@ -21,7 +21,7 @@
          und Endmarke in EINER Zeile - diese Schreibweise bitte beibehalten und
          das Wort in spitzen Klammern in keinem Kommentar darueber wiederholen,
          sonst liest der Suchlauf den Kommentar statt der Fassung. -->
-    <Version>0.1.1</Version>
+    <Version>0.2.0</Version>
     <!-- Windows will bei FileVersion nur Zahlen und Punkte; die vierte bleibt 0,
          weil es keine Buildnummer gibt, die etwas aussagen wuerde. Der Suchlauf
          schneidet einen Vorabzusatz ab: aus 0.2.0-beta.1 wird 0.2.0.0, sonst

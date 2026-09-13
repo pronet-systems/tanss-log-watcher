@@ -36,6 +36,51 @@ public static class TanssRoutes
 
     // --- Tickets, Timer, Personen --------------------------------------------------------
     public const string OwnTickets = V1Prefix + "/tickets/own";
+
+    /// <summary>
+    /// Ticketsuche mit Filterrumpf. <b>PUT, obwohl es liest</b> — die Route nimmt den Filter im
+    /// Rumpf entgegen, und ein GET hätte dafür keinen Platz.
+    /// </summary>
+    /// <remarks>
+    /// Nachgemessen gegen eine Instanz der Fassung 10.10.0: Mit
+    /// <c>{"staff":[&lt;id&gt;],"includeDoneTickets":false}</c> kommen die offenen Tickets des
+    /// Mitarbeiters zurück, mit <c>true</c> zusätzlich die erledigten (dort Zustand 1000).
+    /// </remarks>
+    public const string TicketSearch = V1Prefix + "/tickets";
+
+    /// <summary>
+    /// Ein einzelnes Ticket. Antwortet mit 404, wenn es die Kennung nicht gibt — der Weg, eine
+    /// eingetippte Nummer zu prüfen, statt sie ungeprüft zu buchen.
+    /// </summary>
+    public static string TicketById(int ticketId) =>
+        string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"{V1Prefix}/tickets/{ticketId}");
+
+    // --- Leistungen ----------------------------------------------------------------------
+    /// <summary>
+    /// Leistungen. Anlegen ist der <b>einzige</b> Weg hier hinein.
+    /// </summary>
+    /// <remarks>
+    /// Nachgemessen gegen eine Instanz der Fassung 10.10.0: <c>PUT</c> antwortet mit
+    /// <c>405 Method Not Allowed</c> und nennt im Kopf <c>Allow: POST</c>. Die Route steht in
+    /// keiner Beschreibung; das <c>Allow</c> ist der Beleg.
+    /// </remarks>
+    public const string Supports = V1Prefix + "/supports";
+
+    /// <summary>
+    /// Bereitet eine Leistung vor, ohne sie anzulegen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Mit <c>{"initializers":[{"type":"TIMER","id":&lt;id&gt;}]}</c> antwortet TANSS mit
+    /// einer vollständig vorbelegten Leistung: Stundensatz, Abrechnungsart, Fahrzeug, Zone — und
+    /// vor allem <c>multiTextItems</c> mit <b>einem Eintrag je Laufabschnitt des Timers</b>.
+    /// Damit ist die Frage „eine Leistung über alles oder eine je Abschnitt“ nicht von uns zu
+    /// entscheiden: TANSS sieht eine Leistung mit gegliedertem Text vor.</para>
+    /// <para><b>POST, obwohl es nichts anlegt.</b> Die Vorbereitung braucht den Rumpf mit den
+    /// Quellen; angelegt wird erst durch <see cref="Supports"/>.</para>
+    /// </remarks>
+    public const string SupportProperties = V1Prefix + "/supports/properties";
+
     public const string Technicians = TanssXPrefix + "/technicians";
     public const string Timers = V1Prefix + "/timers";
     public const string TimerNotes = V1Prefix + "/timers/notes";
@@ -64,9 +109,10 @@ public static class TanssRoutes
     /// </summary>
     /// <remarks>
     /// <para><see cref="MintToken"/> ist trotz des Verbs <b>kein Lesevorgang</b>: TANSS stellt
-    /// bei jedem Aufruf ein neues JWT aus und schreibt es in sein Tokenprotokoll. Genau deshalb
-    /// gibt es <c>isForTesting=true</c> als ausdrücklich folgenlose, nicht protokollierte
-    /// Spielart — ohne dieses Kennzeichen ist der Aufruf schreibend.</para>
+    /// bei jedem Aufruf ein neues JWT aus. <c>isForTesting=true</c> ändert daran nichts —
+    /// nachgemessen liefert der Aufruf mit und ohne dieses Kennzeichen ein gleichwertiges Token
+    /// mit der angefragten Laufzeit. Harmlos wird der Rechte-Trockentest allein dadurch, dass
+    /// <c>TanssAuth.MintAsync</c> dafür 60 Sekunden anfragt.</para>
     /// <para>Daraus folgt: ein zweiter Versuch nach einer Zeitüberschreitung liest nicht
     /// dasselbe noch einmal, sondern prägt ein <b>zweites</b> Token. Behalten wird höchstens
     /// eines; die übrigen bleiben bis zu 365 Tage gültig, und TANSS 10.10.0 kennt keinen

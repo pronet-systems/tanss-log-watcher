@@ -33,10 +33,16 @@ public sealed partial class TimersViewModel : RuntimeViewModel
 {
     private readonly DispatcherTimer _ticker;
 
+    private readonly SystemLookup _lookup;
+
     /// <summary>Baut die Seite und holt die Timer.</summary>
     /// <param name="host">Die Laufzeit.</param>
-    public TimersViewModel(AppHost host) : base(host)
+    /// <param name="lookup">Der gemeinsame Nachschlag; er bringt die offenen Tickets mit.</param>
+    public TimersViewModel(AppHost host, SystemLookup lookup) : base(host)
     {
+        ArgumentNullException.ThrowIfNull(lookup);
+        _lookup = lookup;
+
         _ticker = new DispatcherTimer(DispatcherPriority.Background)
         {
             Interval = TimeSpan.FromSeconds(1),
@@ -45,6 +51,24 @@ public sealed partial class TimersViewModel : RuntimeViewModel
         _ticker.Start();
 
         _ = LoadAsync();
+        _ = LoadTicketsAsync();
+    }
+
+    /// <summary>Holt die offenen Tickets für die Auswahl.</summary>
+    private async Task LoadTicketsAsync()
+    {
+        _ = await _lookup.RefreshAsync(Host.Composition).ConfigureAwait(true);
+
+        TicketRow? previous = SelectedTicket;
+
+        Tickets.Clear();
+        foreach (TicketRow ticket in _lookup.Tickets)
+        {
+            Tickets.Add(ticket);
+        }
+
+        SelectedTicket = Tickets.FirstOrDefault(ticket => ticket.Id == previous?.Id);
+        OnPropertyChanged(nameof(TicketHint));
     }
 
     /// <summary>Die eigenen Timer.</summary>
@@ -62,9 +86,26 @@ public sealed partial class TimersViewModel : RuntimeViewModel
     [ObservableProperty]
     private string _newTitle = string.Empty;
 
-    /// <summary>Das Ticket für den neuen Timer; leer für keines.</summary>
+    /// <summary>
+    /// Die offenen Tickets zur Auswahl.
+    /// </summary>
+    /// <remarks>
+    /// <b>Eine Auswahl und kein Zahlenfeld.</b> Vorher stand hier eine freie Eingabe, die jede
+    /// Zahl annahm — auch eine, zu der es kein Ticket gibt. Eine Leistung auf eine erfundene
+    /// Nummer zu buchen ist schlimmer als gar kein Ticket: Sie taucht in keiner Auswertung auf
+    /// und fällt niemandem auf.
+    /// </remarks>
+    public ObservableCollection<TicketRow> Tickets { get; } = [];
+
+    /// <summary>Das gewählte Ticket; <c>null</c> heisst „ohne Ticket“.</summary>
     [ObservableProperty]
-    private string _newTicket = string.Empty;
+    private TicketRow? _selectedTicket;
+
+    /// <summary>Was zur Ticketauswahl zu sagen ist.</summary>
+    public string TicketHint => Tickets.Count > 0
+        ? Texts.Count(Tickets.Count, "offenes Ticket", "offene Tickets") + " zur Auswahl."
+        : "Keine offenen Tickets geladen. Ein Timer lässt sich trotzdem anlegen — dann ohne "
+          + "Ticket.";
 
     /// <summary>Gibt es etwas anzuzeigen?</summary>
     public bool IsEmpty => Timers.Count == 0;
@@ -168,15 +209,10 @@ public sealed partial class TimersViewModel : RuntimeViewModel
             return;
         }
 
-        int ticketId = 0;
-        string ticket = NewTicket.Trim().TrimStart('#');
-
-        if (ticket.Length > 0
-            && !int.TryParse(ticket, NumberStyles.None, CultureInfo.CurrentCulture, out ticketId))
-        {
-            Summary = $"„{NewTicket}“ ist keine Ticketnummer. Erwartet wird eine Zahl.";
-            return;
-        }
+        // Keine Pruefung noetig: Was hier steht, kommt aus der Liste der offenen Tickets des
+        // Servers. Eine von Hand getippte Nummer gibt es nicht mehr - und damit auch nicht mehr
+        // die Moeglichkeit, auf eine erfundene zu buchen.
+        int ticketId = SelectedTicket?.Id ?? 0;
 
         IsBusy = true;
         try
@@ -184,7 +220,7 @@ public sealed partial class TimersViewModel : RuntimeViewModel
             _ = await composition.Timers.CreateAsync(title, ticketId).ConfigureAwait(true);
 
             NewTitle = string.Empty;
-            NewTicket = string.Empty;
+            SelectedTicket = null;
 
             await LoadAsync().ConfigureAwait(true);
         }
@@ -195,6 +231,42 @@ public sealed partial class TimersViewModel : RuntimeViewModel
         finally
         {
             IsBusy = false;
+        }
+    }
+
+    /// <summary>
+    /// Öffnet den Dialog, der aus diesem Timer eine Leistung macht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Weg, der bisher fehlte.</b> Erfasste Zeit, die nie zur Leistung wird, ist
+    /// Arbeit, die niemand bezahlt. Bis hierher war der Timer eine Sackgasse: starten, stoppen,
+    /// löschen — und das Buchen dann doch wieder in TANSS.</para>
+    /// <para>Ein laufender Timer wird vorher nicht angehalten. Das wäre eine Entscheidung über
+    /// die Arbeitszeit des Technikers, und die trifft er selbst; der Dialog sagt statt dessen,
+    /// dass der laufende Abschnitt noch nicht dabei ist.</para>
+    /// </remarks>
+    /// <param name="row">Die Zeile, deren Timer zur Leistung werden soll.</param>
+    [RelayCommand]
+    private async Task BookAsync(TimerRow? row)
+    {
+        if (row is null || Host.Composition is null)
+        {
+            return;
+        }
+
+        Views.CreateSupportWindow dialog = new(Host, row, [.. Tickets])
+        {
+            Owner = System.Windows.Application.Current?.MainWindow,
+        };
+
+        _ = dialog.ShowDialog();
+
+        if (dialog.ViewModel.WasBooked)
+        {
+            Summary = "Die Leistung ist gebucht. Der Timer bleibt bestehen — TANSS merkt sich "
+                + "an der Leistung, aus welchem Timer sie entstanden ist.";
+
+            await LoadAsync().ConfigureAwait(true);
         }
     }
 

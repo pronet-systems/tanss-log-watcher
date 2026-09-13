@@ -97,4 +97,58 @@ public sealed class IpRangeTests
         Assert.Equal(IpRange.Parse("10.0.0.0/8").GetHashCode(),
                      IpRange.Parse("10.0.0.0/8").GetHashCode());
     }
+
+    [Theory]
+    [InlineData("10.0.0.0/8", 1)]
+    [InlineData("10.0.0.5", 1)]
+    [InlineData("10.0.0.0/8;192.168.0.0/16", 2)]
+    [InlineData("10.0.0.0/8; 192.168.0.0/16 ; fe80::/10", 3)]
+    [InlineData("", 0)]
+    [InlineData(null, 0)]
+    public void Eine_getrennte_Liste_wird_Eintrag_fuer_Eintrag_gelesen(string? text, int expected)
+    {
+        Assert.True(IpRange.TrySplit(text, ';', out IReadOnlyList<string> entries, out string? bad));
+
+        Assert.Equal(expected, entries.Count);
+        Assert.Null(bad);
+        Assert.All(entries, entry => Assert.True(IpRange.TryParse(entry, out _)));
+    }
+
+    [Theory]
+    [InlineData("999.0.0.1", "999.0.0.1")]
+    [InlineData("10.0.0.0/8;999.0.0.1", "999.0.0.1")]
+    [InlineData("10.0.0.0/8; 192.168.0.0/16; nicht-eine-adresse", "nicht-eine-adresse")]
+    [InlineData("kaputt; 10.0.0.0/8", "kaputt")]
+    [InlineData("10.0.0.0/40", "10.0.0.0/40")]
+    public void Ein_einziger_fehlerhafter_Eintrag_verwirft_die_ganze_Liste(string text, string bad)
+    {
+        // Das ist der Punkt der Uebung: Nicht "zwei von drei uebernommen", sondern nichts -
+        // sonst saehe der Benutzer den Grossteil seiner Eingabe wiederkehren und hielte sie
+        // fuer vollstaendig.
+        Assert.False(IpRange.TrySplit(text, ';', out IReadOnlyList<string> entries,
+                                      out string? invalid));
+
+        Assert.Empty(entries);
+        Assert.Equal(bad, invalid);
+    }
+
+    [Fact]
+    public void Ein_abschliessendes_Trennzeichen_ist_kein_Fehler()
+    {
+        Assert.True(IpRange.TrySplit("10.0.0.0/8; 192.168.0.0/16;", ';',
+                                     out IReadOnlyList<string> entries, out _));
+
+        Assert.Equal(["10.0.0.0/8", "192.168.0.0/16"], entries);
+    }
+
+    [Fact]
+    public void Die_Schreibweise_des_Benutzers_bleibt_erhalten()
+    {
+        // Zurueckgeschrieben wird, was eingetippt wurde - nicht das maskierte Netz. Sonst
+        // aendert sich die Datei bei jedem Speichern, ohne dass jemand etwas geaendert haette.
+        Assert.True(IpRange.TrySplit(" 192.168.1.7/24 ", ';',
+                                     out IReadOnlyList<string> entries, out _));
+
+        Assert.Equal(["192.168.1.7/24"], entries);
+    }
 }

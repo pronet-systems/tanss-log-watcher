@@ -513,4 +513,82 @@ public sealed class UploadQueueTests
         StateDatabaseException error = Assert.Throws<StateDatabaseException>(() => new StateDatabase(path));
         Assert.Contains("neueren Programmfassung", error.Message, StringComparison.Ordinal);
     }
+
+    /// <summary>
+    /// Der Fall, der „Jetzt senden“ wirkungslos aussehen liess: Der Eintrag steht als
+    /// ausstehend da, ist aber zurückgehalten — und wird deshalb nicht zugeteilt.
+    /// </summary>
+    [Fact]
+    public void Ein_zurueckgehaltener_Eintrag_wird_nicht_zugeteilt()
+    {
+        using TempDirectory temp = new();
+        ManualTimeProvider clock = new(Start);
+        using UploadQueue queue = new(temp.File("state.db"), clock);
+
+        Assert.True(queue.Enqueue(Sample.Upload("sitzung-1"), TimeSpan.FromMinutes(5)));
+
+        Assert.Equal(1, queue.Count(QueueState.Pending));
+        Assert.Empty(queue.Lease(10));
+    }
+
+    /// <summary>
+    /// „Jetzt senden“ von Hand heisst jetzt: Das Freigeben zieht den Eintrag vor, und der
+    /// nächste Zugriff bekommt ihn.
+    /// </summary>
+    [Fact]
+    public void Freigeben_zieht_einen_zurueckgehaltenen_Eintrag_sofort_vor()
+    {
+        using TempDirectory temp = new();
+        ManualTimeProvider clock = new(Start);
+        using UploadQueue queue = new(temp.File("state.db"), clock);
+
+        _ = queue.Enqueue(Sample.Upload("sitzung-1"), TimeSpan.FromMinutes(5));
+        Assert.Empty(queue.Lease(10));
+
+        Assert.True(queue.Release("sitzung-1"));
+
+        QueuedUpload leased = Assert.Single(queue.Lease(10));
+        Assert.Equal("sitzung-1", leased.RemoteMaintenanceId);
+    }
+
+    /// <summary>
+    /// Auch der Rückstau nach einem Fehlversuch lässt sich von Hand vorziehen — sonst bliebe
+    /// die Schaltfläche genau dann wirkungslos, wenn sie am dringendsten gebraucht wird.
+    /// </summary>
+    [Fact]
+    public void Freigeben_wirkt_auch_auf_den_Rueckstau_nach_einem_Fehlversuch()
+    {
+        using TempDirectory temp = new();
+        ManualTimeProvider clock = new(Start);
+        using UploadQueue queue = new(temp.File("state.db"), clock);
+
+        _ = queue.Enqueue(Sample.Upload("sitzung-1"));
+        _ = queue.Lease(1);
+        queue.MarkFailed("sitzung-1", "Zeitueberschreitung",
+                         clock.GetUtcNow() + TimeSpan.FromHours(1));
+
+        Assert.Empty(queue.Lease(10));
+        Assert.True(queue.Release("sitzung-1"));
+        Assert.Single(queue.Lease(10));
+    }
+
+    /// <summary>
+    /// Was nicht wartet, lässt sich auch nicht vorziehen. Der Rückgabewert ist die Grundlage
+    /// der Meldung „n freigegeben“; er darf nichts zählen, was gar nichts war.
+    /// </summary>
+    [Fact]
+    public void Freigeben_meldet_false_wenn_nichts_zurueckgehalten_wird()
+    {
+        using TempDirectory temp = new();
+        ManualTimeProvider clock = new(Start);
+        using UploadQueue queue = new(temp.File("state.db"), clock);
+
+        _ = queue.Enqueue(Sample.Upload("sitzung-1"));
+
+        Assert.False(queue.Release("gibt-es-nicht"));
+
+        // Faellig, aber nicht zurueckgehalten: Das Vorziehen setzt zwar dieselbe Spalte, meldet
+        // aber trotzdem einen Treffer - deshalb prueft der Dienst die Faelligkeit vorher selbst.
+        Assert.True(queue.Release("sitzung-1"));
+    }
 }

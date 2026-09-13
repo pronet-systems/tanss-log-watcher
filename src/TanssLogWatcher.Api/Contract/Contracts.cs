@@ -64,6 +64,41 @@ public interface ITanssClient : IDisposable
         CancellationToken ct = default);
 }
 
+/// <summary>
+/// Leistungen: aus einem Timer vorbereiten und anlegen.
+/// </summary>
+/// <remarks>
+/// <para><b>Zwei Schritte, und das ist keine Umständlichkeit.</b> TANSS belegt beim ersten
+/// Schritt über achtzig Felder vor — darunter Stundensatz und Abrechnungsart, die sich aus
+/// Kunde, Vertrag und Mitarbeiter ergeben und die dieses Werkzeug weder kennt noch kennen
+/// sollte. Wer den zweiten Schritt ohne den ersten ginge, buchte eine Leistung, die
+/// rechnerisch nichts wert ist.</para>
+/// <para>Dazwischen liegt der Dialog: Der Techniker beschreibt, was er in jedem Zeitabschnitt
+/// getan hat. Mehr wird nicht verändert.</para>
+/// </remarks>
+public interface ISupportRepository
+{
+    /// <summary>
+    /// Lässt TANSS eine Leistung aus einem Timer vorbereiten. Legt nichts an.
+    /// </summary>
+    /// <param name="timerId">Der Timer.</param>
+    /// <param name="ct">Abbruchmarke.</param>
+    /// <returns>Die vorbelegte Leistung samt einem Abschnitt je Timerlauf.</returns>
+    Task<SupportDraft> PrepareFromTimerAsync(int timerId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Legt die Leistung an.
+    /// </summary>
+    /// <remarks>
+    /// <b>Es gibt kein Zurück.</b> Eine gebuchte Leistung ist in TANSS zu korrigieren, nicht
+    /// von hier aus. Die Oberfläche fragt deshalb vorher.
+    /// </remarks>
+    /// <param name="draft">Die vorbereitete und ausgefüllte Leistung.</param>
+    /// <param name="ct">Abbruchmarke.</param>
+    /// <returns>Die Kennung der angelegten Leistung; 0, wenn TANSS keine genannt hat.</returns>
+    Task<int> CreateAsync(SupportDraft draft, CancellationToken ct = default);
+}
+
 /// <summary>Fernwartungen lesen und schreiben.</summary>
 public interface IRemoteSupportRepository
 {
@@ -134,6 +169,33 @@ public interface IRemoteSupportRepository
 public interface ITicketRepository
 {
     Task<IReadOnlyList<Ticket>> ListOwnAsync(CancellationToken ct = default);
+
+    /// <summary>
+    /// Sucht die <b>offenen</b> Tickets eines Mitarbeiters.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Weg zu einer Auswahl statt eines Zahlenfelds. Vorher musste der Techniker die
+    /// Ticketnummer auswendig wissen, und eingetippt wurde jede Zahl angenommen — auch eine, zu
+    /// der es kein Ticket gibt. Eine Leistung auf eine erfundene Nummer zu buchen ist
+    /// schlimmer als gar kein Ticket: Sie taucht in keiner Auswertung auf und fällt niemandem
+    /// auf.</para>
+    /// <para>Erledigte Tickets bleiben aussen vor. Nachgemessen ergab das 20 statt 572
+    /// Einträge — auf ein abgeschlossenes Ticket zu buchen ist fast immer ein Versehen.</para>
+    /// </remarks>
+    /// <param name="employeeId">Der Mitarbeiter, dessen Tickets gesucht werden.</param>
+    /// <param name="ct">Abbruchmarke.</param>
+    Task<IReadOnlyList<Ticket>> SearchOpenAsync(int employeeId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Liest ein einzelnes Ticket — der Weg, eine eingetippte Nummer zu prüfen.
+    /// </summary>
+    /// <remarks>
+    /// Gibt <see langword="null"/> zurück, wenn es die Kennung nicht gibt; TANSS antwortet dann
+    /// mit 404. Das ist kein Fehler, sondern die Antwort auf die Frage.
+    /// </remarks>
+    /// <param name="ticketId">Die zu prüfende Kennung.</param>
+    /// <param name="ct">Abbruchmarke.</param>
+    Task<Ticket?> FindAsync(int ticketId, CancellationToken ct = default);
 }
 
 /// <summary>Timer des angemeldeten Technikers.</summary>

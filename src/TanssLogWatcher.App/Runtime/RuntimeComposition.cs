@@ -78,6 +78,7 @@ public sealed class RuntimeComposition : IDisposable
         Technicians = new TechnicianRepository(Client);
         Tickets = new TicketRepository(Client);
         Timers = new TimerRepository(Client);
+        Supports = new SupportRepository(Client);
 
         Windows = new WindowSource(loggers.CreateLogger<WindowSource>());
         Processes = new ProcessSource(loggers.CreateLogger<ProcessSource>());
@@ -127,6 +128,9 @@ public sealed class RuntimeComposition : IDisposable
 
     /// <summary>Die eigenen Timer.</summary>
     public ITimerRepository Timers { get; }
+
+    /// <summary>Leistungen — aus einem Timer vorbereiten und anlegen.</summary>
+    public ISupportRepository Supports { get; }
 
     /// <summary>Quelle der sichtbaren Fenster.</summary>
     public IWindowSource Windows { get; }

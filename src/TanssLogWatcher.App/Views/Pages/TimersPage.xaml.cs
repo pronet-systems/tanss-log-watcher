@@ -16,7 +16,7 @@ public partial class TimersPage : Page
 
         Loaded += (_, _) =>
         {
-            _viewModel ??= new TimersViewModel(App.Runtime);
+            _viewModel ??= new TimersViewModel(App.Runtime, App.Systems);
             DataContext = _viewModel;
         };
 

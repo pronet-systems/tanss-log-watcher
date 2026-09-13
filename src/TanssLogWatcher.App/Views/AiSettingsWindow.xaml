@@ -64,15 +64,24 @@
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                       Text="Die Auswahl kommt aus der Modellliste des Anbieters und ist nicht fest eingebaut. Zum Laden genügt der Schlüssel; dabei wird kein Berichtstext übermittelt." />
 
-                        <StackPanel Orientation="Horizontal" design:Gap.Size="8">
-                            <ui:Button Content="Modelle laden" Icon="{ui:SymbolIcon ArrowSync24}"
+                        <!-- Knopf fest, Auswahl dehnbar. Vorher stand hier Width=320 in einer
+                             waagerechten Reihe: Die misst mit unbegrenzter Breite und gibt
+                             nichts her, das Feld lief also ueber die Kartenkante hinaus. -->
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" MinWidth="200" MaxWidth="320" />
+                            </Grid.ColumnDefinitions>
+
+                            <ui:Button Grid.Column="0" Margin="0,0,8,0"
+                                       Content="Modelle laden" Icon="{ui:SymbolIcon ArrowSync24}"
                                        Appearance="Secondary"
                                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                                        Click="OnLoadModels" />
-                            <ComboBox Width="320" VerticalAlignment="Center"
+                            <ComboBox Grid.Column="1" VerticalAlignment="Center"
                                       ItemsSource="{Binding Models}"
                                       SelectedItem="{Binding SelectedModel, Mode=TwoWay}" />
-                        </StackPanel>
+                        </Grid>
                     </StackPanel>
                 </Border>
 
@@ -124,14 +133,25 @@
                 Background="{DynamicResource LayerFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0" Padding="24,12">
+            <!-- Zwei Spalten: Links und rechts lagen im selben Gitterfeld, nur durch
+                 HorizontalAlignment getrennt. Wird die Fussleiste schmal, schiebt sich die
+                 rechte Gruppe ueber die linke und verdeckt sie - sie steht in der Kinderliste
+                 hinten und liegt damit obenauf. -->
             <Grid>
-                <ui:Button HorizontalAlignment="Left" Content="Einwilligung zurücknehmen"
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ui:Button Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,12,0"
+                           Content="Einwilligung zurücknehmen"
                            Appearance="Transparent"
                            ToolTip="Löscht auch den hinterlegten Schlüssel."
                            Visibility="{Binding HasRecordedConsent, Converter={StaticResource BoolToVis}}"
                            Command="{Binding RevokeCommand}" />
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" design:Gap.Size="8">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                            design:Gap.Size="8">
                     <ui:Button Content="Schließen" Appearance="Secondary" Click="OnClose" />
                     <ui:Button Content="Speichern" Appearance="Primary"
                                Icon="{ui:SymbolIcon Save24}"

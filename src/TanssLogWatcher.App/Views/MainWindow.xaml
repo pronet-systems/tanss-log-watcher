@@ -1,3 +1,19 @@
+<!--
+    Die Fensterbreite ist die Stelle, an der über sichtbare Bedienelemente entschieden wird.
+
+    MinWidth=1100 ist nicht gegriffen, sondern gemessen: Die breiteste Seite ist „Überwachung“.
+    Ihre Tabelle braucht 140 + 220 + 240 DIP für Erkennung, Fernwartungstyp und Ausschlussliste,
+    dazu mindestens 200 für den Anwendungsnamen und 2×16 Kartenrand — zusammen 814. Mit dem
+    Seitenrand (2×24) sind es 862, mit dem ausgeklappten Navigationsbereich (OpenPaneLength=220)
+    1082. 1100 lässt den Rest für den Fensterrahmen und die senkrechte Rollfläche.
+
+    Das ist die Alternative zum Umbrechen: Statt eine Schaltfläche in die nächste Zeile rutschen
+    zu lassen — wo sie beim nächsten Blick nicht mehr steht, wo sie vorher war —, lässt sich das
+    Fenster gar nicht erst so klein ziehen, dass sie nicht mehr hinpasst.
+
+    Width=1200 ist die Voreinstellung beim ersten Start: etwas mehr als das Minimum, damit die
+    Spalten nicht auf Kante stehen.
+-->
 <ui:FluentWindow x:Class="TanssLogWatcher.App.Views.MainWindow"
                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -6,8 +22,8 @@
                 xmlns:pages="clr-namespace:TanssLogWatcher.App.Views.Pages"
                 xmlns:tb="http://www.hardcodet.net/taskbar"
                 Title="TANSS Log-Watcher"
-                Width="1080" Height="720"
-                MinWidth="760" MinHeight="520"
+                Width="1200" Height="760"
+                MinWidth="1100" MinHeight="560"
                 WindowStartupLocation="CenterScreen"
                 WindowBackdropType="Mica"
                 ExtendsContentIntoTitleBar="True"
@@ -80,8 +96,21 @@
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0"
                 Padding="16,6">
+            <!-- Zwei Spalten, nicht ein Feld für beides. Vorher lagen die linke und die rechte
+                 Gruppe im selben Gitterfeld, nur durch HorizontalAlignment auseinandergehalten -
+                 und die rechte liegt in der Kinderliste hinten, deckt die linke also zu, sobald
+                 es eng wird. Eng wird es nicht nur beim Verschmälern: Sobald der erste Eintrag
+                 in der Warteschlange liegt, wächst die rechte Gruppe zur Laufzeit um rund
+                 124 DIP, ohne dass jemand am Fenster gezogen hätte. Und die Basisadresse links
+                 ist so lang, wie die Instanz des Kunden heisst. -->
             <Grid>
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" design:Gap.Size="16">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left"
+                            Margin="0,0,16,0" design:Gap.Size="16">
                     <StackPanel Orientation="Horizontal" design:Gap.Size="6">
                         <!-- Die Farbe der Plakette folgt dem Zustand. Über Auslöser und nicht
                              über eine Eigenschaft im Ansichtsmodell: Ein Pinsel dort wäre beim
@@ -105,8 +134,13 @@
                             </Border.Style>
                             <ui:TextBlock Text="{Binding StateText}" FontSize="11" />
                         </Border>
+                        <!-- Die einzige Angabe hier, deren Länge der Kunde bestimmt. Sie darf
+                             kürzen, statt den Rest der Zeile hinauszuschieben; vollständig
+                             steht sie im Hinweisfenster und unter „Verbindung“. -->
                         <ui:TextBlock Text="{Binding BaseUrlText}"
                                       FontSize="12" VerticalAlignment="Center"
+                                      TextTrimming="CharacterEllipsis"
+                                      ToolTip="{Binding BaseUrlText}"
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                     </StackPanel>
 
@@ -114,7 +148,8 @@
                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 </StackPanel>
 
-                <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" design:Gap.Size="16">
+                <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                            design:Gap.Size="16">
                     <ui:TextBlock Text="{Binding QueueText}" FontSize="12" VerticalAlignment="Center"
                                   Visibility="{Binding HasQueue, Converter={StaticResource BoolToVis}}"
                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

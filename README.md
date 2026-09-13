@@ -39,7 +39,7 @@ Kein Zwischendienst, kein Herstellerkonto, keine Daten außerhalb eures Hauses.
 
 ## Was das Werkzeug tut
 
-- **Sitzungen erkennen.** Alle zehn Sekunden ein Durchlauf über die sichtbaren Fenster und die
+- **Sitzungen erkennen.** Jede Sekunde ein Durchlauf über die sichtbaren Fenster und die
   Netzwerkverbindungen der überwachten Anwendungen. Aus Prozess und Ziel — Fenstertitel oder
   Gegenstelle — entsteht eine Sitzung mit Anfang und Ende.
 - **Nachfragen, bevor gebucht wird.** Am Sitzungsende öffnet sich ein Fenster mit Kommentar und
@@ -215,7 +215,7 @@ wird, ist schlimmer als ein Fehler.
     "timeout_seconds": 30
   },
   "watcher": {
-    "poll_interval_seconds": 10,
+    "poll_interval_seconds": 1,
     "ip_session_grace_seconds": 180
   },
   "monitoring": [
@@ -247,7 +247,7 @@ verlängert.
 
 | Feld | Vorgabe | Bedeutung |
 |---|---|---|
-| `poll_interval_seconds` | `10` | Abstand zwischen zwei Durchläufen |
+| `poll_interval_seconds` | `1` | Abstand zwischen zwei Durchläufen. Zugleich die Messgenauigkeit von Beginn und Ende; die Sitzungsseite zeigt die gemessene Dauer eines Durchlaufs. |
 | `ip_session_grace_seconds` | `180` | Karenzzeit für Anwendungen, die über die Netzwerkverbindung erkannt werden |
 
 ### `monitoring`
