@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 namespace TanssLogWatcher.App.Runtime;
 
 /// <summary>
-/// Sucht neue Fassungen bei GitHub, lädt sie und startet das Setup.
+/// Sucht neue Versionen bei GitHub, lädt sie und startet das Setup.
 /// </summary>
 /// <remarks>
 /// <para><b>Herunterladen und ausführen ist das Gefährlichste, was dieses Werkzeug tut.</b>
@@ -52,7 +52,7 @@ public sealed partial class UpdateService : IDisposable
 
     /// <summary>Wie oft von selbst nachgesehen wird.</summary>
     /// <remarks>
-    /// Täglich. Häufiger wäre für ein Werkzeug, das ein paarmal im Jahr eine neue Fassung
+    /// Täglich. Häufiger wäre für ein Werkzeug, das ein paarmal im Jahr eine neue Version
     /// bekommt, nur Verkehr; seltener hiesse, eine Fehlerbehebung wochenlang nicht zu bemerken.
     /// Die unangemeldete Schnittstelle von GitHub erlaubt 60 Abfragen je Stunde — eine am Tag
     /// bleibt weit darunter.
@@ -84,8 +84,8 @@ public sealed partial class UpdateService : IDisposable
     {
         _http = new HttpClient { Timeout = DownloadTimeout };
 
-        // GitHub weist Anfragen ohne Kennung ab. Die Fassung steht mit drin, damit in den
-        // Zugriffsprotokollen steht, welche Fassung draussen noch laeuft.
+        // GitHub weist Anfragen ohne Kennung ab. Die Version steht mit drin, damit in den
+        // Zugriffsprotokollen steht, welche Version draussen noch laeuft.
         _http.DefaultRequestHeaders.UserAgent.Add(
             new ProductInfoHeaderValue("TanssLogWatcher", CurrentVersion.ToString()));
         _http.DefaultRequestHeaders.Accept.Add(
@@ -98,7 +98,7 @@ public sealed partial class UpdateService : IDisposable
     /// <summary>Eine Prüfung ist abgeschlossen; wird auf einem Hintergrundstrang ausgelöst.</summary>
     public event EventHandler<UpdateCheckState>? CheckCompleted;
 
-    /// <summary>Die zuletzt gefundene neue Fassung, oder <c>null</c>.</summary>
+    /// <summary>Die zuletzt gefundene neue Version, oder <c>null</c>.</summary>
     public AvailableUpdate? Available { get; private set; }
 
     /// <summary>Wie die letzte Prüfung ausgegangen ist.</summary>
@@ -144,7 +144,7 @@ public sealed partial class UpdateService : IDisposable
     /// das mit <see langword="false"/>. Ohne diesen Riegel liefen zwei Vorgänge auf dieselbe
     /// Datei, und der zweite scheiterte daran, dass der erste sie noch offen hat.</para>
     /// </remarks>
-    /// <param name="update">Die zu ladende Fassung.</param>
+    /// <param name="update">Die zu ladende Version.</param>
     /// <returns><see langword="true"/>, wenn ein Vorgang begonnen hat.</returns>
     public bool StartDownload(AvailableUpdate update)
     {
@@ -176,7 +176,7 @@ public sealed partial class UpdateService : IDisposable
     /// die ganze Anwendung mit — und zwar wegen einer Aktualisierung, die niemand dringend
     /// braucht.
     /// </remarks>
-    /// <param name="update">Die zu ladende Fassung.</param>
+    /// <param name="update">Die zu ladende Version.</param>
     private async Task RunDownloadAsync(AvailableUpdate update)
     {
         try
@@ -238,7 +238,7 @@ public sealed partial class UpdateService : IDisposable
         }
     }
 
-    /// <summary>Die Fassung, die gerade läuft.</summary>
+    /// <summary>Die Version, die gerade läuft.</summary>
     /// <remarks>
     /// Aus <c>InformationalVersion</c> und nicht aus <c>Version</c>: Letztere trägt eine vierte
     /// Stelle, die hier nichts bedeutet, und schnitte einen Vorabzusatz ab.
@@ -249,8 +249,8 @@ public sealed partial class UpdateService : IDisposable
     /// Fragt GitHub nach der neuesten Veröffentlichung.
     /// </summary>
     /// <remarks>
-    /// <c>/releases/latest</c> übergeht Entwürfe und Vorabfassungen von sich aus — genau das
-    /// ist gewollt: Eine Betafassung soll niemandem angeboten werden, der nicht ausdrücklich
+    /// <c>/releases/latest</c> übergeht Entwürfe und Vorabversionen von sich aus — genau das
+    /// ist gewollt: Eine Betaversion soll niemandem angeboten werden, der nicht ausdrücklich
     /// danach gefragt hat.
     /// </remarks>
     /// <param name="ct">Abbruchmarke.</param>
@@ -366,7 +366,7 @@ public sealed partial class UpdateService : IDisposable
     /// Dorthin zu schreiben, während es läuft, ist genau der Vorgang, den das Setup gleich
     /// selbst erledigen soll.
     /// </remarks>
-    /// <param name="update">Die zu ladende Fassung.</param>
+    /// <param name="update">Die zu ladende Version.</param>
     /// <param name="progress">Fortschritt von 0 bis 1; darf <c>null</c> sein.</param>
     /// <param name="ct">Abbruchmarke.</param>
     /// <returns>
@@ -514,10 +514,10 @@ public sealed partial class UpdateService : IDisposable
             || host.EndsWith(".githubusercontent.com", StringComparison.OrdinalIgnoreCase);
     }
 
-    /// <summary>Liest eine Marke wie <c>v0.2.0</c> als Fassungsnummer.</summary>
+    /// <summary>Liest eine Marke wie <c>v0.2.0</c> als Versionsnummer.</summary>
     /// <remarks>
     /// Ein Vorabzusatz wird abgeschnitten. Er taucht hier ohnehin nicht auf, weil
-    /// <c>/releases/latest</c> Vorabfassungen übergeht; ein Wurf an dieser Stelle wäre trotzdem
+    /// <c>/releases/latest</c> Vorabversionen übergeht; ein Wurf an dieser Stelle wäre trotzdem
     /// der falsche Weg, eine ungewohnte Marke zu behandeln.
     /// </remarks>
     internal static bool TryParseTag(string? tag, out Version? version)

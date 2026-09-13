@@ -104,7 +104,7 @@ public sealed class TokenStoreException : StorageException
 
 /// <summary>
 /// Die Zustandsdatenbank ist unbrauchbar: beschädigt, gesperrt oder aus einer neueren
-/// Programmfassung.
+/// Programmversion.
 /// </summary>
 /// <remarks>
 /// Eine Datenbank mit höherer <c>user_version</c> wird <b>nicht</b> geöffnet. Ein älterer

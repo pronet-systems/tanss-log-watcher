@@ -27,7 +27,7 @@ public enum CliCommand
 /// </summary>
 /// <remarks>
 /// <para><b>Von Hand ausgewertet, ohne Paket.</b> <c>System.CommandLine</c> liegt zwar in einer
-/// stabilen Fassung vor (geprüft am 11.09.2026: 2.0.x auf nuget.org, netstandard2.0 und damit
+/// stabilen Version vor (geprüft am 11.09.2026: 2.0.x auf nuget.org, netstandard2.0 und damit
 /// auch für net10.0) — bei fünf Befehlen, zwei Schaltern und einer Option trägt es aber nichts
 /// bei, was diese Datei nicht in wenigen Zeilen leistet, und es brächte eine eigene,
 /// englischsprachige Hilfe- und Fehlerausgabe mit. Deutsche Benutzertexte sind hier Hausregel
@@ -56,7 +56,7 @@ public sealed record CliArgs
     /// <summary>Hilfe wurde angefordert.</summary>
     public bool HelpRequested { get; init; }
 
-    /// <summary>Die Fassung wurde angefordert.</summary>
+    /// <summary>Die Version wurde angefordert.</summary>
     public bool VersionRequested { get; init; }
 
     /// <summary>

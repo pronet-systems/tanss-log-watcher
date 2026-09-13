@@ -205,7 +205,7 @@ public sealed class RepositoryTests
     public async Task Ein_Objekt_Statt_Eines_Feldes_Ist_Ein_Fehler_Und_Keine_Leere_Liste()
     {
         // Gemessen am 11.09.2026: content ist ein schlichtes Feld. Jede andere Form waere eine
-        // geaenderte TANSS-Fassung - und stillschweigend als "nichts gefunden" durchgewinkt
+        // geaenderte TANSS-Version - und stillschweigend als "nichts gefunden" durchgewinkt
         // liesse sie die Existenzpruefung in einen doppelten Upload laufen.
         RecordingHandler handler = new(HttpStatusCode.OK, TestEnvironment.Envelope(
             """{"remoteSupports":[{"id":4711}]}"""));

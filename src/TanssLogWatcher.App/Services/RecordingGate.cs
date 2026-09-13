@@ -13,7 +13,7 @@ namespace TanssLogWatcher.App.Services;
 /// Dienst und die Anzeige sollen denselben Satz sagen. Ein Werkzeug, das an zwei Stellen
 /// verschiedene Gründe nennt, wird an beiden nicht geglaubt.</para>
 ///
-/// <para><b>Ohne die Aufnahme selbst.</b> Diese Klasse kommt ohne Windows-Fassung 19041 aus —
+/// <para><b>Ohne die Aufnahme selbst.</b> Diese Klasse kommt ohne Windows-Version 19041 aus —
 /// anders als alles, was tatsächlich aufnimmt. Deshalb kann die Einstellungsseite sie fragen,
 /// auch auf einem Rechner, auf dem es gar keine Bildschirmaufnahme gibt: Dort ist die Antwort
 /// eben, dass es sie nicht gibt.</para>

@@ -57,7 +57,7 @@ public sealed class KeyedFingerprint
         {
             throw new StorageException(
                 $"Der Schlüssel für Abdrücke hat {key.Length} statt {KeySizeBytes} Bytes. "
-                + "Die Schlüsseldatei stammt üblicherweise aus einer anderen Programmfassung "
+                + "Die Schlüsseldatei stammt üblicherweise aus einer anderen Programmversion "
                 + "oder wurde beschädigt. Sie darf gelöscht werden: Der nächste Start legt "
                 + "einen neuen Schlüssel an; nur die Abdrücke bereits geschriebener "
                 + "Protokolleinträge passen dann nicht mehr zu den neuen.");

@@ -791,7 +791,7 @@ public sealed class SessionHistoryStore : ISessionHistory, IDisposable
         "unknown" => HistoryDisposition.Unknown,
         _ => throw new StateDatabaseException(
             $"Unbekannter Ausgang „{text}“ im Verlauf. Die Datenbank stammt vermutlich aus "
-            + "einer neueren Programmfassung."),
+            + "einer neueren Programmversion."),
     };
 
     private static HistoryOrigin OriginFrom(string text) => text switch
@@ -800,7 +800,7 @@ public sealed class SessionHistoryStore : ISessionHistory, IDisposable
         "backfill" => HistoryOrigin.Backfill,
         _ => throw new StateDatabaseException(
             $"Unbekannte Herkunft „{text}“ im Verlauf. Die Datenbank stammt vermutlich aus "
-            + "einer neueren Programmfassung."),
+            + "einer neueren Programmversion."),
     };
 
     private static RecordingSegmentState SegmentStateFrom(string text) => text switch
@@ -811,6 +811,6 @@ public sealed class SessionHistoryStore : ISessionHistory, IDisposable
         "missing" => RecordingSegmentState.Missing,
         _ => throw new StateDatabaseException(
             $"Unbekannter Zustand „{text}“ einer Aufzeichnung. Die Datenbank stammt "
-            + "vermutlich aus einer neueren Programmfassung."),
+            + "vermutlich aus einer neueren Programmversion."),
     };
 }

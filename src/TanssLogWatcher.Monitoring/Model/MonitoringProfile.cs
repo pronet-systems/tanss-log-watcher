@@ -9,7 +9,7 @@ namespace TanssLogWatcher.Monitoring.Model;
 /// <remarks>
 /// Ein Profil trägt <b>keine</b> Benutzerentscheidung. Ob und auf welchen TANSS-Fernwartungstyp
 /// eine Anwendung abgebildet wird, steht in <see cref="MonitoringSetting"/>. Die Trennung ist
-/// wichtig, weil der Katalog mit jeder Programmfassung wachsen darf, ohne die gespeicherten
+/// wichtig, weil der Katalog mit jeder Programmversion wachsen darf, ohne die gespeicherten
 /// Einstellungen des Technikers zu berühren.
 /// </remarks>
 public sealed record MonitoringProfile
@@ -134,7 +134,7 @@ public sealed record MonitoringProfile
     /// <para><b>Wofür das gebraucht wird.</b> TANSS führt eine eigene Übersetzungstabelle
     /// <c>deviceId → Firma</c>; wird beim Anlegen einer Fernwartung eine <c>deviceId</c>
     /// mitgeschickt, setzt TANSS die Firma selbst ein. Nachgemessen am 13.09.2026 gegen eine
-    /// Instanz der Fassung 10.10.0: mit hinterlegter Zuordnung kam die Firma zurück, ohne sie
+    /// Instanz der Version 10.10.0: mit hinterlegter Zuordnung kam die Firma zurück, ohne sie
     /// eine 0. Der Nutzen steht und fällt damit, dass die Kennung <b>morgen dasselbe Gerät
     /// bezeichnet wie heute</b>.</para>
     ///

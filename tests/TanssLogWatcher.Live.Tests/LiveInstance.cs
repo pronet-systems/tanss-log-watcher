@@ -68,7 +68,7 @@ public sealed class LiveWriteFactAttribute : FactAttribute
 /// </summary>
 /// <remarks>
 /// <para><b>Geprägt wird ausschliesslich mit <c>isForTesting=true</c>.</b> Ein regulär geprägtes
-/// Token läuft ein Jahr, wird von TANSS protokolliert und lässt sich in Fassung 10.10.0
+/// Token läuft ein Jahr, wird von TANSS protokolliert und lässt sich in Version 10.10.0
 /// <b>nicht widerrufen</b>. Eine Testreihe, die bei jedem Lauf eines ausstellt, hinterliesse
 /// nach einem Monat dreissig gültige Jahrestoken, von denen niemand mehr weiss.</para>
 ///

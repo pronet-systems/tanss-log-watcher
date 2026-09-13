@@ -119,7 +119,7 @@ public sealed class RedactionTests
     [InlineData("Der apiToken: unbekannt")]
     public void Deutsche_Prosa_Ueberlebt_Die_Schwaerzung(string text)
     {
-        // Diese Fassung laeuft ueber das Aenderungsprotokoll - also genau ueber den Text, der
+        // Diese Version laeuft ueber das Aenderungsprotokoll - also genau ueber den Text, der
         // spaeter die Frage "warum ist das schiefgegangen" beantworten soll. Waere "abgelaufen"
         // geschwaerzt, bliebe von der Begruendung nichts uebrig.
         Assert.Equal(text, Redaction.Scrub(text));

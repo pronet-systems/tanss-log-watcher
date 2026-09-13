@@ -22,7 +22,7 @@ namespace TanssLogWatcher.App.ViewModels;
 /// </summary>
 /// <remarks>
 /// <para><b>Dieses Fenster hält die Sitzung — sie liegt nicht in der Warteschlange.</b> Das ist
-/// die Kehrtwende gegenüber der Vorgängerfassung: Dort entstand beim Sitzungsende sofort eine
+/// die Kehrtwende gegenüber der Vorgängerversion: Dort entstand beim Sitzungsende sofort eine
 /// Zeile, und dieses Fenster ergänzte sie nur. Jetzt gilt die Ansage des Hauses: <i>In die
 /// Warteschlange wird nur geschrieben, wenn die Buchung fehlgeschlagen ist.</i> Solange dieses
 /// Fenster offen steht, steht die Sitzung nirgendwo sonst.</para>

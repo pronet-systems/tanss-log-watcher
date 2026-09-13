@@ -9,7 +9,7 @@ namespace TanssLogWatcher.App.ViewModels;
 /// </summary>
 /// <remarks>
 /// <para><b>Warum die Zeile mehr als den Namen trägt.</b> Nachgemessen gegen eine Instanz der
-/// Fassung 10.10.0 stand derselbe Firmenname <b>fünfmal</b> mit verschiedenen Kennungen in einer
+/// Version 10.10.0 stand derselbe Firmenname <b>fünfmal</b> mit verschiedenen Kennungen in einer
 /// einzigen Trefferliste. Eine Auswahl, die nur <see cref="Name"/> zeigt, zwingt den Techniker
 /// zum Raten — und eine auf die falsche Firma gebuchte Leistung fällt niemandem auf. Deshalb
 /// stehen Kundennummer und Ort gleichberechtigt daneben, und zwar auch dann, wenn sie

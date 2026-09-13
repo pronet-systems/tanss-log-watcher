@@ -23,7 +23,7 @@ namespace TanssLogWatcher.App.Services;
 /// weiter.</para>
 ///
 /// <para><b>Beim gewöhnlichen Sitzungsende entsteht keine Warteschlangenzeile mehr.</b> Das ist
-/// die Kehrtwende gegenüber der Vorgängerfassung, und sie ist so angeordnet: Eingereiht wird
+/// die Kehrtwende gegenüber der Vorgängerversion, und sie ist so angeordnet: Eingereiht wird
 /// nur, was sich <i>nicht</i> buchen liess. Die Warteschlange ist damit wieder das, wofür sie
 /// gebaut wurde — der Fehlerpfad — und nicht der Regelweg jeder Sitzung. Die Sitzung ist
 /// deswegen nicht ungesichert: Sie bleibt bis zur Antwort im Dialog als <b>laufende</b> Sitzung

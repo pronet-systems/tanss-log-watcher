@@ -28,6 +28,6 @@ public static class CaptureSupport
         return WindowCapture.IsSupported();
     }
 
-    /// <summary>Die kleinste Windows-Fassung, die aufnehmen kann — für eine Meldung.</summary>
-    public const string MinimumWindows = "Windows 10, Fassung 2004 (Build 19041)";
+    /// <summary>Die kleinste Windows-Version, die aufnehmen kann — für eine Meldung.</summary>
+    public const string MinimumWindows = "Windows 10, Version 2004 (Build 19041)";
 }

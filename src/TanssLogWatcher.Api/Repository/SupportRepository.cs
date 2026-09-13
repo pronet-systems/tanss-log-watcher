@@ -9,7 +9,7 @@ namespace TanssLogWatcher.Api.Repository;
 /// Leistungen aus Timern.
 /// </summary>
 /// <remarks>
-/// <para><b>Der Weg ist nachgemessen, nicht geraten</b> — gegen eine Instanz der Fassung
+/// <para><b>Der Weg ist nachgemessen, nicht geraten</b> — gegen eine Instanz der Version
 /// 10.10.0. <c>POST /api/v1/supports/properties</c> mit
 /// <c>{"initializers":[{"type":"TIMER","id":26}]}</c> antwortet mit 200 und einer vorbelegten
 /// Leistung, in der <c>usesTimerId</c> auf den Timer zeigt und <c>multiTextItems</c> genau so

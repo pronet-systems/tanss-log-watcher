@@ -4,9 +4,9 @@
 #  Die Schritte zwischen Quelltext und Setup stehen NICHT hier, sondern in
 #  build\publish.ps1. Diese Datei ruft das Skript auf und legt das Ergebnis
 #  als GitHub-Release ab. Wer die Kette hier nachbaut, hat sie ab dem ersten
-#  Tag zweimal - und die zweite Fassung ist die, die niemand pflegt.
+#  Tag zweimal - und die zweite Version ist die, die niemand pflegt.
 #
-#  Ausgeliefert wird TanssLogWatcher-<Fassung>-setup.exe samt SHA256.
+#  Ausgeliefert wird TanssLogWatcher-<Version>-setup.exe samt SHA256.
 #  Unsigniert, solange kein Zertifikat vorliegt; die Veröffentlichungsnotiz
 #  sagt das ausdrücklich, weil SmartScreen den Benutzer sonst unvorbereitet
 #  trifft.
@@ -44,7 +44,7 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
-      - name: Fassung aus der Marke lesen
+      - name: Version aus der Marke lesen
         id: version
         shell: pwsh
         # Die Marke kommt über eine Umgebungsvariable herein und nicht als
@@ -63,20 +63,20 @@ jobs:
           # und ab da glaubt jeder Rechner etwas anderes.
           $match = Select-String -LiteralPath 'Directory.Build.props' -Pattern '<Version>([^<]+)</Version>' | Select-Object -First 1
           if (-not $match) {
-            throw "In Directory.Build.props steht kein Element mit der Fassung.`n   Grund:   Ohne sie lässt sich nicht prüfen, ob die Marke $tag zum Quelltext passt.`n   Abhilfe: Das Element dort eintragen und die Marke neu setzen."
+            throw "In Directory.Build.props steht kein Element mit der Version.`n   Grund:   Ohne sie lässt sich nicht prüfen, ob die Marke $tag zum Quelltext passt.`n   Abhilfe: Das Element dort eintragen und die Marke neu setzen."
           }
           $inProps = $match.Matches[0].Groups[1].Value.Trim()
           if ($version -ne $inProps) {
-            throw "Die Marke $tag und Directory.Build.props ($inProps) nennen verschiedene Fassungen.`n   Grund:   Das Setup hieße $version, die Dateiversionen darin wären $inProps. Später ist nicht mehr feststellbar, welcher Quelltext in welcher Datei steckt.`n   Abhilfe: Die Fassung in Directory.Build.props auf $version setzen, einchecken, Marke $tag löschen und neu setzen."
+            throw "Die Marke $tag und Directory.Build.props ($inProps) nennen verschiedene Versionen.`n   Grund:   Das Setup hieße $version, die Dateiversionen darin wären $inProps. Später ist nicht mehr feststellbar, welcher Quelltext in welcher Datei steckt.`n   Abhilfe: Die Version in Directory.Build.props auf $version setzen, einchecken, Marke $tag löschen und neu setzen."
           }
 
-          # Eine Vorabfassung (v0.2.0-beta.1) wird gekennzeichnet, damit sie
+          # Eine Vorabversion (v0.2.0-beta.1) wird gekennzeichnet, damit sie
           # nicht als neueste Veröffentlichung angeboten wird.
           $prerelease = $version -match '-'
 
           "version=$version" | Out-File $env:GITHUB_OUTPUT -Append
           "prerelease=$($prerelease.ToString().ToLowerInvariant())" | Out-File $env:GITHUB_OUTPUT -Append
-          Write-Host "Fassung: $version (Vorabfassung: $prerelease)"
+          Write-Host "Version: $version (Vorabversion: $prerelease)"
 
       - name: Inno Setup bereitstellen
         shell: pwsh
@@ -203,7 +203,7 @@ jobs:
 
           **Warum:** Für dieses Projekt liegt kein Code-Signing-Zertifikat vor.
 
-          **Folge:** Windows SmartScreen meldet beim Start einen unbekannten Herausgeber und hält die Ausführung zunächst an - bei jeder neuen Fassung erneut, weil der Ruf einer unsignierten Datei jedes Mal bei null beginnt.
+          **Folge:** Windows SmartScreen meldet beim Start einen unbekannten Herausgeber und hält die Ausführung zunächst an - bei jeder neuen Version erneut, weil der Ruf einer unsignierten Datei jedes Mal bei null beginnt.
 
           **Was zu tun ist:** Erst den SHA256 oben vergleichen, dann im SmartScreen-Fenster auf *Weitere Informationen* und *Trotzdem ausführen* klicken. Wer das nicht möchte, baut das Setup selbst - siehe installer/README.md im Quelltext.
 
@@ -213,7 +213,7 @@ jobs:
 
           ### Änderungen
 
-          Siehe [CHANGELOG.md]($($env:GITHUB_SERVER_URL)/$($env:GITHUB_REPOSITORY)/blob/$($env:TAG)/CHANGELOG.md) zu dieser Fassung.
+          Siehe [CHANGELOG.md]($($env:GITHUB_SERVER_URL)/$($env:GITHUB_REPOSITORY)/blob/$($env:TAG)/CHANGELOG.md) zu dieser Version.
           "@
           $notes | Set-Content -LiteralPath 'release-notes.md' -Encoding utf8
           Write-Host $notes

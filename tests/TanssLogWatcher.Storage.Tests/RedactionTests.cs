@@ -8,7 +8,7 @@ namespace TanssLogWatcher.Storage.Tests;
 /// Was diese Schicht schwärzt, bevor es in <c>state.db</c> steht.
 /// </summary>
 /// <remarks>
-/// Das Schwärzen selbst gehört nicht mehr hierher: Es gibt genau eine Fassung, die der
+/// Das Schwärzen selbst gehört nicht mehr hierher: Es gibt genau eine Version, die der
 /// API-Schicht, und ihre Muster sind dort geprüft. Hier steht, dass das Protokoll sie
 /// tatsächlich benutzt — und was mit einer Fensterbeschriftung geschieht.
 /// </remarks>

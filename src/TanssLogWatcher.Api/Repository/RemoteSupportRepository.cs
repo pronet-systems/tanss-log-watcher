@@ -224,10 +224,10 @@ public sealed class RemoteSupportRepository : IRemoteSupportRepository
             throw new TanssException(
                 "Die Filterabfrage PUT /api/v1/remoteSupports hat kein Feld von Fernwartungen "
                 + $"geliefert, sondern {Describe(payload.ValueKind)}. Das passt zu einer "
-                + "geänderten TANSS-Fassung — die Route ist undokumentiert und kann sich mit "
+                + "geänderten TANSS-Version — die Route ist undokumentiert und kann sich mit "
                 + "einem Update ändern. Bis das geklärt ist, darf nichts hochgeladen werden: "
                 + "diese Abfrage ist die einzige Existenzprüfung, und TANSS dedupliziert nicht. "
-                + "Die Antwortform ist gegen die TANSS-Fassung abzugleichen.");
+                + "Die Antwortform ist gegen die TANSS-Version abzugleichen.");
         }
 
         return payload.Deserialize<List<RemoteSupportRead>>(TanssJson.Options) ?? [];

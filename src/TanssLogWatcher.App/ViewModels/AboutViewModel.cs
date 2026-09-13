@@ -14,11 +14,11 @@ namespace TanssLogWatcher.App.ViewModels;
 /// </summary>
 /// <remarks>
 /// <para><b>Es ist kein Schaufenster, sondern die erste Seite jeder Fehlermeldung.</b> Wer
-/// anruft, weil etwas nicht geht, wird als Erstes nach der Fassung gefragt — und danach nach
+/// anruft, weil etwas nicht geht, wird als Erstes nach der Version gefragt — und danach nach
 /// dem Ort der Konfiguration, weil dort die Antwort steht. Beides hier zu finden ist schneller
 /// als beides zu erklären.</para>
 ///
-/// <para><b>Alles gelesen, nichts geschrieben.</b> Die Fassung kommt aus dem Erzeugnis selbst
+/// <para><b>Alles gelesen, nichts geschrieben.</b> Die Version kommt aus dem Erzeugnis selbst
 /// und nicht aus einer zweiten Stelle, die man zu pflegen vergisst.</para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
@@ -39,8 +39,8 @@ public sealed partial class AboutViewModel : ObservableObject
             ?? assembly.GetName().Version?.ToString()
             ?? "unbekannt";
 
-        // Der Zusatz, den der Uebersetzer an die Fassung haengt (+Commit), gehoert nicht in
-        // die Anzeige: Er ist fuer einen Menschen keine Fassungsnummer.
+        // Der Zusatz, den der Uebersetzer an die Version haengt (+Commit), gehoert nicht in
+        // die Anzeige: Er ist fuer einen Menschen keine Versionsnummer.
         int plus = Version.IndexOf('+', StringComparison.Ordinal);
         Version = plus >= 0 ? Version[..plus] : Version;
 
@@ -59,7 +59,7 @@ public sealed partial class AboutViewModel : ObservableObject
     /// <summary>Der Urhebervermerk.</summary>
     public string Copyright { get; }
 
-    /// <summary>Die Fassung, ohne den angehängten Baustand.</summary>
+    /// <summary>Die Version, ohne den angehängten Baustand.</summary>
     public string Version { get; }
 
     /// <summary>Die Laufzeitumgebung, etwa <c>.NET 10.0.0</c>.</summary>

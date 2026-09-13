@@ -124,7 +124,7 @@ public sealed class ContractTests
     /// <para>Dies ist die einzige Richtung, in der die Regel wirklich beisst, und sie wird hier
     /// durch den <b>Fehlschlag</b> nachgewiesen: Ein Test, der nur den erlaubten Aufruf macht,
     /// kann die Regel gar nicht verletzt sehen.</para>
-    /// <para>Genau dieser Fehler steckte in der ersten Fassung dieses Tests: Er prüfte zweimal
+    /// <para>Genau dieser Fehler steckte in der ersten Version dieses Tests: Er prüfte zweimal
     /// einen erlaubten Aufruf und hiess trotzdem nach der Regel. Er wäre grün geblieben, auch
     /// wenn der Zugang den Parameter nie gesetzt hätte.</para>
     /// </remarks>

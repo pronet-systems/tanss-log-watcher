@@ -692,7 +692,7 @@ public sealed class UploadQueue : IUploadQueue
             item = null;
             cause = $"Der Warteschlangeneintrag {id} trägt den unbekannten Zustand "
                 + $"„{reader.GetString(8)}“. Die Datenbank stammt vermutlich aus einer "
-                + "neueren Programmfassung.";
+                + "neueren Programmversion.";
             return false;
         }
 

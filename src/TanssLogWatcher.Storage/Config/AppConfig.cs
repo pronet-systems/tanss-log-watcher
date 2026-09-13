@@ -12,7 +12,7 @@ namespace TanssLogWatcher.Storage.Config;
 /// Eine vertippte Einstellung, die stillschweigend ignoriert wird, ist schlimmer als ein
 /// Fehler: Wer <c>exclude_ip_adresses</c> schreibt, hält seine Ausschlussliste für aktiv,
 /// während in Wahrheit jede Sitzung gebucht wird. Der Preis dafür ist, dass eine ältere
-/// Programmfassung eine neuere Datei nicht liest — dafür gibt es <see cref="Version"/>.</para>
+/// Programmversion eine neuere Datei nicht liest — dafür gibt es <see cref="Version"/>.</para>
 ///
 /// <para>Geheimnisse stehen hier <b>nicht</b> drin, nur Verweise darauf
 /// (<c>token_ref</c>, <c>password_ref</c>). Das Token selbst liegt DPAPI-verschlüsselt im
@@ -21,7 +21,7 @@ namespace TanssLogWatcher.Storage.Config;
 [JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
 public sealed record AppConfig
 {
-    /// <summary>Höchster Stand, den diese Programmfassung lesen kann.</summary>
+    /// <summary>Höchster Stand, den diese Programmversion lesen kann.</summary>
     public const int CurrentVersion = 1;
 
     /// <summary>Stand des Dateiaufbaus. Erlaubt später eine Überführung ohne Rätselraten.</summary>
@@ -229,7 +229,7 @@ public sealed record MonitoringEntry
     /// oder Protokollzeile gelesen wird.
     /// </summary>
     /// <remarks>
-    /// Gedacht für abweichende Sprachfassungen und angepasste Beschriftungen. Wird beim
+    /// Gedacht für abweichende Sprachversionen und angepasste Beschriftungen. Wird beim
     /// Laden übersetzt, damit ein fehlerhafter Ausdruck sofort auffällt und nicht erst bei
     /// der ersten Sitzung.
     /// </remarks>
@@ -319,7 +319,7 @@ public sealed record LoggingSection
 /// Profile nehmen den ganzen Fenstertitel als Ziel, die beiden Outlook-Profile den
 /// Nachrichtenbetreff. Deshalb hat <see cref="RedactDestination"/> keine eigene Vorgabe,
 /// sondern folgt der Schwärzung des Protokolls — wer sie eingeschaltet hat, soll sie nicht
-/// dadurch verlieren, dass er eine neuere Programmfassung einspielt.</para>
+/// dadurch verlieren, dass er eine neuere Programmversion einspielt.</para>
 ///
 /// <para><b>Die Frist ist zweistufig.</b> Nach <see cref="PlainTextDays"/> verschwindet der
 /// Klartext der Gegenstelle und es bleibt ihr Abdruck; nach <see cref="RetentionDays"/>
@@ -662,7 +662,7 @@ public sealed record RecordingSection
     /// Betroffenen und ein anderer Eingriff. Stimmt dieser Wert nicht mit
     /// <see cref="Scope"/> überein, zählt die Kenntnisnahme nicht, und es wird nicht
     /// aufgezeichnet, bis sie erneut erteilt ist.</para>
-    /// <para><c>null</c> in einer Datei aus einer älteren Fassung: Damals gab es nur die
+    /// <para><c>null</c> in einer Datei aus einer älteren Version: Damals gab es nur die
     /// Fensteraufnahme, also gilt die Kenntnisnahme für <c>windows</c>.</para>
     /// </remarks>
     public string? AcknowledgedScope { get; init; }

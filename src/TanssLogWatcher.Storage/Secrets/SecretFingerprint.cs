@@ -27,7 +27,7 @@ namespace TanssLogWatcher.Storage.Secrets;
 /// einem je Installation erzeugten Schlüssel, der DPAPI-versiegelt neben dem Token liegt.</para>
 ///
 /// <para>Das <b>Schwärzen</b> von Text gehört ohnehin nicht hierher, sondern nach
-/// <see cref="TanssLogWatcher.Api.Diagnostics.Redaction"/>. Eine zweite Fassung in dieser
+/// <see cref="TanssLogWatcher.Api.Diagnostics.Redaction"/>. Eine zweite Version in dieser
 /// Schicht war nachweislich die schwächere: Sie kannte das Feldmuster <c>apiKey</c> nicht —
 /// und genau in dieser Form liefert <c>POST /api/v1/login</c> das Token.</para>
 /// </remarks>

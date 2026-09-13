@@ -42,7 +42,7 @@ public static class MonitoringProfiles
     /// </summary>
     /// <remarks>
     /// Fehlende Schlüssel kommen abgeschaltet hinzu, unbekannte fallen weg. So überlebt die
-    /// Konfiguration sowohl eine neue Programmfassung mit zusätzlichen Profilen als auch eine
+    /// Konfiguration sowohl eine neue Programmversion mit zusätzlichen Profilen als auch eine
     /// Rückkehr zur alten, ohne dass der Techniker etwas von Hand nachziehen muss.
     /// </remarks>
     /// <param name="stored">Die gespeicherten Einstellungen, gern leer.</param>

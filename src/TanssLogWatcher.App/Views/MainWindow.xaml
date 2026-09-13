@@ -294,7 +294,7 @@
                          ohnehin nachsieht, ist keine Benachrichtigung.
 
                          Anklickbar und nicht bloss ein Hinweis: Der Klick fuehrt dorthin, wo
-                         sich die Fassung auch holen laesst. Ein Hinweis ohne Weg dahin
+                         sich die Version auch holen laesst. Ein Hinweis ohne Weg dahin
                          zwaenge den Techniker, danach zu suchen.
 
                          Sichtbar nur, wenn es wirklich etwas gibt - sonst waere es eine
@@ -305,7 +305,7 @@
                                Content="{Binding UpdateText}"
                                FontSize="12"
                                AutomationProperties.AutomationId="Aktualisierungshinweis"
-                               ToolTip="Eine neuere Fassung steht bereit. Anklicken öffnet „Verbindung“ — dort lässt sie sich holen und einspielen."
+                               ToolTip="Eine neuere Version steht bereit. Anklicken öffnet „Verbindung“ — dort lässt sie sich holen und einspielen."
                                Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
                                Click="OnUpdateHintClick" />
 

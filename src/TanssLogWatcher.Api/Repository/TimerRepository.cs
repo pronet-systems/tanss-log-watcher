@@ -15,7 +15,7 @@ namespace TanssLogWatcher.Api.Repository;
 /// herstellt und mit 202 quittiert. Wer den Zustand kennen will, liest
 /// <see cref="TanssTimer.IsRunning"/> — ein Feld <c>isRunning</c> liefert der Server nicht.</para>
 /// <para><b>Die Routen sind nicht geraten, sondern nachgemessen</b> gegen eine Instanz der
-/// Fassung 10.10.0. Wichtig ist vor allem die
+/// Version 10.10.0. Wichtig ist vor allem die
 /// Trennung bei den Notizen: <c>POST /api/v1/timers/notes/{id}</c> hängt eine Notiz an den
 /// letzten Abschnitt an, <c>PUT /api/v1/timers/notes</c> ändert einen bestehenden Abschnitt und
 /// prüft dabei dessen Prüfsumme. Wer beides verwechselt, überschreibt fremden Text oder

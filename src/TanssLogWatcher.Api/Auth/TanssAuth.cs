@@ -89,7 +89,7 @@ public static class TanssAuth
     /// <param name="info">Freitext, den TANSS neben dem Token protokolliert.</param>
     /// <param name="forTesting">
     /// <c>true</c> macht daraus einen Rechte-Trockentest.
-    /// <para><b>ACHTUNG — nachgemessen gegen eine Instanz der Fassung 10.10.0, und anders als
+    /// <para><b>ACHTUNG — nachgemessen gegen eine Instanz der Version 10.10.0, und anders als
     /// hier früher behauptet:</b> Der Schalter macht das Token <b>nicht</b> unbrauchbar und
     /// verkürzt seine Laufzeit <b>nicht</b>. Bei gleicher <c>duration</c> liefert TANSS mit
     /// <c>true</c> und mit <c>false</c> ein Token mit identischem <c>exp</c>, und beide werden

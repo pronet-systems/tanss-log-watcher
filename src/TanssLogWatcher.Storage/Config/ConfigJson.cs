@@ -4,7 +4,7 @@ using System.Text.Json.Serialization;
 namespace TanssLogWatcher.Storage.Config;
 
 /// <summary>
-/// Die eine Fassung der JSON-Einstellungen für <c>config.json</c>.
+/// Die eine Version der JSON-Einstellungen für <c>config.json</c>.
 /// </summary>
 /// <remarks>
 /// <para>Bewusst genau ein Satz Einstellungen für Lesen und Schreiben. Zwei getrennte

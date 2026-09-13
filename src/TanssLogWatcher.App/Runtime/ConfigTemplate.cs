@@ -87,7 +87,7 @@ public static class ConfigTemplate
         {
         }
 
-        return "// Die Vorlage ist in dieser Programmfassung weder eingebettet noch liegt sie\n"
+        return "// Die Vorlage ist in dieser Programmversion weder eingebettet noch liegt sie\n"
             + "// neben der Anwendung. Das ist ein Fehler der Auslieferung, keine Frage der\n"
             + "// Einrichtung. Die Vorlage steht im Quellbestand unter\n"
             + "// src/TanssLogWatcher.App/config.example.json.\n";

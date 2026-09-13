@@ -11,7 +11,7 @@
     nachweisen, welche Datei wirklich verteilt wurde.
 
 .PARAMETER Version
-    Fassungsnummer. Ohne Angabe wird sie aus Directory.Build.props gelesen -
+    Versionsnummer. Ohne Angabe wird sie aus Directory.Build.props gelesen -
     dort steht sie, und nur dort.
 
 .PARAMETER Sign
@@ -97,14 +97,14 @@ $AppPublish   = Join-Path $ArtifactDir 'publish\app'
 $CliPublish   = Join-Path $ArtifactDir 'publish\cli'
 $PayloadDir   = Join-Path $ArtifactDir 'payload'
 
-# --- Fassung ---------------------------------------------------------------
+# --- Version ---------------------------------------------------------------
 
 function Get-VersionFromProps {
     param([Parameter(Mandatory)][string] $Path)
 
     if (-not (Test-Path -LiteralPath $Path)) {
         Stop-WithReason -What "Directory.Build.props wurde nicht gefunden ($Path)." `
-            -Why 'Dort steht die einzige gültige Fassungsnummer des Projekts.' `
+            -Why 'Dort steht die einzige gültige Versionsnummer des Projekts.' `
             -Todo 'Das Skript aus dem Projektbaum heraus aufrufen oder -Version x.y.z angeben.'
     }
 
@@ -113,7 +113,7 @@ function Get-VersionFromProps {
              Select-Object -First 1
     if (-not $match) {
         Stop-WithReason -What 'In Directory.Build.props steht kein Element <Version>.' `
-            -Why 'Ohne Fassungsnummer bekommt das Setup keinen sinnvollen Eintrag unter "Apps & Features", und Aktualisierungen lassen sich nicht unterscheiden.' `
+            -Why 'Ohne Versionsnummer bekommt das Setup keinen sinnvollen Eintrag unter "Apps & Features", und Aktualisierungen lassen sich nicht unterscheiden.' `
             -Todo 'Das Element dort eintragen oder -Version x.y.z angeben.'
     }
     return $match.Matches[0].Groups[1].Value.Trim()
@@ -121,12 +121,12 @@ function Get-VersionFromProps {
 
 if ([string]::IsNullOrWhiteSpace($Version)) {
     $Version = Get-VersionFromProps -Path $PropsFile
-    Write-Host "Fassung aus Directory.Build.props: $Version"
+    Write-Host "Version aus Directory.Build.props: $Version"
 } else {
     $inProps = Get-VersionFromProps -Path $PropsFile
     if ($Version -ne $inProps) {
         # Kein Abbruch: für einen Probelauf ist eine abweichende Nummer legitim.
-        Write-Warning ("Angegebene Fassung $Version weicht von Directory.Build.props ($inProps) ab. " +
+        Write-Warning ("Angegebene Version $Version weicht von Directory.Build.props ($inProps) ab. " +
                        "Das erzeugte Setup trägt $Version, die eingebauten Dateiversionen aber $inProps. " +
                        "Für eine echte Veröffentlichung zuerst Directory.Build.props ändern.")
     }
@@ -189,7 +189,7 @@ function Initialize-Signing {
             "Es wird NICHT signiert (kein -Sign angegeben).`n" +
             "  Folge:   Windows SmartScreen warnt bei jedem neuen Build vor einer " +
             "'unbekannten App'. Der Benutzer muss 'Weitere Informationen' und dann " +
-            "'Trotzdem ausführen' anklicken - bei jeder neuen Fassung erneut, weil der " +
+            "'Trotzdem ausführen' anklicken - bei jeder neuen Version erneut, weil der " +
             "Ruf einer unsignierten Datei bei null beginnt.`n" +
             "  Abhilfe: mit -Sign -CertificatePath <pfad.pfx> erneut aufrufen, sobald ein " +
             "Code-Signing-Zertifikat vorliegt.")

@@ -66,7 +66,7 @@ public interface IAiAssistant : IDisposable
 /// Die Anweisungen an das Modell.
 /// </summary>
 /// <remarks>
-/// An einer Stelle und für beide Anbieter dieselben. Zwei Fassungen desselben Auftrags lieferten
+/// An einer Stelle und für beide Anbieter dieselben. Zwei Versionen desselben Auftrags lieferten
 /// zwei verschiedene Ergebnisse, und welcher Anbieter gerade eingestellt ist, dürfte am Bericht
 /// nicht ablesbar sein.
 /// </remarks>
@@ -121,7 +121,7 @@ public static class AiPrompts
 /// fehlendes Feld heisst „der eingebaute Text“ und nicht „keine Anweisung“ — sonst schaltete
 /// ein versehentlich geleertes Feld die Regeln ab, und das Ergebnis sähe aus wie ein Fehler des
 /// Modells.</para>
-/// <para><b>An einer Stelle und für beide Anbieter dieselben.</b> Zwei Fassungen desselben
+/// <para><b>An einer Stelle und für beide Anbieter dieselben.</b> Zwei Versionen desselben
 /// Auftrags lieferten zwei verschiedene Ergebnisse, und welcher Anbieter gerade eingestellt
 /// ist, dürfte am Bericht nicht ablesbar sein.</para>
 /// </remarks>

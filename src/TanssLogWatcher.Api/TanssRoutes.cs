@@ -8,7 +8,7 @@ namespace TanssLogWatcher.Api;
 /// <para><b>Der überwiegende Teil dieser Routen ist undokumentiert.</b> Die OpenAPI-Beschreibung
 /// von TANSS 10.10.0 kennt weder <c>/api/tanss.x/v1</c> noch <c>PUT /api/v1/remoteSupports</c>
 /// noch <c>/api/v1/jwts</c>. Belegt sind sie über Messungen gegen eine Produktivinstanz der
-/// Fassung 10.10.0: jede hier aufgeführte Route ist dort aufgerufen und ihre Antwort
+/// Version 10.10.0: jede hier aufgeführte Route ist dort aufgerufen und ihre Antwort
 /// festgehalten worden.</para>
 ///
 /// <para>Daraus folgt eine Betriebsregel: bricht eine dieser Routen nach einem TANSS-Update weg,
@@ -42,7 +42,7 @@ public static class TanssRoutes
     /// Rumpf entgegen, und ein GET hätte dafür keinen Platz.
     /// </summary>
     /// <remarks>
-    /// Nachgemessen gegen eine Instanz der Fassung 10.10.0: Mit
+    /// Nachgemessen gegen eine Instanz der Version 10.10.0: Mit
     /// <c>{"staff":[&lt;id&gt;],"includeDoneTickets":false}</c> kommen die offenen Tickets des
     /// Mitarbeiters zurück, mit <c>true</c> zusätzlich die erledigten (dort Zustand 1000).
     /// </remarks>
@@ -77,7 +77,7 @@ public static class TanssRoutes
     /// Leistungen. Anlegen ist der <b>einzige</b> Weg hier hinein.
     /// </summary>
     /// <remarks>
-    /// Nachgemessen gegen eine Instanz der Fassung 10.10.0: <c>PUT</c> antwortet mit
+    /// Nachgemessen gegen eine Instanz der Version 10.10.0: <c>PUT</c> antwortet mit
     /// <c>405 Method Not Allowed</c> und nennt im Kopf <c>Allow: POST</c>. Die Route steht in
     /// keiner Beschreibung; das <c>Allow</c> ist der Beleg.
     /// </remarks>

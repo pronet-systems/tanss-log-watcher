@@ -22,7 +22,7 @@ public sealed class SerializationTests
     /// </summary>
     /// <remarks>
     /// Über dieses Feld setzt TANSS die Firma selbst ein; nachgemessen am 13.09.2026 gegen eine
-    /// Instanz der Fassung 10.10.0.
+    /// Instanz der Version 10.10.0.
     /// </remarks>
     [Fact]
     public void Fernwartung_Traegt_Die_Geraetekennung_Wenn_Es_Eine_Gibt()

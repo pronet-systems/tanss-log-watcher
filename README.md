@@ -182,7 +182,7 @@ statt Eingaben nur entgegenzunehmen:
 
 | Schritt | Was geprüft wird |
 |---|---|
-| TANSS-Adresse | Erreichbarkeit und API-Fassung |
+| TANSS-Adresse | Erreichbarkeit und API-Version |
 | Anmeldung | einmalig mit den eigenen Zugangsdaten, bei Bedarf mit zweitem Faktor |
 | Berechtigung | Trockentest der Token-Erneuerung — schlägt er fehl, bricht die Einrichtung ab |
 | Token | wird geprägt, gegengetestet und versiegelt abgelegt |

@@ -1,10 +1,10 @@
 # Änderungsprotokoll
 
 Alle nennenswerten Änderungen an diesem Projekt stehen hier. Das Format folgt
-[Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Fassungsnummern folgen
+[Keep a Changelog](https://keepachangelog.com/de/1.1.0/), die Versionsnummern folgen
 [Semantic Versioning](https://semver.org/lang/de/).
 
-Die Fassungsnummer selbst steht an genau einer Stelle: im Element `Version` in
+Die Versionsnummer selbst steht an genau einer Stelle: im Element `Version` in
 `Directory.Build.props`. Setup und Veröffentlichungslauf lesen sie dort.
 
 ---
@@ -13,7 +13,7 @@ Die Fassungsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ### Behoben — ein laufender Ladevorgang überlebt den Seitenwechsel
 
-**Der Befund.** Wer eine neue Fassung herunterlädt, dann die Seite wechselt und zurückkommt,
+**Der Befund.** Wer eine neue Version herunterlädt, dann die Seite wechselt und zurückkommt,
 sah keinen Fortschritt mehr — sondern eine Schaltfläche, die zum zweiten Mal einlud. Der zweite
 Vorgang scheiterte dann daran, dass die Datei noch offen war.
 
@@ -114,9 +114,9 @@ erhoben, in den Betriebszustand gelegt und nie gezeigt.
 
 - Ein Klick auf die Plakette öffnet eine Auskunft mit Titel, Grund und Vorschlag je Warnung.
   Gibt es keine, sagt sie das — ein Klick, der nichts tut, sieht aus wie ein Fehler.
-- Neu daneben: ein Hinweis auf eine verfügbare neue Fassung. Geprüft wurde schon immer täglich;
+- Neu daneben: ein Hinweis auf eine verfügbare neue Version. Geprüft wurde schon immer täglich;
   gesagt wurde es bisher nur auf einer Seite, die im Betrieb niemand öffnet. Der Hinweis führt
-  dorthin, wo sich die Fassung holen lässt.
+  dorthin, wo sich die Version holen lässt.
 - Der Verbindungstest meldet Erfolg jetzt grün mit Häkchen statt blau mit „i“.
 
 ### Entfernt — `recording.segment_minutes`
@@ -343,13 +343,13 @@ Das Werkzeug schickt bei jeder Fernwartung eine **Gerätekennung** mit. Ist zu i
 Zuordnung hinterlegt, setzt TANSS die Firma selbst ein — ohne dass das Werkzeug eine
 Firmenliste führen müsste.
 
-**Gemessen am 13.09.2026 gegen eine Produktivinstanz der Fassung 10.10.0**, über genau die
+**Gemessen am 13.09.2026 gegen eine Produktivinstanz der Version 10.10.0**, über genau die
 Route, die das Werkzeug benutzt: mit hinterlegter Zuordnung kam die Firma zurück, ohne
 Zuordnung eine 0. Die Gegenprobe schliesst aus, dass die Firma anderswoher stammte. Beide
 angelegten Datensätze wurden im selben Durchlauf wieder entfernt.
 
 - **Das Feld war die ganze Zeit da.** `RemoteSupportWrite.DeviceId` steht seit der ersten
-  Fassung im Modell und wurde nie gefüllt; bei jeder Fernwartung ging ein leeres
+  Version im Modell und wurde nie gefüllt; bei jeder Fernwartung ging ein leeres
   `"deviceId": ""` hinaus. Allein deshalb hat die Übersetzung nie gegriffen.
 - **Gebildet wird die Kennung an einer Stelle**, `DeviceIdentity` — und dort steht der Riegel.
   Gesperrt ist der Platzhalter „kein Titel ermittelt“: Eine Zuordnung auf ihn träfe künftig
@@ -457,7 +457,7 @@ Name war schon vorher zu eng.
 ### Behoben — zwei Zusagen, die nur auf dem Papier standen
 
 **Die Aufbewahrungsfristen liefen gar nicht.** `logging.retention_days` sagt seit der ersten
-Fassung dreissig Tage zu. Die beiden Löschschritte waren gebaut und geprüft — im gesamten
+Version dreissig Tage zu. Die beiden Löschschritte waren gebaut und geprüft — im gesamten
 Produktionscode rief sie aber niemand auf. Tatsächlich blieb alles liegen: jede Protokollzeile
 und jeder erledigte Warteschlangeneintrag. Letzterer trägt die Nutzlast, die nach TANSS ging,
 und darin die Gegenstelle im Klartext.
@@ -497,7 +497,7 @@ Aufzeichnung hängt. Aufgezeichnet wird noch nichts — es gibt bewusst keinen S
 Oberfläche, solange nichts dahintersteht.
 
 **Gemessen, bevor entworfen wurde.** Achtzehn Prüfläufe mit eigenen Probeprogrammen gegen diese
-Windows-Fassung (11 Pro, Build 22631.6199, Intel Iris Xe):
+Windows-Version (11 Pro, Build 22631.6199, Intel Iris Xe):
 
 - **Die Fensteraufnahme liefert besessene Unterfenster nicht mit.** Ein grüner Dialog über einem
   roten Hauptfenster ergab an seiner Stelle reines Rot (R=255 G=0 B=0). Wer nur das
@@ -505,7 +505,7 @@ Windows-Fassung (11 Pro, Build 22631.6199, Intel Iris Xe):
   Anmeldefenster von WinSCP, die Bestätigungsabfrage, den Fortschrittsbalken. Deshalb wird
   jedes Fenster einzeln aufgenommen und auf eine gemeinsame Leinwand kopiert.
 - **`IncludeSecondaryWindows`**, die Schnittstelle, die das abnehmen würde, **wirft auf dieser
-  Windows-Fassung** eine `InvalidCastException`, obwohl sie in der Projektion steht. Sie
+  Windows-Version** eine `InvalidCastException`, obwohl sie in der Projektion steht. Sie
   braucht 24H2.
 - **`MinUpdateInterval`** ebenso — die Bildrate wird deshalb selbst getaktet.
 - **Der gelbe Aufnahmerahmen landet nicht im Video.** Randpunkte des aufgenommenen Bildes waren
@@ -601,7 +601,7 @@ Erfasste Zeit, die nie zur Leistung wird, ist Arbeit, die niemand bezahlt.
   Zeitabschnitt**: Wer den Timer dreimal gestartet und gestoppt hat, beschreibt drei
   Arbeitsschritte einzeln. Diese Gliederung ist nicht erfunden — TANSS gibt die vorbereitete
   Leistung mit einem Texteintrag je Laufabschnitt zurück (`multiTextItems`), nachgemessen gegen
-  eine Instanz der Fassung 10.10.0.
+  eine Instanz der Version 10.10.0.
 - **Zwei Schritte, und der erste legt nichts an.** `POST /api/v1/supports/properties` mit
   `{"initializers":[{"type":"TIMER","id":…}]}` lässt TANSS über achtzig Felder vorbelegen —
   Stundensatz, Abrechnungsart, Fahrzeug, Zone. Erst `POST /api/v1/supports` bucht. Der Weg ist
@@ -652,7 +652,7 @@ Die Navigationsleiste löst das Ziel über ihre Einträge auf. Sind die beim Aus
 `Loaded` noch nicht aufgebaut, findet sie nichts, meldet `false` und wählt anschliessend von
 sich aus den letzten Eintrag — und der heisst „Verbindung“. Ob die Einträge rechtzeitig
 stehen, hängt davon ab, wie schnell der Rechner das erste Layout durchrechnet: ein Wettlauf,
-den dieselbe Fassung mal gewinnt und mal verliert.
+den dieselbe Version mal gewinnt und mal verliert.
 
 Gesehen hat es niemand, weil der Rückgabewert mit `_ = Navigation.Navigate(page)` weggeworfen
 wurde. Ein fehlgeschlagener Aufruf sah damit aus wie eine Design-Entscheidung. Jetzt wird der
@@ -710,7 +710,7 @@ Eine Durchsicht des gesamten Baums auf Stellen, die dem Benutzer etwas anzeigen,
 gemessen wurde. Die schwerste: Die Verbindungsseite trug eine Karte „Letzte Prüfung“ mit vier
 fest eingebauten grünen Haken — darunter „Token trägt und lässt sich erneuern“. Sie stand auch
 grün da, wenn nichts eingerichtet war, wenn die Prüfung fehlschlug und während das Token auf
-jeder Anfrage eine 403 erzeugte. Sie hätte beide Fehler dieser Fassung verdeckt.
+jeder Anfrage eine 403 erzeugte. Sie hätte beide Fehler dieser Version verdeckt.
 
 - **Verbindungsprüfung** zeigt jetzt echte Befunde mit einer eigenen Stufe „nicht geprüft“, die
   nicht aussieht wie „in Ordnung“.
@@ -742,7 +742,7 @@ jeder Anfrage eine 403 erzeugte. Sie hätte beide Fehler dieser Fassung verdeckt
 
 - **`tests/TanssLogWatcher.Live.Tests`** — neun Tests gegen eine echte Instanz statt gegen
   Attrappen. Ohne Zugangsdaten überspringen sie sich selbst; „übersprungen“ wird getrennt von
-  „bestanden“ ausgewiesen. Sie halten die beiden Fehler dieser Fassung fest sowie die beiden
+  „bestanden“ ausgewiesen. Sie halten die beiden Fehler dieser Version fest sowie die beiden
   Falschaussagen oben. Schreibende Tests verlangen zusätzlich `TANSS_LIVE_WRITES=1` und legen
   nie eine Fernwartung an.
 
@@ -811,7 +811,7 @@ mehrere Arbeitstage und die Beteiligung der Mitbestimmung.
 ### Bekannte Einschränkungen
 
 - Das veröffentlichte Setup ist **nicht signiert**. SmartScreen warnt deshalb bei jeder
-  neuen Fassung vor einem unbekannten Herausgeber. Abhilfe ist nur ein
+  neuen Version vor einem unbekannten Herausgeber. Abhilfe ist nur ein
   Code-Signing-Zertifikat; `publish.ps1 -Sign` ist dafür vorbereitet, aber ungeprüft.
 - Der Befehl `tanss-logwatch setup` fehlt weiterhin. Eingerichtet wird über die Oberfläche;
   mehrere Fehlermeldungen der Kommandozeile verweisen noch auf diesen Befehl.

@@ -14,7 +14,7 @@ namespace TanssLogWatcher.Storage;
 /// Vorgänge genau dieses Rechners.</para>
 ///
 /// <para><b>Bewusst kein Verzeichnis je Version.</b> Ein eigenes Verzeichnis je
-/// Programmstand unterhalb des Produktordners hinterlässt nach vier Fassungen vier
+/// Programmstand unterhalb des Produktordners hinterlässt nach vier Versionen vier
 /// verwaiste Ordner, von denen keiner erkennbar der gültige ist. Hier gibt es genau einen
 /// Pfad je Datei, über alle Programmstände hinweg.</para>
 /// </remarks>

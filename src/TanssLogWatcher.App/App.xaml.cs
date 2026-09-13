@@ -93,12 +93,12 @@ public partial class App : IDisposable
     public static SystemLookup Systems { get; } = new();
 
     /// <summary>
-    /// Die Suche nach neuen Fassungen bei GitHub.
+    /// Die Suche nach neuen Versionen bei GitHub.
     /// </summary>
     /// <remarks>
     /// Hängt ausdrücklich <b>nicht</b> an <see cref="AppHost"/>: Eine Aktualisierung ist auch
     /// dann zu holen, wenn nichts eingerichtet ist — gerade dann, wenn die fehlende Einrichtung
-    /// an einem Fehler liegt, den die neue Fassung behebt.
+    /// an einem Fehler liegt, den die neue Version behebt.
     /// </remarks>
     public static UpdateService Updates { get; } = new();
 

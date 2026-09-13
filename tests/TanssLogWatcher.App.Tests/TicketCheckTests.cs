@@ -24,7 +24,7 @@ namespace TanssLogWatcher.App.Tests;
 /// dieses Werkzeug nicht mehr hinein.</para>
 ///
 /// <para><b>Kein Netz.</b> Die Prüfstelle ist eine Attrappe, die genau die Antworten gibt, die
-/// am 13.09.2026 gegen die Fassung 10.10.0 gemessen wurden: 200 mit Ticket, 404 mit
+/// am 13.09.2026 gegen die Version 10.10.0 gemessen wurden: 200 mit Ticket, 404 mit
 /// <c>OBJECT_NOT_FOUND</c>, und alles andere als „nicht ermittelt“.</para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
@@ -368,7 +368,7 @@ internal sealed class FakePruefstelle(Func<int, TicketCheck> answer) : ITicketVe
 /// <summary>Eine Prüfstelle, die ihre Zusage bricht und wirft.</summary>
 /// <remarks>
 /// <see cref="ITicketVerification"/> sagt zu, nicht zu werfen. Eine Attrappe oder eine spätere
-/// Fassung könnte es anders halten, und der Dialog hängt an einer Eigenschaftsänderung — ohne
+/// Version könnte es anders halten, und der Dialog hängt an einer Eigenschaftsänderung — ohne
 /// eigenen Fänger risse die Ausnahme die Anwendung mit (Hausregel 5).
 /// </remarks>
 internal sealed class WerfendePruefstelle : ITicketVerification

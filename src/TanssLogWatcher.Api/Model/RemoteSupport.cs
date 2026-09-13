@@ -63,7 +63,7 @@ public sealed record RemoteSupportWrite
     /// <remarks>
     /// <para><b>TANSS übersetzt sie in eine Firma.</b> Ist zu dieser Kennung eine Zuordnung
     /// hinterlegt (<c>/api/remoteSupports/v1/assignDevice</c>), setzt TANSS beim Anlegen die
-    /// <c>companyId</c> selbst ein. Nachgemessen am 13.09.2026 gegen eine Instanz der Fassung
+    /// <c>companyId</c> selbst ein. Nachgemessen am 13.09.2026 gegen eine Instanz der Version
     /// 10.10.0, und zwar über die hier benutzte Route <c>/api/tanss.x/v1/remoteSupports</c>:
     /// mit hinterlegter Zuordnung kam die Firma zurück, ohne Zuordnung eine 0.</para>
     ///

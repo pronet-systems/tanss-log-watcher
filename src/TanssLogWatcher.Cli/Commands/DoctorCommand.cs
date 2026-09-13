@@ -211,7 +211,7 @@ public static class DoctorCommand
                 new CheckResult(carryName, CheckLevel.Fail,
                     "Der Aufruf ist fehlgeschlagen. Wenn die Instanz gerade neu startet, hilft "
                     + "ein zweiter Durchlauf in ein paar Minuten; bleibt es dabei, ist die "
-                    + "TANSS-Fassung gegen die benutzten Routen abzugleichen. Meldung: "
+                    + "TANSS-Version gegen die benutzten Routen abzugleichen. Meldung: "
                     + Redaction.Scrub(ex.Message)),
                 []);
         }

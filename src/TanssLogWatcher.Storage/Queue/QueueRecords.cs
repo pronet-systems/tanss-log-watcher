@@ -57,7 +57,7 @@ public sealed record QueuedUpload
     /// <para><b>Kein Zeitablauf hebt das auf.</b> Eine Zeile mit diesem Kennzeichen trägt eine
     /// Sitzung, die <b>niemand</b> beantwortet hat: Das Werkzeug wurde beendet, während sie
     /// noch offen war, oder ein früherer Lauf ist abgestürzt. Gebucht wird sie erst, wenn
-    /// jemand sagt, worauf. Die Vorgängerfassung hielt sie statt dessen fünf Minuten zurück und
+    /// jemand sagt, worauf. Die Vorgängerversion hielt sie statt dessen fünf Minuten zurück und
     /// schickte sie danach ungefragt mit der automatischen Beschreibung hinaus.</para>
     /// <para>Aufgehoben wird das Kennzeichen allein durch eine Entscheidung:
     /// <see cref="IUploadQueue.Release"/>, <see cref="IUploadQueue.LeaseOne"/> oder

@@ -8,7 +8,7 @@ namespace TanssLogWatcher.Monitoring;
 /// <remarks>
 /// <para><b>Wozu.</b> TANSS führt eine Übersetzungstabelle <c>deviceId → Firma</c>. Geht beim
 /// Anlegen einer Fernwartung eine <c>deviceId</c> mit, setzt TANSS die Firma selbst ein —
-/// nachgemessen am 13.09.2026 gegen eine Instanz der Fassung 10.10.0: mit hinterlegter
+/// nachgemessen am 13.09.2026 gegen eine Instanz der Version 10.10.0: mit hinterlegter
 /// Zuordnung kam die Firma zurück, ohne Zuordnung eine 0. Das Werkzeug hat das Feld seit jeher
 /// im Modell und hat es nie gefüllt; deshalb hat die Übersetzung nie gegriffen.</para>
 ///

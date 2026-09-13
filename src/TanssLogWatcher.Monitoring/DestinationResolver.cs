@@ -179,7 +179,7 @@ public sealed class DestinationResolver
     /// <see cref="MonitoringProfile.MonitorOnlyMainWindowHandle"/> wirkt hier bewusst <b>nicht</b>.
     /// Royal TS setzt die Angabe, in diesem Zweig wurde sie aber noch nie ausgewertet; wer sie
     /// jetzt beachtete, würde bei genau dieser Anwendung stillschweigend andere Sitzungen liefern
-    /// als jede bisherige Fassung.
+    /// als jede bisherige Version.
     /// </remarks>
     private static List<ResolvedDestination> ResolveByTitle(
         MonitoringProfile profile, IReadOnlyList<WindowInfo> processWindows)

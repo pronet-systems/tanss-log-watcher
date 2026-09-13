@@ -306,7 +306,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// </summary>
     /// <remarks>
     /// Er steht im Programm und nicht in einer Datei daneben: Was jemand bestätigt hat, muss
-    /// sich der Programmfassung zuordnen lassen. Eine Textdatei liesse sich nachträglich ändern.
+    /// sich der Programmversion zuordnen lassen. Eine Textdatei liesse sich nachträglich ändern.
     /// </remarks>
     public string ConsentText =>
         $"Beim Prüfen oder Ausformulieren wird der Berichtstext an {ProviderName} übermittelt "

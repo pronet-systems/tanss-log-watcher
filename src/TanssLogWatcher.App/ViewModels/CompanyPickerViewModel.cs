@@ -90,7 +90,7 @@ public enum CompanyPickerState
 /// Text seiner Auswahl selbst ins Feld — fällt die Auswahl weg, weil die Zeilen getauscht
 /// wurden, schreibt es einen <b>leeren</b> Text zurück. Der käme hier als „der Benutzer hat das
 /// Feld geräumt“ an und nähme dem Techniker mitten in der Suche seinen Begriff. Ob jede WPF-
-/// Fassung das tut, ist nicht gemessen; <see cref="Pinned"/> hält den Begriff deshalb fest,
+/// Version das tut, ist nicht gemessen; <see cref="Pinned"/> hält den Begriff deshalb fest,
 /// statt sich darauf zu verlassen.</para>
 ///
 /// <para><b>Hausregel 5.</b> Ein Netzfehler kostet die Suche, nicht die Auswahl: Das Feld bleibt

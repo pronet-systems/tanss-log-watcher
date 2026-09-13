@@ -27,7 +27,7 @@ public interface ITokenStore
 /// zwingend — ohne ihn antwortet TANSS mit 403; nachgemessen an <c>GET /api/v1/timers</c>.
 /// Auf <c>/api/tanss.x/v1/**</c> wird er dagegen schlicht ignoriert: derselbe Aufruf antwortet
 /// mit und ohne ihn mit 200.</para>
-/// <para><b>Frühere Fassungen behaupteten hier, er dürfe auf <c>tanss.x</c> „niemals"
+/// <para><b>Frühere Versionen behaupteten hier, er dürfe auf <c>tanss.x</c> „niemals"
 /// mitgeschickt werden.</b> Das ist nachgemessen falsch und stand als Ursache Nummer eins in
 /// der Meldung zu jeder 403 — es schickte den Techniker auf eine Fährte, die es nicht gibt.
 /// Die Umsetzung setzt den Parameter weiterhin selbsttätig nur auf <c>/api/v1</c>: dort ist er
@@ -278,7 +278,7 @@ public interface ITicketRepository
 
 /// <summary>Timer des angemeldeten Technikers.</summary>
 /// <remarks>
-/// Die Routen dahinter sind undokumentiert und gegen eine Instanz der Fassung 10.10.0
+/// Die Routen dahinter sind undokumentiert und gegen eine Instanz der Version 10.10.0
 /// ausgemessen. Zwei Eigenheiten prägen diese Schnittstelle: das Löschen nimmt die Kennung im
 /// Rumpf, und Notizen hängen nicht am Timer, sondern an seinen Laufabschnitten.
 /// </remarks>

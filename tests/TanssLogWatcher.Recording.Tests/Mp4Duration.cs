@@ -44,7 +44,7 @@ internal static class Mp4Duration
 
         byte version = bytes[at];
 
-        // Fassung 0: Zeitmass und Dauer sind 32 Bit, Fassung 1: 64 Bit. Dazwischen liegen
+        // Version 0: Zeitmass und Dauer sind 32 Bit, Version 1: 64 Bit. Dazwischen liegen
         // Erzeugungs- und Aenderungszeitpunkt in derselben Breite.
         int offset = at + 4;
 

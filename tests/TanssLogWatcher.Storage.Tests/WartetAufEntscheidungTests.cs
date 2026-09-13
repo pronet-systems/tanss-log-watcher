@@ -17,7 +17,7 @@ namespace TanssLogWatcher.Storage.Tests;
 ///
 /// <para><b>Deshalb prüft diese Datei das Gegenteil:</b> dass eine frisch eingereihte Sitzung
 /// auch nach Tagen nicht fällig wird, dass erst eine Entscheidung sie herauslässt, und dass
-/// eine Zeile aus einer älteren Fassung davon nicht betroffen ist — sie hat keinen Dialog
+/// eine Zeile aus einer älteren Version davon nicht betroffen ist — sie hat keinen Dialog
 /// mehr, auf den sie warten könnte, und muss hinausgehen.</para>
 /// </remarks>
 public sealed class WartetAufEntscheidungTests
@@ -156,18 +156,18 @@ public sealed class WartetAufEntscheidungTests
     }
 
     /// <summary>
-    /// Eine Zeile aus einer älteren Fassung wartet auf nichts.
+    /// Eine Zeile aus einer älteren Version wartet auf nichts.
     /// </summary>
     /// <remarks>
     /// <para>Der Fall der Überführung: In der Datenbank des Technikers stehen Zeilen, die vor
-    /// dieser Fassung eingereiht wurden. Für sie geht kein Dialog mehr auf — bekämen sie das
+    /// dieser Version eingereiht wurden. Für sie geht kein Dialog mehr auf — bekämen sie das
     /// Kennzeichen, lägen sie für immer da, und die Arbeitszeit wäre erfasst, aber nie
     /// gebucht.</para>
     /// <para>Geprüft wird gegen eine Datei im Stand 5, wie sie heute auf dem Arbeitsplatz
     /// liegt: ohne die Spalte <c>awaiting_decision</c>.</para>
     /// </remarks>
     [Fact]
-    public void Eine_Zeile_aus_einer_aelteren_Fassung_geht_nach_der_Ueberfuehrung_hinaus()
+    public void Eine_Zeile_aus_einer_aelteren_Version_geht_nach_der_Ueberfuehrung_hinaus()
     {
         using TempDirectory temp = new();
         string pfad = temp.File("state.db");

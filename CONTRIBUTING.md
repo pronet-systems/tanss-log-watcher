@@ -104,7 +104,7 @@ Produktivinstanz — nicht aus einer Spezifikation. Die drei wichtigsten:
 
 **Wer an diesen Routen etwas ändert, braucht eine Messung, keine Vermutung.** Ein Feld, das
 plausibel aussieht, ist noch lange nicht wirksam, und ein Verb sagt hier nichts über die Wirkung.
-In den Pull Request gehört dann, gegen welche TANSS-Fassung gemessen wurde und was dabei
+In den Pull Request gehört dann, gegen welche TANSS-Version gemessen wurde und was dabei
 herauskam — Anfrage, Antwort, Statuscode.
 
 Zwei Regeln, die beim Erweitern am häufigsten kosten:
@@ -159,7 +159,7 @@ Grund. Deutsch oder Englisch — Hauptsache, der Grund steht da.
 - **Keine Zugangsdaten, keine Token, keine Kundendaten.** Nicht im Quelltext, nicht in Tests,
   nicht in einem Issue und nicht in einem Protokollauszug. `config.json`, `credentials.dat`,
   `*.pfx` und `*.log` stehen deshalb in `.gitignore`.
-- **Kein eigener Aktualisierungsmechanismus.** Aktualisiert wird über eine neue Fassung des
+- **Kein eigener Aktualisierungsmechanismus.** Aktualisiert wird über eine neue Version des
   Setups.
 
 ## Sicherheitslücken

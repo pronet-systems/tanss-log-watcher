@@ -185,7 +185,7 @@ public sealed record QueueRow
 /// bei jedem Takt Auswahl und Bildlaufposition.</para>
 /// <para><b>Gerechnet wird nicht hier.</b> <see cref="TanssTimer.IsRunning"/> und
 /// <see cref="TanssTimer.Elapsed"/> gehören dem Modell und rechnen in TANSS-Sekunden; eine
-/// zweite Fassung davon in der Oberfläche liefe früher oder später auseinander — und zwar um
+/// zweite Version davon in der Oberfläche liefe früher oder später auseinander — und zwar um
 /// genau den laufenden Abschnitt, der die Anzeige überhaupt interessant macht.</para>
 /// </remarks>
 public sealed partial class TimerRow : ObservableObject

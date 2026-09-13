@@ -6,7 +6,7 @@
 ;    ISCC.exe installer\TanssLogWatcher.iss /DPayloadDir=..\artifacts\payload
 ;
 ;  build\publish.ps1 nimmt einem das ab: es veröffentlicht, legt den
-;  Nutzlastordner an und reicht Fassung, Nutzlast und URL hier herein.
+;  Nutzlastordner an und reicht Version, Nutzlast und URL hier herein.
 ;
 ;  Diese Datei ist UTF-8 MIT Byte-Order-Mark. Ohne die Marke liest Inno sie
 ;  als ANSI und aus jedem Umlaut wird Buchstabensalat im Assistenten.
@@ -58,7 +58,7 @@
 #define RepoRoot AddBackslash(SourcePath) + ".."
 
 ; ---------------------------------------------------------------------------
-;  Fassung: eine Quelle der Wahrheit.
+;  Version: eine Quelle der Wahrheit.
 ;
 ;  Die Nummer steht in Directory.Build.props und nirgends sonst. publish.ps1
 ;  liest sie dort und reicht sie mit /DAppVersion herein. Wer das Skript von
@@ -68,7 +68,7 @@
 #ifndef AppVersion
   #define PropsFile RepoRoot + "\Directory.Build.props"
   #if !FileExists(PropsFile)
-    #error Directory.Build.props wurde nicht gefunden; erwartet wird sie neben dem Ordner "installer". Grund: dort und nur dort steht die Fassungsnummer. Abhilfe: das Skript aus dem Projektbaum heraus uebersetzen oder /DAppVersion=x.y.z angeben.
+    #error Directory.Build.props wurde nicht gefunden; erwartet wird sie neben dem Ordner "installer". Grund: dort und nur dort steht die Versionsnummer. Abhilfe: das Skript aus dem Projektbaum heraus uebersetzen oder /DAppVersion=x.y.z angeben.
   #endif
   ; Nachgemessen: ein #define im Rumpf eines #sub wirkt nur dort und ist nach
   ; der Rückkehr wieder weg. Der Fund muss deshalb mit #expr in die außen
@@ -90,7 +90,7 @@
   #for {ScanLineNo = 0; !FileEof(PropsHandle); ScanLineNo++} ScanForVersion
   #expr FileClose(PropsHandle)
   #if ScannedVersion == ""
-    #error In Directory.Build.props steht kein <Version>-Element. Grund: das Setup braucht eine Fassungsnummer fuer den Eintrag unter "Apps & Features". Abhilfe: <Version> dort eintragen oder /DAppVersion=x.y.z angeben.
+    #error In Directory.Build.props steht kein <Version>-Element. Grund: das Setup braucht eine Versionsnummer fuer den Eintrag unter "Apps & Features". Abhilfe: <Version> dort eintragen oder /DAppVersion=x.y.z angeben.
   #endif
   #define AppVersion ScannedVersion
 #endif
@@ -103,9 +103,9 @@
 #endif
 
 ; ---------------------------------------------------------------------------
-;  Rein numerische Fassung für die Dateiversion.
+;  Rein numerische Version für die Dateiversion.
 ;
-;  VersionInfoVersion nimmt nur Zahlen und Punkte. Eine Vorabfassung wie
+;  VersionInfoVersion nimmt nur Zahlen und Punkte. Eine Vorabversion wie
 ;  "0.2.0-beta.1" ließe den Übersetzer mit "Value of [Setup] section directive
 ;  VersionInfoVersion is invalid" abbrechen — nachgemessen. Alles ab dem
 ;  Bindestrich fliegt deshalb raus; angezeigt wird weiterhin die volle Nummer.

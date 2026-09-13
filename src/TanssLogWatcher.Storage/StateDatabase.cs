@@ -27,7 +27,7 @@ namespace TanssLogWatcher.Storage;
 [SupportedOSPlatform("windows")]
 public sealed class StateDatabase : IDisposable
 {
-    /// <summary>Stand des Datenbankaufbaus, den diese Programmfassung erwartet.</summary>
+    /// <summary>Stand des Datenbankaufbaus, den diese Programmversion erwartet.</summary>
     /// <remarks>
     /// <para>Stand 2 kennt <c>queue.outcome_unknown</c> (Ausgang eines abgebrochenen Versands
     /// ungeklärt) und <c>session_log.window_title</c> (die eigens benannte
@@ -192,7 +192,7 @@ public sealed class StateDatabase : IDisposable
         {
             throw new StateDatabaseException(
                 $"{Path} trägt den Stand {found}, dieses Werkzeug kennt höchstens "
-                + $"{SchemaVersion}. Die Datei stammt aus einer neueren Programmfassung. "
+                + $"{SchemaVersion}. Die Datei stammt aus einer neueren Programmversion. "
                 + "Sie wird nicht geöffnet, weil ein älterer Stand beim Schreiben Felder "
                 + "verlöre, die er nicht kennt — betroffen wären genau die Sitzungen, die "
                 + "bereits erfasst sind. Bitte das Werkzeug aktualisieren.");
@@ -220,7 +220,7 @@ public sealed class StateDatabase : IDisposable
         // Bezeichner - und ein leerer Ersatzwert waere eine erfundene Angabe. NULL heisst
         // hier "nicht ermittelt", und daraus entsteht keine Geraetekennung.
         EnsureColumn(transaction, "open_sessions", "identity_key", "TEXT");
-        // Stand 6. Vorgabe 0, und das mit Bedacht: Was vor dieser Fassung eingereiht wurde,
+        // Stand 6. Vorgabe 0, und das mit Bedacht: Was vor dieser Version eingereiht wurde,
         // wartet auf keinen Dialog mehr - eine 1 liesse genau diese Zeilen fuer immer liegen.
         EnsureColumn(transaction, "queue", "awaiting_decision", "INTEGER NOT NULL DEFAULT 0");
 

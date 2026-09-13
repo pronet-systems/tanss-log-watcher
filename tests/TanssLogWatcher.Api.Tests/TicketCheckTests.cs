@@ -16,7 +16,7 @@ namespace TanssLogWatcher.Api.Tests;
 /// das Buchen nicht verhindern, und im Abschlussdialog läuft dabei eine Schonfrist von fünf
 /// Minuten.</para>
 /// <para>Der 404-Rumpf in <see cref="ObjectNotFound"/> ist die <b>wörtliche</b> Antwort einer
-/// Instanz der Fassung 10.10.0 vom 13.09.2026 auf <c>GET /api/v1/tickets/999999999</c>. Ein
+/// Instanz der Version 10.10.0 vom 13.09.2026 auf <c>GET /api/v1/tickets/999999999</c>. Ein
 /// ausgedachter Rumpf prüfte hier nichts: Die Unterscheidung „gibt es nicht“ gegen „nicht
 /// ermittelt“ hängt genau an dem Wort <c>OBJECT_NOT_FOUND</c>.</para>
 /// </remarks>

@@ -13,14 +13,14 @@
     <Company>ProNet Systems GmbH</Company>
     <Product>TANSS Log-Watcher</Product>
     <Copyright>Copyright (c) 2026 ProNet Systems GmbH</Copyright>
-    <!-- Eine Quelle der Wahrheit fuer die Fassung. Version ist der Urtext, alles
+    <!-- Eine Quelle der Wahrheit fuer die Version. Version ist der Urtext, alles
          andere leitet sich davon ab: build\publish.ps1 liest sie hier, und
          installer\TanssLogWatcher.iss tut es auch, wenn jemand das Setup von Hand
          uebersetzt. Wer sie an zwei Stellen pflegt, pflegt sie irgendwann falsch.
          Das Setup-Skript sucht buchstaeblich nach dem Element Version mit Wert
          und Endmarke in EINER Zeile - diese Schreibweise bitte beibehalten und
          das Wort in spitzen Klammern in keinem Kommentar darueber wiederholen,
-         sonst liest der Suchlauf den Kommentar statt der Fassung. -->
+         sonst liest der Suchlauf den Kommentar statt der Version. -->
     <Version>0.3.2</Version>
     <!-- Windows will bei FileVersion nur Zahlen und Punkte; die vierte bleibt 0,
          weil es keine Buildnummer gibt, die etwas aussagen wuerde. Der Suchlauf

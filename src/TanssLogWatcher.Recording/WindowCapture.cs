@@ -242,14 +242,14 @@ internal sealed class WindowCapture : IDisposable
     }
 
     /// <summary>
-    /// Schaltet den Aufnahmerahmen, wenn diese Windows-Fassung es kennt.
+    /// Schaltet den Aufnahmerahmen, wenn diese Windows-Version es kennt.
     /// </summary>
     /// <remarks>
     /// Über Reflexion und in einem <c>try</c>: Die Eigenschaft steht in der Projektion, wirft
-    /// auf älteren Windows-Fassungen aber beim Zugriff — gemessen an
+    /// auf älteren Windows-Versionen aber beim Zugriff — gemessen an
     /// <c>IncludeSecondaryWindows</c> und <c>MinUpdateInterval</c>, die sich genauso verhalten.
     /// Eine Versionsabfrage wäre hier die schlechtere Wahl: Sie behauptete zu wissen, ab welcher
-    /// Fassung es geht, statt es zu probieren.
+    /// Version es geht, statt es zu probieren.
     /// </remarks>
     private static void TrySetBorder(GraphicsCaptureSession session, bool visible)
     {
@@ -261,7 +261,7 @@ internal sealed class WindowCapture : IDisposable
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // Diese Windows-Fassung kennt den Schalter nicht. Der Rahmen bleibt dann, wie
+            // Diese Windows-Version kennt den Schalter nicht. Der Rahmen bleibt dann, wie
             // Windows ihn vorsieht - sichtbar, und das ist die Betriebsart, die wir ohnehin
             // wollen.
         }
@@ -298,7 +298,7 @@ internal sealed class WindowCapture : IDisposable
             MiscFlags = 0,
         };
 
-        // Die erzeugte Fassung nimmt einen Zeiger auf die unverwaltete Gegenstelle. Der Weg
+        // Die erzeugte Version nimmt einen Zeiger auf die unverwaltete Gegenstelle. Der Weg
         // ueber Marshal ist der einzige, der von dort zu einem verwalteten Verweis fuehrt.
         ID3D11Texture2D_unmanaged* raw = null;
         _device.Device.CreateTexture2D(&description, null, &raw);

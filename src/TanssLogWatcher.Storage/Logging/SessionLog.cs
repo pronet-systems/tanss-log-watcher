@@ -22,7 +22,7 @@ namespace TanssLogWatcher.Storage.Logging;
 /// wie ein Erfolg, während nichts geschrieben wurde, macht jede spätere Fehlersuche falsch.</para>
 ///
 /// <para>Geschwärzt wird an <b>einer</b> Stelle: Freitext läuft durch
-/// <see cref="Redaction"/> — die Fassung der API-Schicht, die auch das Feldmuster
+/// <see cref="Redaction"/> — die Version der API-Schicht, die auch das Feldmuster
 /// <c>apiKey</c> kennt, in der <c>POST /api/v1/login</c> das Token liefert —, und die
 /// Fensterbeschriftung zusätzlich durch <c>logging.redact_window_titles</c>. Eine
 /// Einstellung, die zusagt zu schwärzen und es nicht tut, ist schlimmer als gar keine: Der
@@ -354,7 +354,7 @@ public sealed class SessionLog : IDisposable
         "error" => SessionOutcome.Error,
         _ => throw new StateDatabaseException(
             $"Unbekanntes Ergebnis „{text}“ im Änderungsprotokoll. Die Datenbank stammt "
-            + "vermutlich aus einer neueren Programmfassung."),
+            + "vermutlich aus einer neueren Programmversion."),
     };
 
     private static SessionTrigger TriggerFrom(string text) => text switch
@@ -366,6 +366,6 @@ public sealed class SessionLog : IDisposable
         "manual" => SessionTrigger.Manual,
         _ => throw new StateDatabaseException(
             $"Unbekannter Auslöser „{text}“ im Änderungsprotokoll. Die Datenbank stammt "
-            + "vermutlich aus einer neueren Programmfassung."),
+            + "vermutlich aus einer neueren Programmversion."),
     };
 }

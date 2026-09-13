@@ -5,11 +5,11 @@
    sucht `publish.ps1` zuerst.
 2. Alles in einem Schritt: `powershell -ExecutionPolicy Bypass -File build\publish.ps1`.
    Das testet, veröffentlicht Oberfläche und Kommandozeile, packt und meldet am Ende
-   Größe und SHA256. Das Ergebnis liegt in `artifacts\TanssLogWatcher-<Fassung>-setup.exe`.
-3. Fassung ändern: nur `Directory.Build.props`, Element `Version`. Skript und `.iss` lesen
+   Größe und SHA256. Das Ergebnis liegt in `artifacts\TanssLogWatcher-<Version>-setup.exe`.
+3. Version ändern: nur `Directory.Build.props`, Element `Version`. Skript und `.iss` lesen
    sie dort; `-Version x.y.z` übersteuert sie für Probeläufe.
 4. Signieren: `build\publish.ps1 -Sign -CertificatePath <pfad.pfx> [-CertificatePassword <kw>]`.
-   Ohne Zertifikat läuft es weiter und warnt — SmartScreen meckert dann bei jeder Fassung.
+   Ohne Zertifikat läuft es weiter und warnt — SmartScreen meckert dann bei jeder Version.
 5. Nur packen, ohne neu zu übersetzen (setzt einen fertigen Nutzlastordner voraus):
    `"%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe" installer\TanssLogWatcher.iss /DPayloadDir=<ordner>`
 

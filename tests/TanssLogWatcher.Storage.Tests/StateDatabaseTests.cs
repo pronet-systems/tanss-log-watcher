@@ -58,7 +58,7 @@ public sealed class StateDatabaseTests
     /// </summary>
     /// <remarks>
     /// Der Sprung 3 → 5 überspringt einen Stand. Er ist der Fall, den eine Installation
-    /// mitbringt, die eine Fassung übersprungen hat — und der einzige, in dem in einem Lauf
+    /// mitbringt, die eine Version übersprungen hat — und der einzige, in dem in einem Lauf
     /// sowohl eine ganze Tabelle als auch eine einzelne Spalte nachzuziehen ist.
     /// </remarks>
     private const string SchemaVersionThree = """
@@ -198,7 +198,7 @@ public sealed class StateDatabaseTests
     [Fact]
     public void Eine_Datei_vom_Stand_3_kommt_auch_durch()
     {
-        // Der uebersprungene Stand: eine Installation, die eine Fassung ausgelassen hat.
+        // Der uebersprungene Stand: eine Installation, die eine Version ausgelassen hat.
         // Hier ist in EINEM Lauf beides nachzuziehen - eine ganze Tabelle (session_history,
         // Stand 4) und eine einzelne Spalte (identity_key, Stand 5).
         using TempDirectory temp = new();

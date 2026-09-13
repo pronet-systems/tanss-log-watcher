@@ -34,7 +34,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     /// <summary>Baut die Seite und holt, was ohne Zutun zu holen ist.</summary>
     /// <param name="host">Die Laufzeit.</param>
     /// <param name="systems">Der gemeinsame Nachschlag für Typnamen und Farben.</param>
-    /// <param name="updates">Die Suche nach neuen Fassungen.</param>
+    /// <param name="updates">Die Suche nach neuen Versionen.</param>
     public ConnectionViewModel(AppHost host, SystemLookup systems, UpdateService updates)
         : base(host)
     {
@@ -212,7 +212,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
 
     // --- Aktualisierung ----------------------------------------------------
 
-    /// <summary>Die Fassung, die gerade läuft.</summary>
+    /// <summary>Die Version, die gerade läuft.</summary>
     /// <remarks>
     /// Als Eigenschaft mit Sicherungsfeld und nicht als statischer Ausdruck: WPF bindet gegen
     /// Instanzmember, und ein <c>{x:Static}</c> in der Ansicht wäre die einzige Stelle, an der
@@ -220,7 +220,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     /// </remarks>
     public string CurrentVersionText { get; } = UpdateService.CurrentVersion.ToString();
 
-    /// <summary>Liegt eine neuere Fassung vor?</summary>
+    /// <summary>Liegt eine neuere Version vor?</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UpdateHeadline))]
     private bool _hasUpdate;
@@ -264,7 +264,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     /// <summary>Steht ein geprüftes Setup bereit?</summary>
     public bool IsReadyToInstall => _updates.Downloaded is not null;
 
-    /// <summary>Sucht von Hand nach einer neuen Fassung.</summary>
+    /// <summary>Sucht von Hand nach einer neuen Version.</summary>
     /// <remarks>
     /// Von selbst geschieht das täglich. Diese Schaltfläche gibt es trotzdem: Wer eine
     /// Fehlerbehebung erwartet, soll nicht bis morgen warten müssen.
@@ -278,7 +278,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     }
 
     /// <summary>
-    /// Lädt die neue Fassung und prüft sie gegen die veröffentlichte Prüfsumme.
+    /// Lädt die neue Version und prüft sie gegen die veröffentlichte Prüfsumme.
     /// </summary>
     /// <remarks>
     /// Installiert wird hier noch nichts. Herunterladen und Ausführen sind ausdrücklich zwei
@@ -611,7 +611,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     /// <remarks>
     /// <para>Jede Zeile nennt ihre Quelle. Wo keine Messung vorliegt, steht ausdrücklich „nicht
     /// geprüft“ — das ist eine eigene Stufe und nicht dasselbe wie „in Ordnung“. Genau diese
-    /// Unterscheidung fehlte der Vorgängerfassung, und sie ist der Grund, aus dem ein kaputtes
+    /// Unterscheidung fehlte der Vorgängerversion, und sie ist der Grund, aus dem ein kaputtes
     /// Token dort als „trägt“ erschien.</para>
     /// <para>Das Prägerecht steht bewusst NICHT darin: Es liesse sich nur über einen
     /// Prägeversuch feststellen, und der erzeugt in TANSS ein echtes, nicht widerrufbares

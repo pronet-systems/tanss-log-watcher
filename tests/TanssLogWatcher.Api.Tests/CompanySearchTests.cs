@@ -389,7 +389,7 @@ public sealed class CompanySearchTests
     /// <remarks>
     /// Der springende Punkt steht in <c>Answer</c>: Übersteigt die Trefferzahl
     /// <c>maxResults</c>, kommt eine leere Liste statt einer gekürzten zurück. Nachgemessen an
-    /// einer Instanz der Fassung 10.10.0 mit 540 Treffern zu „Gmb“.
+    /// einer Instanz der Version 10.10.0 mit 540 Treffern zu „Gmb“.
     /// </remarks>
     private sealed class FakeTanss
     {

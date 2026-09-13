@@ -24,7 +24,7 @@
     <design:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
 
     <!-- Der eingebaute Konverter, hier einmal benannt: Seiten blenden ganze Abschnitte aus,
-         solange nichts eingerichtet ist, und sollen dafür nicht je eigene Fassungen führen. -->
+         solange nichts eingerichtet ist, und sollen dafür nicht je eigene Versionen führen. -->
     <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
     <!-- Maße. Eine Leiter statt frei gewählter Abstände, damit Seiten untereinander gleich wirken. -->

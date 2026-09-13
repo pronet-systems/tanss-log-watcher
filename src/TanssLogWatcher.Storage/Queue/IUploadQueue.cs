@@ -56,7 +56,7 @@ public interface IUploadQueue : IDisposable
     /// Kennzeichen ginge in allen drei Fällen die automatische Beschreibung nach TANSS, ohne
     /// Firma, ohne Ticket, ohne Bericht — genau der Befund, der diesen Umbau ausgelöst
     /// hat.</para>
-    /// <para><b>Ausdrücklich keine Frist.</b> Die Vorgängerfassung hielt den Eintrag fünf
+    /// <para><b>Ausdrücklich keine Frist.</b> Die Vorgängerversion hielt den Eintrag fünf
     /// Minuten zurück und schickte ihn danach ungefragt mit der automatischen Beschreibung
     /// hinaus. Gemessen an der Zustandsdatenbank dieses Arbeitsplatzes ist das auch geschehen.
     /// Wer einen Zeitablauf einführt, führt genau das wieder ein.</para>
@@ -65,7 +65,7 @@ public interface IUploadQueue : IDisposable
     /// <see cref="Remove"/> („Verwerfen“). Bleibt sie aus — Absturz, Feierabend —, steht die
     /// Zeile am nächsten Tag noch da und der Dialog wird erneut angeboten.</para>
     /// <para>Ohne Angabe ist der Eintrag sofort fällig — so verhält sich die Kommandozeile,
-    /// die niemanden fragt, und so verhält sich jede Zeile aus einer älteren Fassung.</para>
+    /// die niemanden fragt, und so verhält sich jede Zeile aus einer älteren Version.</para>
     /// </param>
     bool Enqueue(RemoteSupportWrite item, bool awaitDecision = false);
 

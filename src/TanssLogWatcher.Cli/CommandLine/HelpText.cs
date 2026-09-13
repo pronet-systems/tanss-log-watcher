@@ -14,7 +14,7 @@ namespace TanssLogWatcher.Cli.CommandLine;
 /// </remarks>
 public static class HelpText
 {
-    /// <summary>Die Fassung des Werkzeugs, so wie sie in der Baugruppe steht.</summary>
+    /// <summary>Die Version des Werkzeugs, so wie sie in der Baugruppe steht.</summary>
     public static string Version =>
         typeof(HelpText).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion.Split('+')[0]
@@ -58,7 +58,7 @@ public static class HelpText
         writer.WriteLine();
         writer.WriteLine("Allgemein:");
         writer.WriteLine("  --help, -h              Diese Hilfe.");
-        writer.WriteLine("  --version               Fassung ausgeben.");
+        writer.WriteLine("  --version               Version ausgeben.");
         writer.WriteLine();
         writer.WriteLine("Rückgabewerte (der Überwachungsvertrag von doctor):");
         writer.WriteLine("  0   gesund");
@@ -95,7 +95,7 @@ public static class HelpText
         writer.WriteLine("Anzulegen ist sie mit dem Einrichtungsassistenten:");
         writer.WriteLine("  tanss-logwatch setup");
         writer.WriteLine();
-        writer.WriteLine("Diesen Befehl gibt es in dieser Fassung noch nicht. Bis dahin ist die");
+        writer.WriteLine("Diesen Befehl gibt es in dieser Version noch nicht. Bis dahin ist die");
         writer.WriteLine("Beispieldatei zu kopieren und anzupassen — sie ist vollständig kommentiert:");
         writer.WriteLine("  " + ExamplePath());
         writer.WriteLine();

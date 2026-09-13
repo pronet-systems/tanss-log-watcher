@@ -27,7 +27,7 @@ public sealed partial class ShellViewModel : RuntimeViewModel
     /// <summary>Baut die Anzeige und meldet sich an den Diensten an.</summary>
     /// <param name="host">Die Laufzeit.</param>
     /// <param name="updates">
-    /// Die Prüfung auf neue Fassungen. Bleibt sie offen, zeigt die Fußzeile nichts dazu — für
+    /// Die Prüfung auf neue Versionen. Bleibt sie offen, zeigt die Fußzeile nichts dazu — für
     /// Prüfstände, die ohne Netz laufen sollen.
     /// </param>
     public ShellViewModel(AppHost host, UpdateService? updates = null) : base(host)
@@ -139,7 +139,7 @@ public sealed partial class ShellViewModel : RuntimeViewModel
     [ObservableProperty]
     private bool _isWarningsOpen;
 
-    /// <summary>Liegt eine neuere Fassung vor?</summary>
+    /// <summary>Liegt eine neuere Version vor?</summary>
     /// <remarks>
     /// <para><b>Warum das in die Fußzeile gehört.</b> Geprüft wurde schon immer — eine Minute
     /// nach dem Start und danach täglich. Gesagt wurde es nur auf der Seite „Verbindung“, und
@@ -147,19 +147,19 @@ public sealed partial class ShellViewModel : RuntimeViewModel
     /// Aktualisierung, von der man nur erfährt, wenn man ohnehin nachsieht, ist keine
     /// Benachrichtigung.</para>
     /// <para>Die Fußzeile ist der richtige Ort und nicht ein Fenster, das sich aufdrängt: Eine
-    /// neue Fassung ist keine Störung, sondern eine Auskunft. Sie darf warten, bis jemand
+    /// neue Version ist keine Störung, sondern eine Auskunft. Sie darf warten, bis jemand
     /// hinsieht — sie darf nur nicht unsichtbar sein.</para>
     /// </remarks>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UpdateText))]
     private bool _updateAvailable;
 
-    /// <summary>Die Nummer der neuen Fassung.</summary>
+    /// <summary>Die Nummer der neuen Version.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(UpdateText))]
     private string _updateVersion = string.Empty;
 
-    /// <summary>Was in der Fußzeile steht, wenn eine neue Fassung vorliegt.</summary>
+    /// <summary>Was in der Fußzeile steht, wenn eine neue Version vorliegt.</summary>
     public string UpdateText => UpdateVersion.Length == 0
         ? "Aktualisierung verfügbar"
         : string.Create(CultureInfo.CurrentCulture, $"Version {UpdateVersion} verfügbar");
@@ -269,7 +269,7 @@ public sealed partial class ShellViewModel : RuntimeViewModel
 
     partial void OnIsPausedChanged(bool value) => Host.Sessions.IsEnabled = !value;
 
-    /// <summary>Übernimmt das Ergebnis einer Prüfung auf neue Fassungen.</summary>
+    /// <summary>Übernimmt das Ergebnis einer Prüfung auf neue Versionen.</summary>
     /// <remarks>
     /// <b>Der Dienst löst auf einem Hintergrundstrang aus</b> — er sagt das selbst. Die
     /// Zuweisung an eine gebundene Eigenschaft muss deshalb über den Strang der Oberfläche

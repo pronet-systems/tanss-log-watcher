@@ -114,7 +114,7 @@ public sealed class VideoFileTests : IDisposable
     /// Prozessabbruch; die fehlenden siebzehn stecken im Rückstau des Kodierers.</para>
     /// <para><b>Warum hier gewartet und nicht bloss viel geschrieben wird.</b> Der Index geht
     /// zusammen mit dem ersten Bruchstück auf die Platte. Wer vorher abstürzt, hat auch keinen —
-    /// das ist richtig so und nicht zu heilen. Die Vorgängerfassung schrieb deshalb erst
+    /// das ist richtig so und nicht zu heilen. Die Vorgängerversion schrieb deshalb erst
     /// vierzig, dann zweihundert Bilder und hoffte, der Kodierer sei in dieser Zeit fertig. Das
     /// war keine Zusage, sondern eine Wette: Unter voller Last — sechs Prüfprojekte
     /// nebeneinander auf ausgelasteten Kernen — verlor sie gelegentlich, und der Prüffall
@@ -368,7 +368,7 @@ public sealed class VideoFileTests : IDisposable
     /// <summary>Schreibt Bilder mit wechselnder Farbe, damit der Kodierer etwas zu tun hat.</summary>
     /// <summary>Wie viele Bilder je Schub geschrieben werden, bevor nachgesehen wird.</summary>
     /// <remarks>
-    /// Vierzig war die Zahl der ersten Fassung dieses Prüffalls; sie reicht im Regelfall für
+    /// Vierzig war die Zahl der ersten Version dieses Prüffalls; sie reicht im Regelfall für
     /// ein Bruchstück. Kleiner hiesse: häufiger die Datei lesen, und das Lesen kostet mehr als
     /// das Schreiben von vierzig kleinen Bildern.
     /// </remarks>

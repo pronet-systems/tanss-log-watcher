@@ -140,7 +140,7 @@ public static partial class Redaction
 
     /// <summary>
     /// Ein JWT im Klartext: drei mit Punkt getrennte Base64url-Abschnitte, beginnend mit
-    /// <c>eyJ</c> (der Base64url-Fassung von <c>{"</c>).
+    /// <c>eyJ</c> (der Base64url-Form von <c>{"</c>).
     /// </summary>
     [GeneratedRegex(@"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*", RegexOptions.CultureInvariant)]
     private static partial Regex JwtPattern();

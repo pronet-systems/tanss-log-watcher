@@ -525,14 +525,14 @@ public sealed class UploadQueueTests
     };
 
     [Fact]
-    public void Eine_Datenbank_aus_neuerer_Fassung_wird_nicht_geoeffnet()
+    public void Eine_Datenbank_aus_neuerer_Version_wird_nicht_geoeffnet()
     {
         using TempDirectory temp = new();
         string path = temp.File("state.db");
 
         using (StateDatabase database = new(path))
         {
-            // Nur anlegen. Die Fassungsnummer setzt danach ein Fremdprozess - so, wie es
+            // Nur anlegen. Die Versionsnummer setzt danach ein Fremdprozess - so, wie es
             // ein neuerer Programmstand taete.
         }
 
@@ -546,7 +546,7 @@ public sealed class UploadQueueTests
         }
 
         StateDatabaseException error = Assert.Throws<StateDatabaseException>(() => new StateDatabase(path));
-        Assert.Contains("neueren Programmfassung", error.Message, StringComparison.Ordinal);
+        Assert.Contains("neueren Programmversion", error.Message, StringComparison.Ordinal);
     }
 
     /// <summary>

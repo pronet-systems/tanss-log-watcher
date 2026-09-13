@@ -8,7 +8,7 @@ using Xunit;
 namespace TanssLogWatcher.App.Tests;
 
 /// <summary>
-/// Die Fußzeile: Zustandsplakette, Warnungen und der Hinweis auf eine neue Fassung.
+/// Die Fußzeile: Zustandsplakette, Warnungen und der Hinweis auf eine neue Version.
 /// </summary>
 /// <remarks>
 /// <para><b>Der Befund, aus dem diese Datei entstanden ist.</b> Die Plakette sagte „verbunden,
@@ -27,14 +27,14 @@ namespace TanssLogWatcher.App.Tests;
 public sealed class FusszeileTests
 {
     /// <summary>
-    /// Ohne neue Fassung steht in der Fußzeile nichts dazu.
+    /// Ohne neue Version steht in der Fußzeile nichts dazu.
     /// </summary>
     /// <remarks>
     /// Der wichtigere der beiden Fälle: Eine Dauerzeile, die immer da ist, liest nach drei
     /// Tagen niemand mehr — und dann fällt auch die echte Meldung nicht mehr auf.
     /// </remarks>
     [Fact]
-    public void Ohne_neue_Fassung_steht_nichts_da()
+    public void Ohne_neue_Version_steht_nichts_da()
     {
         using TempDirectory temp = new();
         using AppHost host = Laufzeit(temp);
@@ -44,10 +44,10 @@ public sealed class FusszeileTests
     }
 
     /// <summary>
-    /// Liegt eine neue Fassung vor, nennt die Zeile ihre Nummer.
+    /// Liegt eine neue Version vor, nennt die Zeile ihre Nummer.
     /// </summary>
     [Fact]
-    public void Mit_neuer_Fassung_nennt_die_Zeile_die_Nummer()
+    public void Mit_neuer_Version_nennt_die_Zeile_die_Nummer()
     {
         using TempDirectory temp = new();
         using AppHost host = Laufzeit(temp);

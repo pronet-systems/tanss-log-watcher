@@ -40,15 +40,15 @@ public sealed class LadevorgangUeberlebtTests
     public void Ein_zweiter_Anstoss_wird_abgelehnt()
     {
         using UpdateService dienst = Ruhend();
-        AvailableUpdate fassung = Fassung();
+        AvailableUpdate aktualisierung = Aktualisierung();
 
-        Assert.True(dienst.StartDownload(fassung), "Der erste Vorgang hat nicht begonnen.");
+        Assert.True(dienst.StartDownload(aktualisierung), "Der erste Vorgang hat nicht begonnen.");
 
         // Solange der erste laeuft, gibt es keinen zweiten. Laeuft er schon nicht mehr, ist
         // auch nichts zu beweisen - dann ist dieser Fall stumm und der naechste zustaendig.
         if (dienst.IsDownloading)
         {
-            Assert.False(dienst.StartDownload(fassung),
+            Assert.False(dienst.StartDownload(aktualisierung),
                          "Ein zweiter Vorgang wurde angestossen, obwohl einer lief.");
         }
     }
@@ -69,7 +69,7 @@ public sealed class LadevorgangUeberlebtTests
         void Zusehen(object? s, EventArgs e) => Interlocked.Increment(ref meldungen);
 
         dienst.DownloadChanged += Zusehen;
-        _ = dienst.StartDownload(Fassung());
+        _ = dienst.StartDownload(Aktualisierung());
 
         // So verlaesst der Techniker die Seite: Das Ansichtsmodell meldet sich ab.
         dienst.DownloadChanged -= Zusehen;
@@ -93,7 +93,7 @@ public sealed class LadevorgangUeberlebtTests
     {
         using UpdateService dienst = Ruhend();
 
-        _ = dienst.StartDownload(Fassung());
+        _ = dienst.StartDownload(Aktualisierung());
         await Abgeschlossen(dienst).ConfigureAwait(true);
 
         Assert.False(dienst.IsDownloading);
@@ -101,13 +101,13 @@ public sealed class LadevorgangUeberlebtTests
         Assert.NotNull(dienst.DownloadProblem);
 
         // Der Riegel ist wieder offen.
-        Assert.True(dienst.StartDownload(Fassung()),
+        Assert.True(dienst.StartDownload(Aktualisierung()),
                     "Nach einem Fehlschlag liess sich kein neuer Vorgang beginnen.");
     }
 
-    /// <summary>Ohne Fassung gibt es nichts zu laden.</summary>
+    /// <summary>Ohne Version gibt es nichts zu laden.</summary>
     [Fact]
-    public void Ohne_Fassung_wird_abgewiesen()
+    public void Ohne_Version_wird_abgewiesen()
     {
         using UpdateService dienst = Ruhend();
         _ = Assert.Throws<ArgumentNullException>(() => dienst.StartDownload(null!));
@@ -122,12 +122,12 @@ public sealed class LadevorgangUeberlebtTests
     /// </remarks>
     private static UpdateService Ruhend() => new(TimeSpan.FromHours(1));
 
-    /// <summary>Eine Fassung, deren Adresse ins Leere zeigt.</summary>
+    /// <summary>Eine Version, deren Adresse ins Leere zeigt.</summary>
     /// <remarks>
     /// <c>.invalid</c> ist nach RFC 2606 dauerhaft unauflösbar — der Versuch scheitert also
     /// ohne Netzzugang und ohne fremden Rechner zu behelligen.
     /// </remarks>
-    private static AvailableUpdate Fassung() => new(
+    private static AvailableUpdate Aktualisierung() => new(
         new Version(9, 9, 9),
         "v9.9.9",
         new Uri("https://example.invalid/setup.exe"),

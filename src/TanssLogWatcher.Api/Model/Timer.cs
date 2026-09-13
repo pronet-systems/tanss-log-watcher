@@ -43,7 +43,7 @@ public sealed record TanssTimer
 /// <summary>Ein neu anzulegender Timer — der Rumpf von <c>POST /api/v1/timers</c>.</summary>
 /// <remarks>
 /// <para>Die Felder sind genau die, die TANSS beim Anlegen entgegennimmt — ausgemessen
-/// gegen eine Instanz der Fassung 10.10.0. Erwartet wird ein vollständiger Timer; geantwortet
+/// gegen eine Instanz der Version 10.10.0. Erwartet wird ein vollständiger Timer; geantwortet
 /// wird mit 201 und dem angelegten Datensatz.</para>
 /// <para><b>Drei Felder setzt der Server selbst und überschreibt sie:</b>
 /// <see cref="StartTime"/> (immer „jetzt“), <see cref="Duration"/> (immer 0) und die

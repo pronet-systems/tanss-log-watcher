@@ -335,7 +335,7 @@ public sealed class ConfigStore : IConfigStore
     /// </summary>
     /// <remarks>
     /// Ausdrücklich <b>kein</b> zweiter Weg, eine Konfiguration zu laden — damit wird nichts
-    /// in Betrieb genommen. Diese Fassung dient allein dazu, einen Ladefehler einzuordnen,
+    /// in Betrieb genommen. Diese Version dient allein dazu, einen Ladefehler einzuordnen,
     /// ohne den Wortlaut einer Framework-Meldung zu raten. Das Feld
     /// <c>JsonUnmappedMemberHandling</c> steht als Attribut am Modell; überschreiben lässt
     /// es sich nur über den Auflöser der Typinformationen.

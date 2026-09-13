@@ -103,9 +103,9 @@ internal static class CaptureItemFactory
         if (hr < 0 || interop == 0)
         {
             throw new RecordingException(
-                "Diese Windows-Fassung kennt die Schnittstelle nicht, über die aus einem "
+                "Diese Windows-Version kennt die Schnittstelle nicht, über die aus einem "
                 + "Fenster ein Aufnahmeziel wird. Die Bildschirmaufzeichnung setzt Windows 10 "
-                + "in der Fassung 1803 oder neuer voraus.");
+                + "in der Version 1803 oder neuer voraus.");
         }
 
         try

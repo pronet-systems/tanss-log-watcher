@@ -7,7 +7,7 @@ namespace TanssLogWatcher.Monitoring.Tests;
 /// Die Kennung, unter der TANSS das Gerät wiedererkennt.
 /// </summary>
 /// <remarks>
-/// <para>Gemessen am 13.09.2026 gegen eine echte Instanz der Fassung 10.10.0: Mit hinterlegter
+/// <para>Gemessen am 13.09.2026 gegen eine echte Instanz der Version 10.10.0: Mit hinterlegter
 /// Zuordnung kam die Firma an der angelegten Fernwartung zurück, ohne Zuordnung eine 0. Der
 /// Nutzen dieser Kennung ist damit belegt — und ebenso, dass eine falsche teuer ist: Sie
 /// bucht ab dann stillschweigend auf einen Kunden.</para>

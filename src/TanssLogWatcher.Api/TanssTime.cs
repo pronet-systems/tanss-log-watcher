@@ -5,7 +5,7 @@ namespace TanssLogWatcher.Api;
 /// </summary>
 /// <remarks>
 /// TANSS rechnet in <b>Unix-Sekunden</b>, nicht in Millisekunden. Nachgemessen: Ein
-/// Schreibversuch gegen eine Instanz der Fassung 10.10.0 gab die gesendeten Sekunden
+/// Schreibversuch gegen eine Instanz der Version 10.10.0 gab die gesendeten Sekunden
 /// unverändert zurück, und dieselbe Einheit kommt aus jeder lesenden Route zurück.
 ///
 /// <para><b>Millisekunden sind kein sauberer Fehler, sondern stille Datenverfälschung.</b>

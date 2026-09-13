@@ -32,7 +32,7 @@ public sealed record MonitoringSetting
 
     /// <summary>
     /// Ersetzt den regulären Ausdruck des Profils. Gedacht für Anwendungen, deren Titelaufbau sich
-    /// mit einer Fassung ändert, bevor der Katalog nachzieht.
+    /// mit einer Version ändert, bevor der Katalog nachzieht.
     /// </summary>
     public string? RegexPatternOverride { get; init; }
 

@@ -154,7 +154,7 @@ public enum TicketCheckOutcome
     /// Das Ticket gibt es <b>nachweislich</b> nicht.
     /// </summary>
     /// <remarks>
-    /// Nachgemessen am 13.09.2026 gegen eine Instanz der Fassung 10.10.0: <c>GET
+    /// Nachgemessen am 13.09.2026 gegen eine Instanz der Version 10.10.0: <c>GET
     /// /api/v1/tickets/999999999</c> antwortet mit <b>404</b> und dem Rumpf
     /// <c>{"error":{"text":"OBJECT_NOT_FOUND","localizedText":"Das Objekt wurde nicht
     /// gefunden","type":"DataNotFoundException","traceId":"…"}}</c>. Die Beschreibung der

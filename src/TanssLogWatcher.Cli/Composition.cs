@@ -210,7 +210,7 @@ public sealed class Composition : IDisposable
     /// <remarks>
     /// <para>Der Abgleich über <see cref="MonitoringProfiles.Reconcile"/> ist kein Beiwerk: Er
     /// ergänzt fehlende Profile abgeschaltet und wirft unbekannte Schlüssel hinaus. Eine
-    /// Konfiguration aus einer neueren Programmfassung nimmt dieses Werkzeug damit an, statt
+    /// Konfiguration aus einer neueren Programmversion nimmt dieses Werkzeug damit an, statt
     /// sie abzulehnen — und beobachtet dabei nichts, was es nicht kennt.</para>
     /// <para>Die Ausschlussliste wird zu einer mit Semikolon getrennten Zeichenkette
     /// zusammengezogen, weil <see cref="MonitoringSetting.ExcludeIpAddresses"/> genau diese

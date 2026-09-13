@@ -100,7 +100,7 @@ internal static class TanssEnvelope
         {
             return new TanssNotFoundException(
                 where + ": TANSS kennt dieses Objekt nicht. Entweder ist die Kennung veraltet, "
-                + "oder die Route gibt es in dieser TANSS-Fassung nicht mehr — die hier benutzten "
+                + "oder die Route gibt es in dieser TANSS-Version nicht mehr — die hier benutzten "
                 + "Routen sind überwiegend undokumentiert und können mit einem Update wegfallen."
                 + said, status, detail);
         }
@@ -216,7 +216,7 @@ internal static class TanssEnvelope
         {
             throw new TanssException(
                 "TANSS hat geantwortet, aber der Inhalt passt nicht zum erwarteten Modell. Das "
-                + "deutet auf eine geänderte TANSS-Fassung hin, nicht auf einen Bedienfehler: "
+                + "deutet auf eine geänderte TANSS-Version hin, nicht auf einen Bedienfehler: "
                 + Redaction.Scrub(ex.Message), inner: ex);
         }
     }
@@ -244,7 +244,7 @@ internal static class TanssEnvelope
 /// <para><b>Warum es diesen Typ gibt.</b> TANSS liefert im Inhalt nur Zahlen —
 /// <c>companyId</c>, <c>assignedToEmployeeId</c>, <c>statusId</c>. Der zugehörige Name steht
 /// ausschließlich im Umschlag unter <c>meta.linkedEntities</c>. Nachgemessen am 13.09.2026
-/// gegen eine Instanz der Fassung 10.10.0: <c>GET /api/v1/tickets/{id}</c> trägt dort
+/// gegen eine Instanz der Version 10.10.0: <c>GET /api/v1/tickets/{id}</c> trägt dort
 /// <c>companies</c>, <c>tickets</c>, <c>ticketStates</c>, <c>ticketTypes</c>,
 /// <c>departments</c>, <c>employees</c>, <c>contracts</c>, <c>phases</c>, <c>orderBys</c> und
 /// <c>costCenters</c>. Ohne diesen Weg bliebe dem Techniker die nackte Zahl.</para>
@@ -427,7 +427,7 @@ public sealed class LinkedEntities
         if (area.ValueKind == JsonValueKind.Array)
         {
             // NICHT BELEGT: nirgends gemessen, nirgends beschrieben. Wird nur gelesen, damit
-            // eine geaenderte TANSS-Fassung den Namen kostet und nicht den ganzen Vorgang.
+            // eine geaenderte TANSS-Version den Namen kostet und nicht den ganzen Vorgang.
             foreach (JsonElement entry in area.EnumerateArray())
             {
                 if (entry.ValueKind != JsonValueKind.Object || ReadKey(entry) is not { } key

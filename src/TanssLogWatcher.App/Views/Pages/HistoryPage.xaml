@@ -10,7 +10,7 @@
     <Page.Resources>
         <!--
             Zeichen und Farbe der Aufzeichnung. Beides steht hier und nicht acht Mal in der
-            Zeilenvorlage: Es sind acht Zustände, und eine zweite Fassung derselben Zuordnung
+            Zeilenvorlage: Es sind acht Zustände, und eine zweite Version derselben Zuordnung
             liefe beim ersten neuen Zustand auseinander.
 
             Die Regel hinter den Farben: grün heisst „läuft noch“, gelb „die Frist greift bald
@@ -170,7 +170,7 @@
                         Message="{Binding Message}" />
 
             <!-- Eine leere Tabelle sieht aus wie „nichts passiert“. Bei einem Verlauf, der erst
-                 mit dieser Fassung zu laufen beginnt, ist sie aber der Normalfall des ersten
+                 mit dieser Version zu laufen beginnt, ist sie aber der Normalfall des ersten
                  Tages — und das gehört dazugesagt, sonst sucht jemand den Fehler. -->
             <ui:InfoBar Margin="0,0,0,16" Severity="Informational" IsClosable="False"
                         IsOpen="{Binding IsEmpty}"

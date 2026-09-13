@@ -62,7 +62,7 @@ public partial class MainWindow
     ///
     /// <para><b>Warum es lange gutging.</b> Ob die Einträge rechtzeitig stehen, hängt davon ab,
     /// wie schnell der Rechner das erste Layout durchrechnet — ein Wettlauf, den dieselbe
-    /// Fassung mal gewinnt und mal verliert. Genau deshalb gehört der Rückgabewert geprüft und
+    /// Version mal gewinnt und mal verliert. Genau deshalb gehört der Rückgabewert geprüft und
     /// nicht verworfen.</para>
     ///
     /// <para>Zwei Nachfassversuche in aufsteigender Trägheit; danach steht die Anwendung auf
@@ -137,7 +137,7 @@ public partial class MainWindow
         base.OnClosing(e);
     }
 
-    /// <summary>Führt vom Hinweis auf die neue Fassung dorthin, wo sie sich holen lässt.</summary>
+    /// <summary>Führt vom Hinweis auf die neue Version dorthin, wo sie sich holen lässt.</summary>
     /// <remarks>
     /// Die Seite „Verbindung“ trägt den ganzen Vorgang: holen, gegen die Prüfsumme halten,
     /// einspielen. Ein Hinweis, der nur hinweist, zwänge den Techniker, den Weg selbst zu

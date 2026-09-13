@@ -8,7 +8,7 @@ namespace TanssLogWatcher.Api.Model;
 /// </summary>
 /// <remarks>
 /// <para><b>Namensdubletten sind der Normalfall, nicht die Ausnahme.</b> Nachgemessen gegen eine
-/// Instanz der Fassung 10.10.0 stand derselbe Firmenname fünfmal mit verschiedenen Kennungen in
+/// Instanz der Version 10.10.0 stand derselbe Firmenname fünfmal mit verschiedenen Kennungen in
 /// der Trefferliste. Eine Auswahl, die nur <see cref="Name"/> zeigt, ist damit unbrauchbar —
 /// deshalb trägt dieses Modell <see cref="DisplayId"/>, <see cref="PostCode"/> und
 /// <see cref="City"/> und bietet mit <see cref="Distinguisher"/> die Zeile an, die die Dubletten
@@ -70,7 +70,7 @@ public sealed record Company
     /// </summary>
     /// <remarks>
     /// Bewusst eine Zeichenkette und keine Aufzählung: ein unbekannter Wert aus einer späteren
-    /// TANSS-Fassung würde beim Einlesen einer Aufzählung die ganze Antwort zu Fall bringen.
+    /// TANSS-Version würde beim Einlesen einer Aufzählung die ganze Antwort zu Fall bringen.
     /// Eine Firmensuche darf nicht daran scheitern, dass TANSS einen neuen Typ kennt.
     /// </remarks>
     [JsonPropertyName("centralType")] public string? CentralType { get; init; }
@@ -166,7 +166,7 @@ public sealed record CompanySearchConfig
     /// </summary>
     /// <remarks>
     /// <para>Der Name führt in die Irre, und die Beschreibung tut es auch. Nachgemessen gegen
-    /// eine Instanz der Fassung 10.10.0: Der Suchbegriff <c>Gmb</c> hat 540 Treffer. Mit
+    /// eine Instanz der Version 10.10.0: Der Suchbegriff <c>Gmb</c> hat 540 Treffer. Mit
     /// <c>maxResults=539</c> kommen <b>null</b> Treffer zurück, mit <c>540</c> kommen alle 540.
     /// TANSS kürzt also nicht, sondern verweigert die Auskunft, sobald die Trefferzahl die
     /// Schwelle übersteigt.</para>

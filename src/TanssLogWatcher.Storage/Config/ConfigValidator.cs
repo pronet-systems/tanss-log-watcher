@@ -74,7 +74,7 @@ public static class ConfigValidator
         else if (config.Version > AppConfig.CurrentVersion)
         {
             problems.Add(
-                $"version: {config.Version} stammt aus einer neueren Programmfassung "
+                $"version: {config.Version} stammt aus einer neueren Programmversion "
                 + $"(diese liest höchstens {AppConfig.CurrentVersion}). Bitte das Werkzeug "
                 + "aktualisieren, statt die Zahl herunterzusetzen — die Datei enthält "
                 + "vermutlich Felder, die hier abgelehnt würden.");

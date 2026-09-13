@@ -4,9 +4,9 @@ using System.Text.Json.Serialization;
 namespace TanssLogWatcher.App.Runtime;
 
 /// <summary>
-/// Eine verfügbare neue Fassung, so wie die Veröffentlichung sie beschreibt.
+/// Eine verfügbare neue Version, so wie die Veröffentlichung sie beschreibt.
 /// </summary>
-/// <param name="Version">Die Fassung ohne das führende <c>v</c> der Marke.</param>
+/// <param name="Version">Die Version ohne das führende <c>v</c> der Marke.</param>
 /// <param name="Tag">Die Marke, etwa <c>v0.2.0</c>.</param>
 /// <param name="SetupUrl">Die Adresse des Setups.</param>
 /// <param name="SetupName">Der Dateiname des Setups.</param>
@@ -43,10 +43,10 @@ public enum UpdateCheckState
     /// <summary>Wird gerade gefragt.</summary>
     Checking,
 
-    /// <summary>Die laufende Fassung ist die neueste.</summary>
+    /// <summary>Die laufende Version ist die neueste.</summary>
     UpToDate,
 
-    /// <summary>Es liegt eine neuere Fassung vor.</summary>
+    /// <summary>Es liegt eine neuere Version vor.</summary>
     UpdateAvailable,
 
     /// <summary>Die Prüfung selbst ist fehlgeschlagen.</summary>

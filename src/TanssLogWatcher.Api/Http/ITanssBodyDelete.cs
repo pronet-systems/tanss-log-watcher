@@ -13,7 +13,7 @@ namespace TanssLogWatcher.Api.Http;
 /// Aufrufer, der sie vorfindet, benutzt den genauen Weg.</para>
 /// <para><b>Einen Rückfallweg gibt es nicht.</b> <c>DELETE /api/v1/timers</c> nimmt die Kennung
 /// ausschließlich im Rumpf; eine Route, die sie als Abfrageparameter nähme, gibt es in 10.10.0
-/// nicht — nachgemessen gegen eine Instanz dieser Fassung. Ein Aufruf mit
+/// nicht — nachgemessen gegen eine Instanz dieser Version. Ein Aufruf mit
 /// <c>?id=</c> würde stillschweigend nichts löschen oder mit 400 scheitern. Ein Zugang, der
 /// diese Schnittstelle nicht erfüllt, kann also keine Timer löschen — das ist ein
 /// Programmierfehler und wird als solcher gemeldet.</para>

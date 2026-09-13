@@ -9,7 +9,7 @@ namespace TanssLogWatcher.Api.Contract;
 /// <para><b>Warum diese Schnittstelle keine Liste zurückgibt.</b> Die Suche
 /// <c>PUT /api/v1/search</c> nimmt unter <c>configs.company.maxResults</c> eine <b>Schwelle</b>
 /// entgegen und keine Begrenzung: Übersteigt die Trefferzahl den Wert, antwortet TANSS mit einer
-/// <b>leeren</b> Liste statt mit einer gekürzten. Nachgemessen gegen eine Instanz der Fassung
+/// <b>leeren</b> Liste statt mit einer gekürzten. Nachgemessen gegen eine Instanz der Version
 /// 10.10.0: <c>Gmb</c> hat 540 Treffer, mit <c>maxResults=539</c> kommen null, mit
 /// <c>540</c> kommen 540.</para>
 /// <para>Eine leere Liste bedeutet damit zweierlei, und eine Methode, die nur
