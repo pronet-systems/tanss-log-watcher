@@ -30,7 +30,6 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
 {
     private readonly SystemLookup _systems;
     private readonly UpdateService _updates;
-    private string? _downloadedSetup;
 
     /// <summary>Baut die Seite und holt, was ohne Zutun zu holen ist.</summary>
     /// <param name="host">Die Laufzeit.</param>
@@ -47,10 +46,17 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
 
         host.TokenRotation.TokenChanged += OnTokenChanged;
         updates.CheckCompleted += OnUpdateCheckCompleted;
+        updates.DownloadChanged += OnDownloadChanged;
 
         ReadConfig();
         ApplyToken(host.TokenRotation.Token);
         ApplyUpdate();
+
+        // Der Ladestand von JETZT, nicht der von null: Laeuft beim Oeffnen der Seite schon ein
+        // Vorgang, steht er sofort wieder da. Genau das fehlte, als der Zustand dieser Seite
+        // gehoerte - ein Seitenwechsel liess ihn verschwinden.
+        ApplyDownload();
+
         _ = InitializeAsync();
     }
 
@@ -226,13 +232,22 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     /// <summary>Die Überschrift der Aktualisierungskarte.</summary>
     public string UpdateHeadline => HasUpdate ? "Neue Version verfügbar" : "Aktualisierung";
 
-    /// <summary>Läuft gerade ein Download?</summary>
-    [ObservableProperty]
-    private bool _isDownloading;
+    /// <summary>
+    /// Läuft gerade ein Ladevorgang?
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Abgefragt und nicht selbst geführt.</b> Diese vier Angaben standen einmal als
+    /// eigene Felder hier — und dieses Ansichtsmodell wird beim Verlassen der Seite verworfen.
+    /// Wer während eines Ladevorgangs die Seite wechselte und zurückkam, sah keinen Fortschritt
+    /// mehr, sondern eine Schaltfläche, die zum zweiten Mal einlud; der zweite Vorgang
+    /// scheiterte daran, dass die Datei noch offen war.</para>
+    /// <para>Der Zustand gehört jetzt dem Dienst, der die Anwendung überdauert. Diese Seite
+    /// sieht nur zu und meldet sich über <c>DownloadChanged</c> an.</para>
+    /// </remarks>
+    public bool IsDownloading => _updates.IsDownloading;
 
-    /// <summary>Der Fortschritt des Downloads in Prozent.</summary>
-    [ObservableProperty]
-    private double _downloadPercent;
+    /// <summary>Der Fortschritt des Ladevorgangs in Prozent.</summary>
+    public double DownloadPercent => _updates.DownloadPercent;
 
     /// <summary>
     /// Konnte die geladene Datei gegen die veröffentlichte Prüfsumme geprüft werden?
@@ -241,16 +256,13 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     /// Steht sichtbar in der Oberfläche, weil es den Unterschied macht: Ohne Prüfsumme fällt
     /// ein unterwegs verfälschter Download nicht auf.
     /// </remarks>
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasChecksumWarning))]
-    private bool _checksumVerified;
+    public bool ChecksumVerified => _updates.Downloaded?.Verified == true;
 
     /// <summary>Wurde ohne Gegenprüfung geladen?</summary>
-    public bool HasChecksumWarning => _downloadedSetup is not null && !ChecksumVerified;
+    public bool HasChecksumWarning => _updates.Downloaded is { Verified: false };
 
     /// <summary>Steht ein geprüftes Setup bereit?</summary>
-    [ObservableProperty]
-    private bool _isReadyToInstall;
+    public bool IsReadyToInstall => _updates.Downloaded is not null;
 
     /// <summary>Sucht von Hand nach einer neuen Fassung.</summary>
     /// <remarks>
@@ -274,53 +286,70 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     /// noch anders überlegen.
     /// </remarks>
     [RelayCommand]
-    private async Task DownloadUpdateAsync()
+    private void DownloadUpdate()
     {
         if (_updates.Available is not { } update)
         {
             return;
         }
 
-        IsDownloading = true;
-        DownloadPercent = 0;
-        IsReadyToInstall = false;
-        _downloadedSetup = null;
-
-        try
+        // Der Dienst laedt, nicht diese Seite. Er sagt auch, ob schon einer laeuft - und wenn
+        // ja, wird kein zweiter angestossen: Der zweite scheiterte daran, dass der erste die
+        // Datei noch offen hat, und die Meldung darueber saehe aus wie ein kaputtes Update.
+        if (!_updates.StartDownload(update))
         {
-            Progress<double> progress = new(value => DownloadPercent = value * 100d);
-
-            // Die Antwort sagt BEIDES: wo die Datei liegt und ob wirklich verglichen wurde.
-            // Vorher stand hier `update.ChecksumUrl is not null` - das beantwortet nur, ob es
-            // eine Pruefsummen-ADRESSE gibt, nicht ob die Pruefsumme geholt und gerechnet
-            // wurde. Liess sie sich nicht holen, meldete die Oberflaeche trotzdem
-            // "stimmt ueberein".
-            DownloadedUpdate result = await _updates
-                .DownloadAsync(update, progress)
-                .ConfigureAwait(true);
-
-            _downloadedSetup = result.Path;
-            ChecksumVerified = result.Verified;
-            IsReadyToInstall = true;
-
-            UpdateText = ChecksumVerified
-                ? string.Create(CultureInfo.CurrentCulture,
-                    $"Version {update.Version} ist geladen und stimmt mit der veröffentlichten "
-                    + $"Prüfsumme überein.")
-                : string.Create(CultureInfo.CurrentCulture,
-                    $"Version {update.Version} ist geladen, aber NICHT gegengeprüft: Die "
-                    + $"veröffentlichte Prüfsumme fehlt oder liess sich nicht holen.");
+            UpdateText = "Es läuft bereits ein Ladevorgang. Der Fortschritt steht darüber.";
+            return;
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+
+        UpdateText = string.Create(CultureInfo.CurrentCulture,
+            $"Version {update.Version} wird geladen …");
+
+        ApplyDownload();
+    }
+
+    /// <summary>
+    /// Übernimmt den Ladestand des Dienstes in die Anzeige.
+    /// </summary>
+    /// <remarks>
+    /// <para>Gerufen beim Bauen dieses Ansichtsmodells — damit ein Ladevorgang, der schon läuft,
+    /// nach einem Seitenwechsel sofort wieder sichtbar ist — und danach bei jeder Meldung des
+    /// Dienstes.</para>
+    /// <para><b>Der Text wird nur bei einem Abschluss gesetzt.</b> Während des Ladens steht dort
+    /// „wird geladen“; ihn bei jedem Prozentschritt neu zu schreiben, brächte nichts und
+    /// überschriebe die Meldung, die der Fortschrittsbalken daneben ohnehin zeigt.</para>
+    /// </remarks>
+    private void ApplyDownload()
+    {
+        OnPropertyChanged(nameof(IsDownloading));
+        OnPropertyChanged(nameof(DownloadPercent));
+        OnPropertyChanged(nameof(ChecksumVerified));
+        OnPropertyChanged(nameof(HasChecksumWarning));
+        OnPropertyChanged(nameof(IsReadyToInstall));
+
+        if (_updates.IsDownloading)
         {
-            _downloadedSetup = null;
-            UpdateText = Redaction.Scrub(ex.Message);
+            return;
         }
-        finally
+
+        if (_updates.DownloadProblem is { Length: > 0 } problem)
         {
-            IsDownloading = false;
-            OnPropertyChanged(nameof(HasChecksumWarning));
+            UpdateText = Redaction.Scrub(problem);
+            return;
         }
+
+        if (_updates.Downloaded is not { } fertig || _updates.Available is not { } update)
+        {
+            return;
+        }
+
+        UpdateText = fertig.Verified
+            ? string.Create(CultureInfo.CurrentCulture,
+                $"Version {update.Version} ist geladen und stimmt mit der veröffentlichten "
+                + $"Prüfsumme überein.")
+            : string.Create(CultureInfo.CurrentCulture,
+                $"Version {update.Version} ist geladen, aber NICHT gegengeprüft: Die "
+                + $"veröffentlichte Prüfsumme fehlt oder liess sich nicht holen.");
     }
 
     /// <summary>
@@ -335,14 +364,16 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     [RelayCommand]
     private void InstallUpdate()
     {
-        if (_downloadedSetup is null)
+        // Der Pfad kommt vom Dienst und nicht aus einem Feld dieser Seite: Ein Seitenwechsel
+        // zwischen Laden und Einspielen liesse ihn sonst verschwinden.
+        if (_updates.Downloaded is not { } fertig)
         {
             return;
         }
 
         try
         {
-            UpdateService.StartInstaller(_downloadedSetup);
+            UpdateService.StartInstaller(fertig.Path);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -524,10 +555,22 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
         {
             Host.TokenRotation.TokenChanged -= OnTokenChanged;
             _updates.CheckCompleted -= OnUpdateCheckCompleted;
+            _updates.DownloadChanged -= OnDownloadChanged;
         }
 
         base.Dispose(disposing);
     }
+
+    /// <summary>Der Ladestand hat sich geändert; die Anzeige nachziehen.</summary>
+    /// <remarks>
+    /// <b>Der Dienst meldet auf einem Hintergrundstrang</b> — er sagt das selbst. Eine gebundene
+    /// Eigenschaft von dort aus zu ändern, ginge am Strang der Oberfläche vorbei; dafür gibt es
+    /// <see cref="RuntimeNotifier"/>, den dieselbe Laufzeit für jede andere Meldung benutzt.
+    /// </remarks>
+    /// <param name="sender">Der Dienst.</param>
+    /// <param name="e">Ohne Inhalt; der Stand wird beim Dienst abgefragt.</param>
+    private void OnDownloadChanged(object? sender, EventArgs e) =>
+        Host.Notifier.Post(ApplyDownload);
 
     /// <summary>
     /// Der Zeitgeber hat geprüft; die Anzeige nachziehen.

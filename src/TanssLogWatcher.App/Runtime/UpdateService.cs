@@ -63,6 +63,15 @@ public sealed partial class UpdateService : IDisposable
 
     private readonly HttpClient _http;
     private readonly Timer _timer;
+
+    /// <summary>Riegel um den Ladezustand.</summary>
+    /// <remarks>
+    /// Der Ladevorgang läuft auf einem Hintergrundstrang, gestartet wird er aus der Oberfläche.
+    /// Ohne Riegel könnten zwei Klicks kurz hintereinander zwei Vorgänge auf dieselbe Datei
+    /// werfen — und genau das ist der Fehler, den dieser Umbau behebt.
+    /// </remarks>
+    private readonly object _downloadGate = new();
+
     private bool _disposed;
 
     /// <summary>Baut den Dienst und beginnt mit der ersten Prüfung nach kurzer Anlaufzeit.</summary>
@@ -97,6 +106,137 @@ public sealed partial class UpdateService : IDisposable
 
     /// <summary>Der Grund, wenn die letzte Prüfung fehlschlug.</summary>
     public string? Problem { get; private set; }
+
+    /// <summary>
+    /// Läuft gerade ein Ladevorgang?
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Zustand gehört dem Dienst und nicht der Seite.</b> Er stand einmal im
+    /// Ansichtsmodell der Seite „Einstellungen“ — und das wird beim Verlassen der Seite
+    /// verworfen. Wer während eines Ladevorgangs die Seite wechselte und zurückkam, sah keinen
+    /// Fortschritt mehr, sondern eine Schaltfläche, die zum zweiten Mal einlud. Der zweite
+    /// Vorgang scheiterte dann daran, dass die Datei noch offen war.</para>
+    /// <para>Dieser Dienst lebt, solange die Anwendung läuft. Damit überdauert der Zustand
+    /// jeden Seitenwechsel, und die Seite ist nur noch Zuschauer.</para>
+    /// </remarks>
+    public bool IsDownloading { get; private set; }
+
+    /// <summary>Der Fortschritt in Prozent; 0 bis 100.</summary>
+    public double DownloadPercent { get; private set; }
+
+    /// <summary>Die geladene Datei samt der Frage, ob sie gegengeprüft wurde.</summary>
+    public DownloadedUpdate? Downloaded { get; private set; }
+
+    /// <summary>Warum der letzte Ladevorgang scheiterte — oder <see langword="null"/>.</summary>
+    public string? DownloadProblem { get; private set; }
+
+    /// <summary>Der Ladestand hat sich geändert; wird auf einem Hintergrundstrang ausgelöst.</summary>
+    public event EventHandler? DownloadChanged;
+
+    /// <summary>
+    /// Beginnt einen Ladevorgang — höchstens einen zugleich.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Gibt sofort zurück.</b> Gewartet wird nicht: Der Aufrufer ist eine Oberfläche,
+    /// und die soll währenddessen bedienbar bleiben. Der Fortschritt kommt über
+    /// <see cref="DownloadChanged"/>.</para>
+    /// <para><b>Ein zweiter Aufruf während eines laufenden Vorgangs tut nichts</b> und meldet
+    /// das mit <see langword="false"/>. Ohne diesen Riegel liefen zwei Vorgänge auf dieselbe
+    /// Datei, und der zweite scheiterte daran, dass der erste sie noch offen hat.</para>
+    /// </remarks>
+    /// <param name="update">Die zu ladende Fassung.</param>
+    /// <returns><see langword="true"/>, wenn ein Vorgang begonnen hat.</returns>
+    public bool StartDownload(AvailableUpdate update)
+    {
+        ArgumentNullException.ThrowIfNull(update);
+        ObjectDisposedException.ThrowIf(_disposed, this);
+
+        lock (_downloadGate)
+        {
+            if (IsDownloading)
+            {
+                return false;
+            }
+
+            IsDownloading = true;
+            DownloadPercent = 0;
+            Downloaded = null;
+            DownloadProblem = null;
+        }
+
+        RaiseDownloadChanged();
+        _ = Task.Run(() => RunDownloadAsync(update));
+        return true;
+    }
+
+    /// <summary>Der Ladevorgang selbst, auf einem Hintergrundstrang.</summary>
+    /// <remarks>
+    /// <b>Wirft nicht</b> (Hausregel 5): Was schiefgeht, steht danach in
+    /// <see cref="DownloadProblem"/>. Eine Ausnahme auf einem unbeobachteten Strang risse sonst
+    /// die ganze Anwendung mit — und zwar wegen einer Aktualisierung, die niemand dringend
+    /// braucht.
+    /// </remarks>
+    /// <param name="update">Die zu ladende Fassung.</param>
+    private async Task RunDownloadAsync(AvailableUpdate update)
+    {
+        try
+        {
+            Downloaded = await DownloadAsync(update, new PercentProgress(this))
+                .ConfigureAwait(false);
+            DownloadPercent = 100;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            Downloaded = null;
+            DownloadProblem = ex.Message;
+        }
+        finally
+        {
+            lock (_downloadGate)
+            {
+                IsDownloading = false;
+            }
+
+            RaiseDownloadChanged();
+        }
+    }
+
+    private void RaiseDownloadChanged() => DownloadChanged?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// Meldet den Fortschritt — unmittelbar und nur bei ganzen Prozent.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Nicht <see cref="Progress{T}"/>.</b> Das stellt jede Meldung in die
+    /// Warteschlange eines Strangs; ohne Synchronisierungskontext ist das der Vorrat an
+    /// Arbeitssträngen, und die Reihenfolge zweier Meldungen ist dann nicht mehr zugesichert.
+    /// Der Balken spränge gelegentlich zurück. Hier wird aus derselben Schleife heraus
+    /// unmittelbar gemeldet, in der gelesen wird — damit ist die Reihenfolge die des
+    /// Ladevorgangs.</para>
+    /// <para><b>Nur bei ganzen Prozent.</b> Gelesen wird in Blöcken von 80 kB; bei hundert
+    /// Megabyte wären das über tausend Meldungen, von denen die Oberfläche keine einzige
+    /// unterscheiden könnte.</para>
+    /// </remarks>
+    /// <param name="owner">Der Dienst, dessen Stand fortgeschrieben wird.</param>
+    private sealed class PercentProgress(UpdateService owner) : IProgress<double>
+    {
+        private int _last = -1;
+
+        /// <inheritdoc />
+        public void Report(double value)
+        {
+            int percent = (int)(value * 100d);
+
+            if (percent == _last)
+            {
+                return;
+            }
+
+            _last = percent;
+            owner.DownloadPercent = percent;
+            owner.RaiseDownloadChanged();
+        }
+    }
 
     /// <summary>Die Fassung, die gerade läuft.</summary>
     /// <remarks>

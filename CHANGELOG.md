@@ -9,6 +9,32 @@ Die Fassungsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
+## [0.3.2] — 2026-09-13
+
+### Behoben — ein laufender Ladevorgang überlebt den Seitenwechsel
+
+**Der Befund.** Wer eine neue Fassung herunterlädt, dann die Seite wechselt und zurückkommt,
+sah keinen Fortschritt mehr — sondern eine Schaltfläche, die zum zweiten Mal einlud. Der zweite
+Vorgang scheiterte dann daran, dass die Datei noch offen war.
+
+**Die Ursache war der Ort des Zustands.** „Läuft gerade“, „wie weit“ und „wo liegt die Datei“
+standen im Ansichtsmodell der Seite „Einstellungen“ — und das wird beim Verlassen der Seite
+verworfen. Beim Zurückkommen entstand ein neues, das von nichts wusste.
+
+- Der Ladezustand gehört jetzt dem Aktualisierungsdienst, der die Anwendung überdauert. Die
+  Seite meldet sich an, liest beim Öffnen den Stand von jetzt und meldet sich beim Verlassen
+  wieder ab. Ein laufender Vorgang ist damit nach dem Zurückkommen sofort wieder sichtbar.
+- **Ein zweiter Anstoss wird abgelehnt**, solange einer läuft — und sagt das, statt an der
+  offenen Datei zu scheitern.
+- Auch ein **Fehlschlag** gibt den Weg wieder frei. Ohne das bliebe nach dem ersten misslungenen
+  Versuch jeder weitere gesperrt, ohne dass jemand sagen könnte warum.
+- Der Fortschritt wird unmittelbar gemeldet statt über `Progress<T>`: Das stellt jede Meldung
+  in die Warteschlange eines Arbeitsstrangs, und ohne Synchronisierungskontext ist die
+  Reihenfolge zweier Meldungen nicht zugesichert — der Balken konnte zurückspringen. Gemeldet
+  wird nur bei ganzen Prozent; bei hundert Megabyte wären es sonst über tausend Meldungen.
+
+---
+
 ## [0.3.1] — 2026-09-13
 
 ### Entfernt — die Entwicklerdokumentation wird nicht mehr ausgeliefert
@@ -794,6 +820,7 @@ mehrere Arbeitstage und die Beteiligung der Mitbestimmung.
 - Der Rechte-Vorabtest für das Prägen wird nicht selbsttätig ausgeführt: Er erzeugt in TANSS
   ein echtes, nicht widerrufbares Token. Fehlt das Recht, meldet es der Versuch selbst.
 
+[0.3.2]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.2
 [0.3.1]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.1
 [0.3.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.0
 [0.2.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.2.0
