@@ -1,5 +1,7 @@
 using System.Text.RegularExpressions;
 
+using TanssLogWatcher.Storage.Config;
+
 namespace TanssLogWatcher.App.Ai;
 
 /// <summary>Ein Modell, wie der Anbieter es führt.</summary>
@@ -68,13 +70,23 @@ public interface IAiAssistant : IDisposable
 /// zwei verschiedene Ergebnisse, und welcher Anbieter gerade eingestellt ist, dürfte am Bericht
 /// nicht ablesbar sein.
 /// </remarks>
-internal static class AiPrompts
+public static class AiPrompts
 {
-    /// <summary>Die Rolle, die für beide Aufgaben gilt.</summary>
-    public const string System =
-        "Du überarbeitest Fernwartungsberichte eines IT-Dienstleisters. Diese Berichte gehen "
-        + "als Dokumentation an den Kunden.\n\n"
-        + "Unverhandelbare Regeln:\n"
+    /// <summary>
+    /// Die Regeln, die nicht verhandelbar sind und deshalb an jede Rolle angehängt werden.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum ausgerechnet diese vier nicht bearbeitbar sind.</b> Die ersten beiden sind
+    /// die Zusage, auf die hin der Techniker eingewilligt hat und die in der README steht: Der
+    /// Bericht ist ein Nachweis gegenüber dem Kunden, und ein Nachweis, in dem etwas steht, was
+    /// nicht geschehen ist, ist schlimmer als gar keiner. Wer sie durch ein Textfeld entfernen
+    /// könnte, könnte die Zusage des Werkzeugs durch ein Textfeld entfernen.</para>
+    /// <para>Die letzte ist keine Haltung, sondern Technik: Ohne sie antwortet das Modell mit
+    /// einer Vorrede, und die landete mitten im Bericht.</para>
+    /// <para>Alles andere — die Rolle und die beiden Aufträge — lässt sich frei bearbeiten.</para>
+    /// </remarks>
+    public const string Fixed =
+        "Unverhandelbare Regeln:\n"
         + "- Erfinde NICHTS. Keine Tätigkeiten, keine Ursachen, keine Ergebnisse, die nicht "
         + "im Text stehen. Ein Bericht ist ein Nachweis, keine Erzählung.\n"
         + "- Ändere keine Zahlen, Zeiten, Namen, Kennungen oder Platzhalter in eckigen Klammern.\n"
@@ -82,20 +94,74 @@ internal static class AiPrompts
         + "- Antworte ausschliesslich mit dem überarbeiteten Text, ohne Vorrede, ohne "
         + "Rückfragen, ohne Anführungszeichen um das Ganze.";
 
-    /// <summary>Der Auftrag je Aufgabe.</summary>
-    public static string For(AiTask task) => task switch
+    /// <summary>Die Rolle, die für beide Aufgaben gilt — bearbeitbar.</summary>
+    public const string DefaultRole =
+        "Du überarbeitest Fernwartungsberichte eines IT-Dienstleisters. Diese Berichte gehen "
+        + "als Dokumentation an den Kunden.";
+
+    /// <summary>Der Auftrag für die Rechtschreibprüfung — bearbeitbar.</summary>
+    public const string DefaultProofread =
+        "Korrigiere ausschliesslich Rechtschreibung, Grammatik und Zeichensetzung. "
+        + "Lasse Wortwahl, Reihenfolge, Zeilenumbrüche und Formatierung unverändert. "
+        + "Ist nichts zu korrigieren, gib den Text unverändert zurück.";
+
+    /// <summary>Der Auftrag für das Ausformulieren — bearbeitbar.</summary>
+    public const string DefaultImprove =
+        "Formuliere die stichwortartigen Angaben zu vollständigen, sachlichen Sätzen aus, "
+        + "die ein Kunde versteht. Behalte den Kopfteil mit Zeitraum, Gegenstelle, "
+        + "Anwendung und Arbeitsplatz unverändert bei; ausformuliert wird nur der Abschnitt "
+        + "der durchgeführten Arbeiten. Ergänze keine Tätigkeiten, die dort nicht stehen.";
+}
+
+/// <summary>
+/// Die Anweisungen, mit denen tatsächlich gearbeitet wird.
+/// </summary>
+/// <remarks>
+/// <para><b>Aus der Konfiguration, mit den eingebauten Texten als Rückfall.</b> Ein leeres oder
+/// fehlendes Feld heisst „der eingebaute Text“ und nicht „keine Anweisung“ — sonst schaltete
+/// ein versehentlich geleertes Feld die Regeln ab, und das Ergebnis sähe aus wie ein Fehler des
+/// Modells.</para>
+/// <para><b>An einer Stelle und für beide Anbieter dieselben.</b> Zwei Fassungen desselben
+/// Auftrags lieferten zwei verschiedene Ergebnisse, und welcher Anbieter gerade eingestellt
+/// ist, dürfte am Bericht nicht ablesbar sein.</para>
+/// </remarks>
+/// <param name="Role">Die Rolle; die festen Regeln kommen beim Senden dazu.</param>
+/// <param name="Proofread">Der Auftrag für die Rechtschreibprüfung.</param>
+/// <param name="Improve">Der Auftrag für das Ausformulieren.</param>
+public sealed record AiPromptSet(string Role, string Proofread, string Improve)
+{
+    /// <summary>Die eingebauten Anweisungen.</summary>
+    public static AiPromptSet Default { get; } = new(
+        AiPrompts.DefaultRole, AiPrompts.DefaultProofread, AiPrompts.DefaultImprove);
+
+    /// <summary>
+    /// Die Rolle, so wie sie an das Modell geht: der bearbeitbare Teil plus die festen Regeln.
+    /// </summary>
+    public string System => Role.TrimEnd() + "\n\n" + AiPrompts.Fixed;
+
+    /// <summary>Der Auftrag zu einer Aufgabe.</summary>
+    /// <param name="task">Die Aufgabe.</param>
+    /// <exception cref="ArgumentOutOfRangeException">Unbekannte Aufgabe.</exception>
+    public string For(AiTask task) => task switch
     {
-        AiTask.Proofread =>
-            "Korrigiere ausschliesslich Rechtschreibung, Grammatik und Zeichensetzung. "
-            + "Lasse Wortwahl, Reihenfolge, Zeilenumbrüche und Formatierung unverändert. "
-            + "Ist nichts zu korrigieren, gib den Text unverändert zurück.",
-        AiTask.Improve =>
-            "Formuliere die stichwortartigen Angaben zu vollständigen, sachlichen Sätzen aus, "
-            + "die ein Kunde versteht. Behalte den Kopfteil mit Zeitraum, Gegenstelle, "
-            + "Anwendung und Arbeitsplatz unverändert bei; ausformuliert wird nur der Abschnitt "
-            + "der durchgeführten Arbeiten. Ergänze keine Tätigkeiten, die dort nicht stehen.",
+        AiTask.Proofread => Proofread,
+        AiTask.Improve => Improve,
         _ => throw new ArgumentOutOfRangeException(nameof(task)),
     };
+
+    /// <summary>
+    /// Nimmt die Anweisungen aus der Konfiguration; was dort leer ist, bleibt eingebaut.
+    /// </summary>
+    /// <param name="ai">Der Konfigurationsabschnitt, oder <c>null</c>.</param>
+    public static AiPromptSet From(AiSection? ai) => ai is null
+        ? Default
+        : new AiPromptSet(
+            Or(ai.RolePrompt, AiPrompts.DefaultRole),
+            Or(ai.ProofreadPrompt, AiPrompts.DefaultProofread),
+            Or(ai.ImprovePrompt, AiPrompts.DefaultImprove));
+
+    private static string Or(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
 }
 
 /// <summary>

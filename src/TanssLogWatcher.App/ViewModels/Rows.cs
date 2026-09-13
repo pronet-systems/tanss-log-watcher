@@ -126,6 +126,10 @@ public sealed record QueueRow
             ? "Ausgang unbekannt"
             : item.State switch
             {
+                // "wartet auf Entscheidung" und nicht bloss "wartet": Der Unterschied ist der
+                // Grund, warum diese Zeile nicht von selbst hinausgeht - es fehlt eine Antwort
+                // und nicht die Zeit.
+                QueueState.Pending when item.AwaitingDecision => "wartet auf Entscheidung",
                 QueueState.Pending => item.Attempts == 0 ? "wartet" : "Wiederholung",
                 QueueState.Sending => "unterwegs",
                 QueueState.Done => "gesendet",
@@ -134,13 +138,16 @@ public sealed record QueueRow
             };
 
         // Der Grund, warum "Jetzt senden" scheinbar nichts tat: Der Eintrag stand als
-        // "ausstehend" da, war aber zurueckgehalten - und nirgends stand, bis wann.
-        IsHeld = item.State == QueueState.Pending && item.NextAttemptAt > now;
+        // "ausstehend" da, war aber zurueckgehalten - und nirgends stand, warum.
+        IsHeld = item.State == QueueState.Pending
+                 && (item.AwaitingDecision || item.NextAttemptAt > now);
 
         HoldText = IsHeld
-            ? (item.Attempts == 0
-                ? $"Zurückgehalten bis {Texts.Clock(item.NextAttemptAt.ToLocalTime())} — "
-                  + "Zeit für den Abschlussbericht. „Jetzt senden“ zieht ihn vor."
+            ? (item.AwaitingDecision
+                ? "Wartet auf eine Entscheidung — ohne sie geht diese Sitzung NICHT nach TANSS, "
+                  + "und zwar unbefristet. Drei Wege hinaus: „Ändern“ holt den Abschlussdialog "
+                  + "zurück, „Jetzt senden“ schickt sie mit der automatischen Beschreibung, und "
+                  + "beim nächsten Start wird der Dialog ohnehin erneut vorgelegt."
                 : $"Rückstau nach einem Fehlversuch, nächster Versuch um "
                   + $"{Texts.Clock(item.NextAttemptAt.ToLocalTime())}. „Jetzt senden“ zieht ihn vor.")
             : string.Empty;

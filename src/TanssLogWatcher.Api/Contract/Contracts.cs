@@ -65,6 +65,64 @@ public interface ITanssClient : IDisposable
 }
 
 /// <summary>
+/// Lesen <b>mit</b> dem <c>meta</c>-Block.
+/// </summary>
+/// <remarks>
+/// <para><b>Warum es diesen Weg braucht.</b> <see cref="ITanssClient.GetAsync{T}"/> und
+/// <see cref="ITanssClient.PutAsync{T}"/> geben nur den <c>content</c> heraus und werfen den
+/// Umschlag weg. Der Name zu einer Kennung steht aber ausschließlich im Umschlag: nachgemessen
+/// am 13.09.2026 trägt <c>GET /api/v1/tickets/{id}</c> die <c>companyId</c> im Inhalt und den
+/// Firmennamen nur unter <c>meta.linkedEntities.companies</c>. Wer ohne diesen Weg arbeitet,
+/// kann eine Firmenkennung nur als Zahl anzeigen.</para>
+/// <para><b>Warum eine eigene Schnittstelle und keine neuen Glieder auf
+/// <see cref="ITanssClient"/>.</b> Dieselbe Überlegung wie bei <c>ITanssBodyDelete</c>: der
+/// Grundvertrag bleibt schmal, damit ihn eine Attrappe in drei Zeilen erfüllt. Wer den
+/// Umschlag braucht, prüft auf diese Schnittstelle; wer nicht, merkt nichts davon. Die
+/// bestehenden Wege bleiben unberührt — <see cref="ITanssClient.GetAsync{T}"/> verhält sich
+/// Zeichen für Zeichen wie zuvor.</para>
+/// <para><b>Der <c>meta</c>-Block bleibt roh.</b> Seine Werte kommen als <c>JsonElement</c>
+/// durch, genau wie bei <see cref="ITanssClient.PostWithMetaAsync{T}"/>. Ausgewertet wird er
+/// von <c>LinkedEntities</c>, nicht hier: jede feste Modellierung wäre nach dem nächsten
+/// TANSS-Update falsch.</para>
+/// </remarks>
+public interface ITanssMetaRead
+{
+    /// <summary>
+    /// Liest wie <see cref="ITanssClient.GetAsync{T}"/> und gibt zusätzlich <c>meta</c> heraus.
+    /// </summary>
+    /// <remarks>
+    /// Wiederholt nach denselben Regeln wie <see cref="ITanssClient.GetAsync{T}"/> — also
+    /// nicht auf den Pfaden, die <see cref="TanssRoutes.HasSideEffectOnGet"/> kennt.
+    /// </remarks>
+    /// <typeparam name="T">Das erwartete Modell des <c>content</c>.</typeparam>
+    /// <param name="path">Der Pfad, mit Präfix.</param>
+    /// <param name="query">Abfrageparameter; <c>loggedInUserId</c> setzt die Umsetzung selbst.</param>
+    /// <param name="ct">Abbruchmarke.</param>
+    /// <returns>Inhalt und <c>meta</c>; der <c>meta</c>-Teil ist nie <see langword="null"/>.</returns>
+    Task<(T? Content, IReadOnlyDictionary<string, object?> Meta)> GetWithMetaAsync<T>(
+        string path, IDictionary<string, string?>? query = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Schickt wie <see cref="ITanssClient.PutAsync{T}"/> und gibt zusätzlich <c>meta</c> heraus.
+    /// </summary>
+    /// <remarks>
+    /// Für die lesenden Abfragen, die TANSS als PUT verlangt — die Firmensuche
+    /// <c>PUT /api/v1/search</c> und die Ticketsuche <c>PUT /api/v1/tickets</c>. Läuft wie
+    /// <see cref="ITanssClient.PutAsync{T}"/> mit genau einem Versuch; wer wiederholen will,
+    /// tut es bewusst selbst.
+    /// </remarks>
+    /// <typeparam name="T">Das erwartete Modell des <c>content</c>.</typeparam>
+    /// <param name="path">Der Pfad, mit Präfix.</param>
+    /// <param name="body">Der Rumpf; wird über seinen Laufzeittyp serialisiert.</param>
+    /// <param name="query">Abfrageparameter; <c>loggedInUserId</c> setzt die Umsetzung selbst.</param>
+    /// <param name="ct">Abbruchmarke.</param>
+    /// <returns>Inhalt und <c>meta</c>; der <c>meta</c>-Teil ist nie <see langword="null"/>.</returns>
+    Task<(T? Content, IReadOnlyDictionary<string, object?> Meta)> PutWithMetaAsync<T>(
+        string path, object? body = null, IDictionary<string, string?>? query = null,
+        CancellationToken ct = default);
+}
+
+/// <summary>
 /// Leistungen: aus einem Timer vorbereiten und anlegen.
 /// </summary>
 /// <remarks>
@@ -85,6 +143,7 @@ public interface ISupportRepository
     /// <param name="ct">Abbruchmarke.</param>
     /// <returns>Die vorbelegte Leistung samt einem Abschnitt je Timerlauf.</returns>
     Task<SupportDraft> PrepareFromTimerAsync(int timerId, CancellationToken ct = default);
+
 
     /// <summary>
     /// Legt die Leistung an.
@@ -196,6 +255,25 @@ public interface ITicketRepository
     /// <param name="ticketId">Die zu prüfende Kennung.</param>
     /// <param name="ct">Abbruchmarke.</param>
     Task<Ticket?> FindAsync(int ticketId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sucht die <b>offenen</b> Tickets einer Firma — und nennt dabei deren Namen.
+    /// </summary>
+    /// <remarks>
+    /// <para>Der Weg, der im Abschlussdialog aus einer erkannten Firma eine Ticketauswahl macht.
+    /// Gefiltert wird über <c>companies</c> und ausdrücklich <b>nicht</b> zusätzlich über
+    /// <c>staff</c>: Wer eine Fernwartung für den Kollegen übernimmt, bucht auf dessen Ticket,
+    /// und mit beiden Filtern zugleich stünde genau dieses nicht in der Liste.</para>
+    /// <para><b>Wirft nicht</b> (Hausregel 5). Die Ticketauswahl ist eine Bequemlichkeit, die
+    /// Buchung ist Arbeitszeit; ein Aussetzer der Leitung darf den Dialog nicht kosten. Ein
+    /// Fehlschlag kommt als <see cref="CompanyTicketOutcome.Undetermined"/> samt fertigem Satz
+    /// zurück — <see cref="SearchOpenAsync"/> wirft dagegen weiterhin, denn dort hängt kein
+    /// Fenster daran.</para>
+    /// </remarks>
+    /// <param name="companyId">Die Firma. Muss grösser als 0 sein.</param>
+    /// <param name="ct">Abbruchmarke.</param>
+    /// <returns>Tickets, Firmenname und die Aussage, wie eine leere Liste zu lesen ist.</returns>
+    Task<CompanyTickets> ListForCompanyAsync(int companyId, CancellationToken ct = default);
 }
 
 /// <summary>Timer des angemeldeten Technikers.</summary>

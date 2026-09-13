@@ -156,10 +156,6 @@ Grund. Deutsch oder Englisch — Hauptsache, der Grund steht da.
 
 ## Was hier nicht hineingehört
 
-- **Kein Code, kein Symbol, keine Oberflächenbeschreibung und kein Text aus dem proprietären
-  Vorgängerwerkzeug.** Die Anwendungsprofile beschreiben Tatsachen über fremde Anwendungen; sie
-  sind gegen die echte Anwendung neu zu verifizieren und neu zu formulieren. Siehe
-  [README, „Herkunft der Anwendungsprofile"](README.md#herkunft-der-anwendungsprofile).
 - **Keine Zugangsdaten, keine Token, keine Kundendaten.** Nicht im Quelltext, nicht in Tests,
   nicht in einem Issue und nicht in einem Protokollauszug. `config.json`, `credentials.dat`,
   `*.pfx` und `*.log` stehen deshalb in `.gitignore`.

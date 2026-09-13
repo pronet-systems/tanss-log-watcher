@@ -75,6 +75,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "mstsc",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Microsoft Remotedesktop",
             ProcessNames = ["mstsc"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
@@ -83,6 +84,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "RdClient.Windows",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Microsoft Remotedesktop (Store App)",
             ProcessNames = ["RdClient.Windows"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
@@ -101,15 +103,18 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "AnyDesk",
+            YieldsDeviceIdentity = true,
             TypeDescription = "AnyDesk",
             ProcessNames = ["AnyDesk", "AnyDesk-*"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = TextBeforeHyphen,
             IgnoreTitleChanges = true,
         },
         new MonitoringProfile
         {
             Key = "BASEClient",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Solar Winds - Take Control",
             ProcessNames = ["BASEClient", "TakeControlRDViewer", "NCentralRDViewer"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
@@ -129,6 +134,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "putty",
+            YieldsDeviceIdentity = true,
             TypeDescription = "PuTTY / KiTTY",
             ProcessNames = ["putty", "kitty", "kitty_portable", "kitty_nocompress"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
@@ -170,6 +176,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "VpxClient",
+            YieldsDeviceIdentity = true,
             TypeDescription = "VMware vSphere Client",
             ProcessNames = ["VpxClient"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
@@ -199,9 +206,11 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "ScreenConnect.WindowsClient",
+            YieldsDeviceIdentity = true,
             TypeDescription = "ConnectWise Control",
             ProcessNames = ["ScreenConnect.WindowsClient"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """.+(?=\s+-\s((ConnectWise\sControl|(ScreenConnect))))""",
             IgnoreTitleChanges = true,
         },
@@ -211,6 +220,7 @@ public static class MonitoringProfiles
             TypeDescription = "Zoom Meeting",
             ProcessNames = ["Zoom"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """(Zoom\sMeeting.*)|Zoom(?![-])""",
             IgnoreTitleChanges = true,
             MonitorOnlyRegexMatchedWindow = true,
@@ -227,6 +237,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "RemoteDesktopManager",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Devolutions Remote Desktop Manager",
             ProcessNames =
             [
@@ -257,6 +268,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "OpenVPN",
+            YieldsDeviceIdentity = true,
             TypeDescription = "OpenVPN",
             ProcessNames = ["OpenVPNConnect", "openvpn"],
             DestinationResolveMethod = DestinationResolveMethod.RemoteHostIpConnection,
@@ -266,6 +278,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "ASGRD",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Rocket/ASG Remote Desktop",
             ProcessNames = ["ASGRD", "ASGRDElevated", "RDConsole"],
             DestinationResolveMethod = DestinationResolveMethod.RemoteHostIpConnection,
@@ -275,6 +288,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "WinSCP",
+            YieldsDeviceIdentity = true,
             TypeDescription = "WinSCP",
             ProcessNames = ["WinSCP"],
             DestinationResolveMethod = DestinationResolveMethod.RemoteHostIpConnection,
@@ -282,6 +296,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "ngadmin",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Barracuda Firewall Admin",
             ProcessNames = ["ngadminX", "ngadmin"],
             DestinationResolveMethod = DestinationResolveMethod.RemoteHostIpConnection,
@@ -289,6 +304,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "MobaXterm",
+            YieldsDeviceIdentity = true,
             TypeDescription = "MobaXterm",
             ProcessNames = ["MobaXterm", "MobaRTE", "MobaXterm_*"],
             DestinationResolveMethod = DestinationResolveMethod.RemoteHostIpConnection,
@@ -296,53 +312,65 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "TeamViewer",
+            YieldsDeviceIdentity = true,
             TypeDescription = "TeamViewer",
             ProcessNames = ["TeamViewer"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """^.+(?=\s+-\s+TeamViewer)""",
             MonitorOnlyRegexMatchedWindow = true,
         },
         new MonitoringProfile
         {
             Key = "KaseyaLiveConnectRM",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Kaseya VSA - Remote Control",
             ProcessNames = ["KaseyaLiveConnect"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """^.+(?=::(Private|Shared))""",
             MonitorOnlyRegexMatchedWindow = true,
         },
         new MonitoringProfile
         {
             Key = "ISLLight",
+            YieldsDeviceIdentity = true,
             TypeDescription = "ISL Light",
             ProcessNames = ["ISLLight"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """.+(?=\s-\s.+)""",
             MonitorOnlyRegexMatchedWindow = true,
         },
         new MonitoringProfile
         {
             Key = "mRemoteNG",
+            YieldsDeviceIdentity = true,
             TypeDescription = "mRemoteNG",
             ProcessNames = ["mRemoteNG"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """(?<=\s-\s)[^-]+$""",
         },
         new MonitoringProfile
         {
             Key = "tvnviewer",
+            YieldsDeviceIdentity = true,
             TypeDescription = "TightVNC Viewer",
             ProcessNames = ["tvnviewer"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """.+(?=\s-\sTightVNC Viewer)""",
             MonitorOnlyRegexMatchedWindow = true,
         },
         new MonitoringProfile
         {
             Key = "Supremo",
+            YieldsDeviceIdentity = true,
             TypeDescription = "SupRemo",
             ProcessNames = ["Supremo"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """.+(?=\s-\sRemote Desktop|\s-\sDesktop Remoto|\s-\sBureau Distant|\s-\sExtern Bureaublad|\s-\sZdalny Pulpit|\s-\sEscritorio remoto|\s-\sDesktop Viewer)""",
             MonitorOnlyRegexMatchedWindow = true,
         },
@@ -382,9 +410,11 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "Rustdesk",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Rustdesk",
             ProcessNames = ["rustdesk"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,
+            RequiresResolvedDestination = true,
             RegexPattern = """.+(?=\s-\sRemote Desktop\s-\sRustDesk)""",
             IgnoreTitleChanges = true,
             MonitorOnlyRegexMatchedWindow = true,
@@ -400,6 +430,7 @@ public static class MonitoringProfiles
         new MonitoringProfile
         {
             Key = "Pulsway",
+            YieldsDeviceIdentity = true,
             TypeDescription = "Pulsway Remote Control",
             ProcessNames = ["RemoteDesktop"],
             DestinationResolveMethod = DestinationResolveMethod.WindowTitleRegex,

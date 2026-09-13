@@ -56,6 +56,22 @@ public static class TanssRoutes
         string.Create(System.Globalization.CultureInfo.InvariantCulture,
             $"{V1Prefix}/tickets/{ticketId}");
 
+    // --- Suche ---------------------------------------------------------------------------
+    /// <summary>
+    /// Die bereichsübergreifende Suche. Der einzige Weg, aus einem Firmennamen eine
+    /// <c>companyId</c> zu machen.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>PUT, obwohl es liest</b> — wie die Ticketsuche: die Suchvorgabe geht im Rumpf,
+    /// und dafür hat ein GET keinen Platz. Dokumentiert ab Zeile 8363 der Beschreibung zu
+    /// 10.10.0.</para>
+    /// <para><b>Die Falle sitzt in <c>configs.company.maxResults</c>:</b> Das ist eine Schwelle
+    /// und keine Begrenzung. Wird sie überschritten, kommt eine leere Liste statt einer
+    /// gekürzten. Nachgemessen: <c>Gmb</c> hat 540 Treffer, mit 539 kommen null, mit 540 kommen
+    /// alle. Näheres bei <c>CompanySearchConfig.MaxResults</c>.</para>
+    /// </remarks>
+    public const string Search = V1Prefix + "/search";
+
     // --- Leistungen ----------------------------------------------------------------------
     /// <summary>
     /// Leistungen. Anlegen ist der <b>einzige</b> Weg hier hinein.
@@ -88,8 +104,20 @@ public static class TanssRoutes
     // --- Anmeldung und Token -------------------------------------------------------------
     public const string Login = V1Prefix + "/login";
 
+    /// <summary>
+    /// Alles, was TANSS ein Token ausstellen lässt.
+    /// </summary>
+    /// <remarks>
+    /// Der Riegel gegen Wiederholungen hängt am <b>Präfix</b> und nicht an einer einzelnen
+    /// Route. Er hing vorher an <see cref="MintToken"/> allein — und hätte damit jede weitere
+    /// Tokenart, etwa die je Fernwartungsanbindung, ungeschützt in die Wiederholung laufen
+    /// lassen. Ein Pfad, der ein unwiderrufliches Token ausstellt, darf nicht erst dann
+    /// geschützt werden, wenn jemand daran denkt.
+    /// </remarks>
+    public const string JwtPrefix = V1Prefix + "/jwts";
+
     /// <summary>Token prägen. <c>tanss_app</c> ist der gültige Wert — <c>tanss_x</c> gibt es nicht.</summary>
-    public const string MintToken = V1Prefix + "/jwts/tanss_app";
+    public const string MintToken = JwtPrefix + "/tanss_app";
 
     /// <summary>
     /// Braucht der Pfad den Parameter <c>loggedInUserId</c>?
@@ -117,7 +145,12 @@ public static class TanssRoutes
     /// dasselbe noch einmal, sondern prägt ein <b>zweites</b> Token. Behalten wird höchstens
     /// eines; die übrigen bleiben bis zu 365 Tage gültig, und TANSS 10.10.0 kennt keinen
     /// Widerruf. Solche Pfade laufen deshalb mit genau einem Versuch.</para>
+    /// <para><b>Geprüft wird gegen <see cref="JwtPrefix"/> und nicht gegen die eine bekannte
+    /// Route.</b> Unter <c>/jwts</c> liegt mehr als <c>tanss_app</c> — jede Tokenart, die dort
+    /// später dazukommt, ist vom ersten Aufruf an geschützt, statt erst dann, wenn jemand den
+    /// Riegel nachträgt. Ein vergessener Nachtrag kostet hier nicht einen Fehlversuch, sondern
+    /// ein Jahr lang gültige Token, die niemand zurücknehmen kann.</para>
     /// </remarks>
     public static bool HasSideEffectOnGet(string path) =>
-        path.StartsWith(MintToken, StringComparison.Ordinal);
+        path.StartsWith(JwtPrefix, StringComparison.Ordinal);
 }

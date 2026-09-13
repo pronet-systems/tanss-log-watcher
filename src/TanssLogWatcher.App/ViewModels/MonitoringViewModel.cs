@@ -88,7 +88,7 @@ public sealed partial class MonitoringViewModel : RuntimeViewModel
         if (Host.Config is not { } current)
         {
             Message = "Ohne Einrichtung gibt es nichts zu speichern. "
-                + "Das Zahnrad unter „Verbindung“ öffnet den Assistenten.";
+                + "Das Zahnrad unter „Einstellungen“ öffnet den Assistenten.";
             return;
         }
 
@@ -148,7 +148,7 @@ public sealed partial class MonitoringViewModel : RuntimeViewModel
         Message = Host.Reload()
             ? string.Create(CultureInfo.CurrentCulture,
                 $"Gespeichert. {entries.Count} Anwendung(en) werden ab sofort beobachtet.")
-            : "Gespeichert, aber das Neuladen ist fehlgeschlagen. Die Meldung steht unter „Verbindung“.";
+            : "Gespeichert, aber das Neuladen ist fehlgeschlagen. Die Meldung steht unter „Einstellungen“.";
     }
 
     /// <summary>

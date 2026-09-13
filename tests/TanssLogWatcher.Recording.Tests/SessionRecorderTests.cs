@@ -42,12 +42,11 @@ public sealed class SessionRecorderTests : IDisposable
         {
             FramesPerSecond = 4,
             Heartbeat = TimeSpan.FromMilliseconds(500),
-            SegmentLength = TimeSpan.FromMinutes(10),
             MinimumFreeMegabytes = 0,
             PauseGrace = TimeSpan.FromSeconds(2),
         };
 
-        using SessionRecorder recorder = new(options, n => Path.Combine(_folder, $"teil-{n}.mp4"));
+        using SessionRecorder recorder = new(options, () => Path.Combine(_folder, "teil.mp4"));
 
         WindowBox box = Box(window);
         DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -56,7 +55,7 @@ public sealed class SessionRecorderTests : IDisposable
         for (int i = 0; i < 16; i++)
         {
             Assert.True(recorder.Tick(
-                new RecordingInput(now, [box], SessionEnded: false, FreeMegabytes: 100_000)));
+                new RecordingInput(now, [box], SessionEnded: false, FreeMegabytes: 100_000, Screens: [])));
 
             Thread.Sleep(125);
             now = now.AddMilliseconds(125);
@@ -93,7 +92,7 @@ public sealed class SessionRecorderTests : IDisposable
             MinimumFreeMegabytes = 0,
         };
 
-        using SessionRecorder recorder = new(options, n => Path.Combine(_folder, $"zwei-{n}.mp4"));
+        using SessionRecorder recorder = new(options, () => Path.Combine(_folder, "zwei.mp4"));
 
         WindowBox a = Box(main);
         WindowBox b = new(child.Handle, a.Left + 500, a.Top + 400, 200, 150);
@@ -141,7 +140,7 @@ public sealed class SessionRecorderTests : IDisposable
             MinimumFreeMegabytes = 0,
         };
 
-        using SessionRecorder recorder = new(options, n => Path.Combine(_folder, $"lang-{n}.mp4"));
+        using SessionRecorder recorder = new(options, () => Path.Combine(_folder, "lang.mp4"));
 
         WindowBox box = Box(window);
         DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -179,7 +178,7 @@ public sealed class SessionRecorderTests : IDisposable
             PauseGrace = TimeSpan.FromMilliseconds(500),
         };
 
-        using SessionRecorder recorder = new(options, n => Path.Combine(_folder, $"pause-{n}.mp4"));
+        using SessionRecorder recorder = new(options, () => Path.Combine(_folder, "pause.mp4"));
 
         WindowBox box = Box(window);
         DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -222,10 +221,10 @@ public sealed class SessionRecorderTests : IDisposable
 
         RecordingOptions options = new() { MinimumFreeMegabytes = 2048 };
 
-        using SessionRecorder recorder = new(options, n => Path.Combine(_folder, $"voll-{n}.mp4"));
+        using SessionRecorder recorder = new(options, () => Path.Combine(_folder, "voll.mp4"));
 
         bool running = recorder.Tick(
-            new RecordingInput(DateTimeOffset.UtcNow, [Box(window)], false, FreeMegabytes: 100));
+            new RecordingInput(DateTimeOffset.UtcNow, [Box(window)], false, 100, []));
 
         Assert.False(running);
         Assert.Empty(recorder.Files);

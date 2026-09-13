@@ -23,11 +23,12 @@ internal sealed class TestWindow : IDisposable
     private Form? _form;
 
     private TestWindow(System.Drawing.Color colour, int width, int height,
-                       bool topMost, TestWindow? sameBoundsAs)
+                       bool topMost, TestWindow? sameBoundsAs, System.Drawing.Point? at)
     {
         System.Drawing.Rectangle bounds = sameBoundsAs is not null
             ? sameBoundsAs.Bounds
-            : new System.Drawing.Rectangle(80, 80, width, height);
+            : new System.Drawing.Rectangle(at ?? new System.Drawing.Point(80, 80),
+                                           new System.Drawing.Size(width, height));
 
         Thread thread = new(() =>
         {
@@ -82,9 +83,15 @@ internal sealed class TestWindow : IDisposable
     /// <param name="height">Die Höhe.</param>
     /// <param name="topMost">Soll es über allem liegen?</param>
     /// <param name="sameBoundsAs">Deckungsgleich mit diesem Fenster.</param>
+    /// <param name="at">
+    /// Die linke obere Ecke; ohne Angabe 80/80. Negative Werte sind ausdrücklich erlaubt — ein
+    /// Fenster, das über den linken oder oberen Bildschirmrand hinausragt, ist der Fall, an dem
+    /// das Zeichnen einmal aufgab und ein schwarzes Bild hinterliess.
+    /// </param>
     public static TestWindow Open(System.Drawing.Color colour, int width, int height,
-                                  bool topMost = false, TestWindow? sameBoundsAs = null) =>
-        new(colour, width, height, topMost, sameBoundsAs);
+                                  bool topMost = false, TestWindow? sameBoundsAs = null,
+                                  System.Drawing.Point? at = null) =>
+        new(colour, width, height, topMost, sameBoundsAs, at);
 
     /// <summary>Minimiert das Fenster.</summary>
     public void Minimise()

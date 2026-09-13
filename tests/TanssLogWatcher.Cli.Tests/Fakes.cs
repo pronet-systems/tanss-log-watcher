@@ -265,13 +265,58 @@ internal sealed class FakeUploadQueue : IUploadQueue
         return true;
     }
 
-    /// <summary>Die Schonfrist des zuletzt eingereihten Eintrags.</summary>
-    public TimeSpan? LastHold { get; private set; }
+    /// <summary>Wartete der zuletzt eingereihte Eintrag auf die Entscheidung des Technikers?</summary>
+    public bool LastAwaitedDecision { get; private set; }
 
     /// <inheritdoc/>
-    public bool Release(string remoteMaintenanceId) =>
-        _items.TryGetValue(remoteMaintenanceId, out QueuedUpload? item)
-        && item.State == QueueState.Pending;
+    public bool Release(string remoteMaintenanceId)
+    {
+        if (!_items.TryGetValue(remoteMaintenanceId, out QueuedUpload? item)
+            || item.State != QueueState.Pending)
+        {
+            return false;
+        }
+
+        _items[remoteMaintenanceId] = item with { AwaitingDecision = false };
+        return true;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>Das Spiegelbild von <see cref="Release"/>, mit derselben Bedingung.</remarks>
+    public bool Hold(string remoteMaintenanceId)
+    {
+        if (!_items.TryGetValue(remoteMaintenanceId, out QueuedUpload? item)
+            || item.State != QueueState.Pending)
+        {
+            return false;
+        }
+
+        _items[remoteMaintenanceId] = item with { AwaitingDecision = true };
+        return true;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Bildet die Bedingung der echten Warteschlange nach: Zugeteilt wird ohne Rücksicht auf
+    /// Fälligkeit und Warten, aber nur, was noch wartet — und das Warten auf die Entscheidung
+    /// ist danach aufgehoben.
+    /// </remarks>
+    public QueuedUpload? LeaseOne(string remoteMaintenanceId)
+    {
+        if (!_items.TryGetValue(remoteMaintenanceId, out QueuedUpload? item)
+            || item.State != QueueState.Pending)
+        {
+            return null;
+        }
+
+        _items[remoteMaintenanceId] = item with
+        {
+            State = QueueState.Sending,
+            AwaitingDecision = false,
+        };
+
+        return _items[remoteMaintenanceId];
+    }
 
     /// <inheritdoc/>
     public bool Remove(string remoteMaintenanceId)
@@ -287,17 +332,18 @@ internal sealed class FakeUploadQueue : IUploadQueue
 
     /// <inheritdoc/>
     /// <remarks>
-    /// Die Schonfrist wird mitgeschrieben, damit ein Test sie prüfen kann; gelesen wird sie von
-    /// dieser Attrappe sonst nicht — <see cref="Lease"/> ist hier bewusst schlicht.
+    /// Das Warten auf die Entscheidung wird mitgeschrieben, damit ein Test es prüfen kann —
+    /// und es wird in <see cref="Lease"/> auch beachtet: Eine Attrappe, die eine wartende Zeile
+    /// zuteilte, liesse genau den Fehler durch, gegen den das Kennzeichen steht.
     /// </remarks>
-    public bool Enqueue(RemoteSupportWrite item, TimeSpan? hold = null)
+    public bool Enqueue(RemoteSupportWrite item, bool awaitDecision = false)
     {
         if (_items.ContainsKey(item.RemoteMaintenanceId))
         {
             return false;
         }
 
-        LastHold = hold;
+        LastAwaitedDecision = awaitDecision;
 
         _items[item.RemoteMaintenanceId] = new QueuedUpload
         {
@@ -306,6 +352,7 @@ internal sealed class FakeUploadQueue : IUploadQueue
             State = QueueState.Pending,
             CreatedAt = DateTimeOffset.UnixEpoch,
             NextAttemptAt = DateTimeOffset.UnixEpoch,
+            AwaitingDecision = awaitDecision,
         };
 
         return true;
@@ -316,7 +363,8 @@ internal sealed class FakeUploadQueue : IUploadQueue
         List<QueuedUpload> leased = [];
         foreach (string id in _items.Keys.ToList())
         {
-            if (leased.Count >= max || _items[id].State != QueueState.Pending)
+            if (leased.Count >= max || _items[id].State != QueueState.Pending
+                || _items[id].AwaitingDecision)
             {
                 continue;
             }

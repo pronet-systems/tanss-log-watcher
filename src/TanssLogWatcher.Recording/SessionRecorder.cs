@@ -31,14 +31,15 @@ public sealed class SessionRecorder : IDisposable
     private readonly RecordingDirector _director;
     private readonly RecordingClock _clock;
     private readonly FrameCadence _cadence;
-    private readonly Func<int, string> _pathForSegment;
+    private readonly Func<string> _pathFor;
     private readonly Dictionary<nint, WindowCapture> _captures = [];
 
     private CaptureDevice? _device;
+    private WindowCapture? _screen;
+    private nint _screenHandle;
     private VideoFile? _file;
     private byte[] _canvas = [];
     private byte[] _scratch = [];
-    private int _segment;
     private bool _anythingChanged;
 
     /// <summary>
@@ -53,19 +54,20 @@ public sealed class SessionRecorder : IDisposable
 
     /// <summary>Baut die Aufzeichnung für eine Sitzung.</summary>
     /// <param name="options">Die geprüften Stellschrauben.</param>
-    /// <param name="pathForSegment">
-    /// Liefert den Dateipfad für den n-ten Abschnitt, beginnend bei 1. Die Benennung gehört
-    /// nicht hierher: Wie eine Aufzeichnung heisst und wo sie liegt, entscheidet die Ablage.
+    /// <param name="pathFor">
+    /// Liefert den Dateipfad der Aufzeichnung. Die Benennung gehört nicht hierher: Wie eine
+    /// Aufzeichnung heisst und wo sie liegt, entscheidet die Ablage. Genau einmal je Sitzung
+    /// gerufen — eine Sitzung ergibt eine Datei.
     /// </param>
-    public SessionRecorder(RecordingOptions options, Func<int, string> pathForSegment)
+    public SessionRecorder(RecordingOptions options, Func<string> pathFor)
     {
         ArgumentNullException.ThrowIfNull(options);
-        ArgumentNullException.ThrowIfNull(pathForSegment);
+        ArgumentNullException.ThrowIfNull(pathFor);
 
         options.Validate();
 
         _options = options;
-        _pathForSegment = pathForSegment;
+        _pathFor = pathFor;
         _director = new RecordingDirector(options);
         _clock = new RecordingClock(options.FramesPerSecond);
         _cadence = new FrameCadence(options.FramesPerSecond, options.Heartbeat);
@@ -77,7 +79,14 @@ public sealed class SessionRecorder : IDisposable
     /// <summary>Die aufgezeichnete Zeit — ohne die Pausen.</summary>
     public TimeSpan Recorded => _clock.Duration;
 
-    /// <summary>Die geschriebenen Dateien, in der Reihenfolge ihrer Entstehung.</summary>
+    /// <summary>
+    /// Die geschriebenen Dateien.
+    /// </summary>
+    /// <remarks>
+    /// Seit eine Sitzung genau eine Datei ergibt, steht hier höchstens eine. Es bleibt trotzdem
+    /// eine Liste: Die Begleitdatei führt sie als Liste, und eine bestehende
+    /// <c>sitzung.json</c> wäre sonst nicht mehr lesbar.
+    /// </remarks>
     public IReadOnlyList<string> Files { get; } = new List<string>();
 
     /// <summary>Läuft gerade eine Aufzeichnung?</summary>
@@ -85,6 +94,9 @@ public sealed class SessionRecorder : IDisposable
 
     /// <summary>Ist die Aufzeichnung vorbei?</summary>
     public bool IsFinished => _director.IsFinished;
+
+    /// <summary>Wie oft das Bild einem anderen Bildschirm gefolgt ist.</summary>
+    public int ScreenChanges => _director.CanvasMoves;
 
     /// <summary>Was zuletzt geschah — deutscher Klartext für Anzeige und Protokoll.</summary>
     public string LastReason { get; private set; } = string.Empty;
@@ -117,7 +129,11 @@ public sealed class SessionRecorder : IDisposable
 
         if (_director.IsRecording && _file is not null)
         {
-            PullAndWrite(input.Now);
+            // Bei JEDEM Takt und nicht nur beim Start: Ein Dialog, der mitten in der Sitzung
+            // aufgeht, bekommt sonst nie eine Aufnahme und erscheint im Video ueberhaupt
+            // nicht. Der Abgleich ist ein Mengenvergleich und kostet nichts.
+            Attach(input.Windows);
+            PullAndWrite(input.Now, input.Windows);
         }
 
         return !_director.IsFinished;
@@ -145,6 +161,10 @@ public sealed class SessionRecorder : IDisposable
         }
 
         _captures.Clear();
+
+        _screen?.Dispose();
+        _screen = null;
+        _screenHandle = 0;
 
         _device?.Dispose();
         _device = null;
@@ -174,12 +194,12 @@ public sealed class SessionRecorder : IDisposable
                 Attach(decision.Windows);
                 break;
 
-            case RecordingAction.RollSegment:
-                _clock.Resume(now);
-                CloseFile();
-                OpenFile();
-                Attach(decision.Windows);
+            case RecordingAction.MoveCanvas:
+                // Kein Dateiwechsel: Die Leinwand hat nur einen anderen Ursprung. Der Takt
+                // wird zurueckgesetzt, damit das erste Bild an der neuen Stelle sofort
+                // durchgeht - es zeigt etwas voellig anderes als das davor.
                 _cadence.Reset();
+                _anythingChanged = true;
                 break;
 
             case RecordingAction.Stop:
@@ -199,9 +219,8 @@ public sealed class SessionRecorder : IDisposable
             return;
         }
 
-        _segment++;
         Canvas = (canvas.Width, canvas.Height);
-        string path = _pathForSegment(_segment);
+        string path = _pathFor();
 
         _file = VideoFile.Create(path, canvas.Width, canvas.Height, _options.FramesPerSecond);
         ((List<string>)Files).Add(path);
@@ -247,6 +266,12 @@ public sealed class SessionRecorder : IDisposable
             return;
         }
 
+        if (_options.Scope is CaptureScope.Screen)
+        {
+            AttachScreen();
+            return;
+        }
+
         HashSet<nint> wanted = [.. windows.Select(w => w.Handle)];
 
         foreach (nint gone in _captures.Keys.Where(h => !wanted.Contains(h)).ToList())
@@ -277,6 +302,42 @@ public sealed class SessionRecorder : IDisposable
     }
 
     /// <summary>
+    /// Hängt die Aufnahme an den Bildschirm, auf dem die Sitzung liegt.
+    /// </summary>
+    /// <remarks>
+    /// Wechselt die Sitzung den Bildschirm, wird die alte Aufnahme gelöst und eine neue
+    /// begonnen — die Datei bleibt dieselbe, nur die Quelle ist eine andere. Schlägt das fehl
+    /// (ein eben abgemeldeter Bildschirm), bleibt das Bild schwarz, bis es wieder geht:
+    /// Hausregel 5, ein Fehler kostet Bilder und nicht die Aufzeichnung.
+    /// </remarks>
+    private void AttachScreen()
+    {
+        if (_director.Screen is not { } screen || screen.Handle == 0)
+        {
+            return;
+        }
+
+        if (_screen is not null && _screenHandle == screen.Handle)
+        {
+            return;
+        }
+
+        _screen?.Dispose();
+        _screen = null;
+
+        try
+        {
+            _screen = WindowCapture.StartScreen(_device!, screen.Handle);
+            _screenHandle = screen.Handle;
+        }
+        catch (RecordingException ex)
+        {
+            LastReason = "Dieser Bildschirm liess sich nicht aufnehmen: " + ex.Message;
+            _screenHandle = 0;
+        }
+    }
+
+    /// <summary>
     /// Holt die Bilder, setzt sie zusammen und schreibt — wenn der Takt es zulässt.
     /// </summary>
     /// <remarks>
@@ -286,14 +347,15 @@ public sealed class SessionRecorder : IDisposable
     /// hinterliesse ein einziges Bild für eine Viertelstunde Lesen.
     /// </remarks>
     /// <param name="now">Die Wanduhr dieses Taktes.</param>
-    private void PullAndWrite(DateTimeOffset now)
+    /// <param name="windows">Die Fensterlage dieses Taktes.</param>
+    private void PullAndWrite(DateTimeOffset now, IReadOnlyList<WindowBox> windows)
     {
         if (_director.Canvas is not { } canvas || _file is null)
         {
             return;
         }
 
-        bool changed = Compose(canvas);
+        bool changed = Compose(canvas, windows);
         _anythingChanged |= changed;
 
         TimeSpan elapsed = _clock.Elapsed(now);
@@ -325,13 +387,18 @@ public sealed class SessionRecorder : IDisposable
     /// Setzt die Fenster auf der Leinwand zusammen.
     /// </summary>
     /// <returns><c>true</c>, wenn sich mindestens ein Fenster gemeldet hat.</returns>
-    private bool Compose(CanvasLayout canvas)
+    private bool Compose(CanvasLayout canvas, IReadOnlyList<WindowBox> windows)
     {
         Array.Clear(_canvas);
 
+        if (_options.Scope is CaptureScope.Screen)
+        {
+            return ComposeScreen(canvas);
+        }
+
         bool any = false;
 
-        foreach (WindowPlacement placement in canvas.Placements)
+        foreach (WindowPlacement placement in canvas.PlaceAll(windows))
         {
             if (!_captures.TryGetValue(placement.Handle, out WindowCapture? capture))
             {
@@ -352,16 +419,56 @@ public sealed class SessionRecorder : IDisposable
         return any;
     }
 
-    /// <summary>Kopiert ein Fensterbild an seinen Platz — Zeile für Zeile, nie skaliert.</summary>
+    /// <summary>
+    /// Setzt das Bild des ganzen Bildschirms auf die Leinwand.
+    /// </summary>
+    /// <remarks>
+    /// Die Leinwand ist der Bildschirm, also liegt das Bild bündig bei 0/0. Ist der Bildschirm
+    /// grösser als die Leinwand — das kommt vor, wenn die Sitzung mitten im Betrieb auf einen
+    /// grösseren Bildschirm wandert —, wird beschnitten statt skaliert; die Bildgrösse einer
+    /// laufenden Datei lässt sich nicht ändern, und eine zweite Datei ist genau das, was hier
+    /// vermieden werden soll.
+    /// </remarks>
+    private bool ComposeScreen(CanvasLayout canvas)
+    {
+        if (_screen is null || _screen.TryCopyLatest(ref _scratch) is not { } size)
+        {
+            return false;
+        }
+
+        Blit(canvas, new WindowPlacement(_screenHandle, 0, 0, size.Width, size.Height), size);
+        return true;
+    }
+
+    /// <summary>
+    /// Kopiert ein Fensterbild an seinen Platz — Zeile für Zeile, nie skaliert.
+    /// </summary>
+    /// <remarks>
+    /// <b>Beschnitten wird an allen vier Seiten, auch links und oben.</b> Hier stand einmal
+    /// <c>placement.X &lt; 0 || placement.Y &lt; 0 -&gt; return</c>, und das liess ein Fenster
+    /// vollständig verschwinden, sobald es über den linken oder oberen Rand ragte. Gemessen:
+    /// Ein maximiertes Fenster meldet auf einem Bildschirm von 2880×1800 das Rechteck
+    /// (−13,−13) bei 2906×1730 — sein unsichtbarer Anfassrahmen liegt ausserhalb. Mit der
+    /// Bildschirmfläche als Leinwand wäre das Video einer jeden Fernwartung mit maximiertem
+    /// Fenster durchgehend schwarz gewesen, ohne eine einzige Fehlermeldung.
+    /// </remarks>
     private void Blit(CanvasLayout canvas, WindowPlacement placement, FrameSize size)
     {
         int canvasStride = canvas.Width * 4;
         int sourceStride = size.Width * 4;
 
-        int rows = Math.Min(size.Height, canvas.Height - placement.Y);
-        int columns = Math.Min(size.Width, canvas.Width - placement.X);
+        // Was links oder oben ausserhalb liegt, wird im QUELLBILD uebersprungen - das Bild
+        // rueckt dadurch nicht, es wird nur der sichtbare Teil kopiert.
+        int sourceX = placement.X < 0 ? -placement.X : 0;
+        int sourceY = placement.Y < 0 ? -placement.Y : 0;
 
-        if (rows <= 0 || columns <= 0 || placement.X < 0 || placement.Y < 0)
+        int targetX = placement.X + sourceX;
+        int targetY = placement.Y + sourceY;
+
+        int rows = Math.Min(size.Height - sourceY, canvas.Height - targetY);
+        int columns = Math.Min(size.Width - sourceX, canvas.Width - targetX);
+
+        if (rows <= 0 || columns <= 0)
         {
             return;
         }
@@ -370,8 +477,8 @@ public sealed class SessionRecorder : IDisposable
 
         for (int row = 0; row < rows; row++)
         {
-            int from = row * sourceStride;
-            int to = ((placement.Y + row) * canvasStride) + (placement.X * 4);
+            int from = ((sourceY + row) * sourceStride) + (sourceX * 4);
+            int to = ((targetY + row) * canvasStride) + (targetX * 4);
 
             _scratch.AsSpan(from, bytes).CopyTo(_canvas.AsSpan(to, bytes));
         }

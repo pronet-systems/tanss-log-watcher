@@ -391,9 +391,9 @@ public sealed partial class SetupViewModel : ObservableObject
         if (!_host.Reload())
         {
             // Geschrieben ist geschrieben; nur in Betrieb ist es nicht. Der Grund steht im
-            // Betriebszustand, den die Verbindungsseite zeigt.
+            // Betriebszustand, den die Seite „Einstellungen“ zeigt.
             Error = "Alles ist abgelegt, liess sich aber nicht in Betrieb nehmen. Der Grund "
-                + "steht unter „Verbindung“.";
+                + "steht unter „Einstellungen“.";
             return;
         }
         IsFinished = true;

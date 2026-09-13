@@ -232,6 +232,9 @@ public sealed class UploadQueueTests
             LastSeenAt = Start + TimeSpan.FromMinutes(12),
             ProcessId = 4711,
             Target = "10.20.30.40",
+            // Der Bezeichner, aus dem die Geraetekennung fuer TANSS entsteht. Ohne ihn
+            // buchte genau die unterbrochene Fernwartung ohne Firmenzuordnung.
+            IdentityKey = "kunde-ts01.kunde.local",
             DeviceName = "kunde-ts01",
             UserName = "administrator",
             Comment = "Wartung Exchange",
@@ -248,9 +251,41 @@ public sealed class UploadQueueTests
         OpenSession restored = Assert.Single(after.LoadOpenSessions());
 
         Assert.Equal(running, restored);
+        Assert.Equal("kunde-ts01.kunde.local", restored.IdentityKey);
         Assert.True(after.RemoveOpenSession("sitzung-laeuft"));
         Assert.False(after.RemoveOpenSession("sitzung-laeuft"));
         Assert.Empty(after.LoadOpenSessions());
+    }
+
+    [Fact]
+    public void Ein_nachgelieferter_Bezeichner_wird_fortgeschrieben()
+    {
+        // Der Rueckwaertsaufloeser liefert den Namen oft erst Takte nach dem Beginn nach.
+        // Wuerde die Spalte beim Fortschreiben stehen bleiben, ueberlebte der Neustart den
+        // Platzhalter - und die Fernwartung buchte ohne Firmenzuordnung.
+        using TempDirectory temp = new();
+        using UploadQueue queue = new(temp.File("state.db"));
+
+        OpenSession session = new()
+        {
+            RemoteMaintenanceId = "sitzung-aufloesung",
+            MonitorKey = "rdp",
+            RemoteSupportTypeId = 1001,
+            StartedAt = Start,
+            LastSeenAt = Start,
+            IdentityKey = null,
+        };
+
+        queue.SaveOpenSession(session);
+        Assert.Null(Assert.Single(queue.LoadOpenSessions()).IdentityKey);
+
+        queue.SaveOpenSession(session with
+        {
+            LastSeenAt = Start + TimeSpan.FromMinutes(3),
+            IdentityKey = "kunde-srv01",
+        });
+
+        Assert.Equal("kunde-srv01", Assert.Single(queue.LoadOpenSessions()).IdentityKey);
     }
 
     [Fact]
@@ -516,36 +551,38 @@ public sealed class UploadQueueTests
 
     /// <summary>
     /// Der Fall, der „Jetzt senden“ wirkungslos aussehen liess: Der Eintrag steht als
-    /// ausstehend da, ist aber zurückgehalten — und wird deshalb nicht zugeteilt.
+    /// ausstehend da, wartet aber auf die Entscheidung des Technikers — und wird deshalb nicht
+    /// zugeteilt.
     /// </summary>
     [Fact]
-    public void Ein_zurueckgehaltener_Eintrag_wird_nicht_zugeteilt()
+    public void Ein_wartender_Eintrag_wird_nicht_zugeteilt()
     {
         using TempDirectory temp = new();
         ManualTimeProvider clock = new(Start);
         using UploadQueue queue = new(temp.File("state.db"), clock);
 
-        Assert.True(queue.Enqueue(Sample.Upload("sitzung-1"), TimeSpan.FromMinutes(5)));
+        Assert.True(queue.Enqueue(Sample.Upload("sitzung-1"), awaitDecision: true));
 
         Assert.Equal(1, queue.Count(QueueState.Pending));
         Assert.Empty(queue.Lease(10));
     }
 
     /// <summary>
-    /// „Jetzt senden“ von Hand heisst jetzt: Das Freigeben zieht den Eintrag vor, und der
-    /// nächste Zugriff bekommt ihn.
+    /// „Jetzt senden“ von Hand heisst jetzt: Das Freigeben hebt das Warten auf, und der
+    /// nächste Zugriff bekommt den Eintrag.
     /// </summary>
     [Fact]
-    public void Freigeben_zieht_einen_zurueckgehaltenen_Eintrag_sofort_vor()
+    public void Freigeben_zieht_einen_wartenden_Eintrag_sofort_vor()
     {
         using TempDirectory temp = new();
         ManualTimeProvider clock = new(Start);
         using UploadQueue queue = new(temp.File("state.db"), clock);
 
-        _ = queue.Enqueue(Sample.Upload("sitzung-1"), TimeSpan.FromMinutes(5));
+        _ = queue.Enqueue(Sample.Upload("sitzung-1"), awaitDecision: true);
         Assert.Empty(queue.Lease(10));
 
         Assert.True(queue.Release("sitzung-1"));
+        Assert.False(queue.Find("sitzung-1")!.AwaitingDecision);
 
         QueuedUpload leased = Assert.Single(queue.Lease(10));
         Assert.Equal("sitzung-1", leased.RemoteMaintenanceId);
@@ -577,7 +614,7 @@ public sealed class UploadQueueTests
     /// der Meldung „n freigegeben“; er darf nichts zählen, was gar nichts war.
     /// </summary>
     [Fact]
-    public void Freigeben_meldet_false_wenn_nichts_zurueckgehalten_wird()
+    public void Freigeben_meldet_false_wenn_es_nichts_freizugeben_gibt()
     {
         using TempDirectory temp = new();
         ManualTimeProvider clock = new(Start);

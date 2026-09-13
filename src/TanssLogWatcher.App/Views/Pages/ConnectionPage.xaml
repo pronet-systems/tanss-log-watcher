@@ -3,7 +3,7 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
-      Title="Verbindung"
+      Title="Einstellungen"
       Style="{StaticResource PageSurface}"
       ScrollViewer.CanContentScroll="False">
 
@@ -17,10 +17,10 @@
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,16,0">
-                    <ui:TextBlock Text="Verbindung zu TANSS" FontTypography="Title" />
+                    <ui:TextBlock Text="Einstellungen" FontTypography="Title" />
                     <ui:TextBlock Margin="0,4,0,20" TextWrapping="Wrap" HorizontalAlignment="Left"
                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                  Text="Das Werkzeug spricht direkt mit eurer Instanz. Es gibt keinen Zwischendienst und keine Daten außerhalb eures Hauses." />
+                                  Text="Instanz, Zugang, Anbindungen, Aktualisierung. Mit TANSS spricht das Werkzeug unmittelbar — ohne Zwischendienst und ohne dritte Stelle dazwischen." />
                 </StackPanel>
 
                 <!-- Das Zahnrad. Es steht auch dann bereit, wenn schon alles eingerichtet ist:
@@ -29,7 +29,7 @@
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
                             VerticalAlignment="Top" design:Gap.Size="8">
                     <ui:Button Icon="{ui:SymbolIcon Settings24}" Appearance="Secondary"
-                               Content="Einstellungen"
+                               Content="Verbindung"
                                ToolTip="Basisadresse, Anmeldung und Zuordnungen ändern"
                                Command="{Binding OpenSetupCommand}" />
                     <ui:Button Content="Verbindung prüfen" Icon="{ui:SymbolIcon PlugConnected24}"
@@ -47,8 +47,20 @@
                         Title="{Binding Status.Headline}"
                         Message="{Binding Status.Reason}" />
 
+            <!-- ZWEI Anzeigen statt einer mit gebundener Severity. Ein gebundener Stil auf
+                 einem ui:-Typ hat in diesem Haus schon einmal die Navigation STILL scheitern
+                 lassen; derselbe Griff steht aus demselben Grund im Abschlussdialog.
+
+                 Oben der Erfolg: gruen, mit Haekchen. Er ist der Fall, den der Techniker am
+                 haeufigsten sieht, und ein blaues "i" darueber liest sich wie eine Auskunft
+                 und nicht wie eine Bestaetigung. -->
+            <ui:InfoBar Margin="0,0,0,16" Severity="Success" IsClosable="False"
+                        IsOpen="{Binding HasSuccess}"
+                        Title="Verbindung erfolgreich"
+                        Message="{Binding Message}" />
+
             <ui:InfoBar Margin="0,0,0,16" Severity="Informational" IsClosable="False"
-                        IsOpen="{Binding HasMessage}"
+                        IsOpen="{Binding HasPlainMessage}"
                         Title="Rückmeldung"
                         Message="{Binding Message}" />
 
@@ -186,7 +198,7 @@
 
                     <ui:TextBlock Margin="0,10,0,0" FontSize="11" TextWrapping="Wrap"
                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                  Text="Das Setup ist nicht signiert. Windows SmartScreen meldet daher einen unbekannten Herausgeber und hält die Installation zunächst an — das ist bei jeder Fassung so." />
+                                  Text="Das Setup ist nicht signiert. Windows SmartScreen meldet daher einen unbekannten Herausgeber und hält die Installation zunächst an — das ist bei jeder Version so." />
                 </StackPanel>
             </Border>
 

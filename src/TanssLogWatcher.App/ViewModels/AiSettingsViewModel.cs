@@ -55,6 +55,14 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         _hasStoredKey = _keys.Exists();
         _consentAccepted = ai.HasConsent;
 
+        // Was in der Konfiguration leer ist, bleibt der eingebaute Text - dieselbe Regel wie
+        // in AiPromptSet.From, damit im Fenster steht, was tatsaechlich gesendet wird.
+        AiPromptSet prompts = AiPromptSet.From(ai);
+
+        _rolePrompt = prompts.Role;
+        _proofreadPrompt = prompts.Proofread;
+        _improvePrompt = prompts.Improve;
+
         ConsentGivenAt = ai.ConsentGivenAt;
         ConsentBy = ai.ConsentBy;
 
@@ -106,10 +114,143 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     /// <summary>Die Rückmeldung der letzten Handlung.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasMessage))]
+    [NotifyPropertyChangedFor(nameof(HasHint))]
     private string _message = string.Empty;
 
     /// <summary>Gibt es eine Rückmeldung?</summary>
     public bool HasMessage => !string.IsNullOrEmpty(Message);
+
+    /// <summary>
+    /// Ist die Rückmeldung eine Beanstandung?
+    /// </summary>
+    /// <remarks>
+    /// <b>Aus einer Rückmeldung eines Technikers.</b> Bis hierher sah jede Meldung gleich aus —
+    /// „Die Modellliste wird geholt“ und „Ohne die Bestätigung lässt sich das nicht
+    /// einschalten“ standen beide als blauer Hinweis am Fuss des Fensters. Wer auf Speichern
+    /// drückt und nichts passiert, sucht den Grund aber nicht unten, sondern an dem Feld, das
+    /// er gerade bearbeitet hat.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasHint))]
+    private bool _isProblem;
+
+    /// <summary>Gibt es eine Rückmeldung, die keine Beanstandung ist?</summary>
+    public bool HasHint => HasMessage && !IsProblem;
+
+    /// <summary>Fehlt die Bestätigung der Datenschutzhinweise?</summary>
+    /// <remarks>
+    /// Gesetzt beim Speichern, zurückgenommen, sobald der Haken gesetzt wird. Ein Feld, das
+    /// rot bleibt, nachdem man es berichtigt hat, ist schlimmer als eines, das nie rot war.
+    /// </remarks>
+    [ObservableProperty]
+    private bool _consentMissing;
+
+    /// <summary>Fehlt die Wahl eines Modells?</summary>
+    [ObservableProperty]
+    private bool _modelMissing;
+
+    /// <summary>Fehlt der Schlüssel?</summary>
+    [ObservableProperty]
+    private bool _keyMissing;
+
+    /// <summary>
+    /// Die Rolle, die dem Modell vorangestellt wird.
+    /// </summary>
+    /// <remarks>
+    /// Bearbeitbar, weil die Berichte des Hauses sind: Wie ein Bericht klingen soll, weiss der
+    /// Betrieb und nicht dieses Werkzeug.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOwnPrompts))]
+    private string _rolePrompt = AiPrompts.DefaultRole;
+
+    /// <summary>Der Auftrag für die Rechtschreibprüfung.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOwnPrompts))]
+    private string _proofreadPrompt = AiPrompts.DefaultProofread;
+
+    /// <summary>Der Auftrag für das Ausformulieren.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasOwnPrompts))]
+    private string _improvePrompt = AiPrompts.DefaultImprove;
+
+    /// <summary>
+    /// Die Regeln, die an jede Anweisung angehängt werden und sich nicht bearbeiten lassen.
+    /// </summary>
+    /// <remarks>
+    /// Sie stehen im Fenster, damit niemand raten muss, was ausser seinem eigenen Text noch
+    /// gesendet wird. Wer sie bearbeiten könnte, könnte die Zusage des Werkzeugs bearbeiten.
+    /// </remarks>
+    public static string FixedRules => AiPrompts.Fixed;
+
+    /// <summary>Weicht mindestens eine Anweisung vom eingebauten Text ab?</summary>
+    public bool HasOwnPrompts =>
+        !string.Equals(RolePrompt.Trim(), AiPrompts.DefaultRole, StringComparison.Ordinal)
+        || !string.Equals(ProofreadPrompt.Trim(), AiPrompts.DefaultProofread,
+                          StringComparison.Ordinal)
+        || !string.Equals(ImprovePrompt.Trim(), AiPrompts.DefaultImprove,
+                          StringComparison.Ordinal);
+
+    /// <summary>Setzt die Rolle auf den eingebauten Text zurück.</summary>
+    [RelayCommand]
+    private void ResetRole() => RolePrompt = AiPrompts.DefaultRole;
+
+    /// <summary>Setzt den Auftrag für die Rechtschreibprüfung zurück.</summary>
+    [RelayCommand]
+    private void ResetProofread() => ProofreadPrompt = AiPrompts.DefaultProofread;
+
+    /// <summary>Setzt den Auftrag für das Ausformulieren zurück.</summary>
+    [RelayCommand]
+    private void ResetImprove() => ImprovePrompt = AiPrompts.DefaultImprove;
+
+    /// <summary>
+    /// Liefert den eigenen Text — oder <c>null</c>, wenn er dem eingebauten entspricht.
+    /// </summary>
+    /// <param name="value">Was im Feld steht.</param>
+    /// <param name="builtIn">Der eingebaute Text.</param>
+    private static string? Own(string value, string builtIn)
+    {
+        string trimmed = value.Trim();
+
+        return trimmed.Length == 0 || string.Equals(trimmed, builtIn, StringComparison.Ordinal)
+            ? null
+            : trimmed;
+    }
+
+    /// <summary>Meldet eine Beanstandung.</summary>
+    /// <param name="message">Was fehlt, und wo es steht.</param>
+    private void Fail(string message)
+    {
+        IsProblem = true;
+        Message = message;
+    }
+
+    /// <summary>Nimmt alle Markierungen zurück.</summary>
+    private void ClearMarks()
+    {
+        IsProblem = false;
+        ConsentMissing = false;
+        ModelMissing = false;
+        KeyMissing = false;
+    }
+
+    /// <summary>Nimmt die Markierung zurück, sobald bestätigt wurde.</summary>
+    partial void OnConsentAcceptedChanged(bool value)
+    {
+        if (value)
+        {
+            ConsentMissing = false;
+        }
+    }
+
+    /// <summary>Nimmt die Markierung zurück, sobald ein Modell gewählt ist.</summary>
+    partial void OnSelectedModelChanged(AiModel? value)
+    {
+        if (value is not null)
+        {
+            ModelMissing = false;
+        }
+    }
 
     /// <summary>Wurde die Einwilligung im Fenster bestätigt?</summary>
     [ObservableProperty]
@@ -169,11 +310,13 @@ public sealed partial class AiSettingsViewModel : ObservableObject
 
         if (string.IsNullOrWhiteSpace(effective))
         {
-            Message = "Ohne Schlüssel lässt sich die Modellliste nicht holen.";
+            KeyMissing = true;
+            Fail("Ohne Schlüssel lässt sich die Modellliste nicht holen.");
             return;
         }
 
         IsBusy = true;
+        ClearMarks();
         Message = "Die Modellliste wird geholt …";
 
         try
@@ -201,7 +344,7 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Message = "Die Modellliste liess sich nicht holen: " + Redaction.Scrub(ex.Message);
+            Fail("Die Modellliste liess sich nicht holen: " + Redaction.Scrub(ex.Message));
         }
         finally
         {
@@ -216,32 +359,39 @@ public sealed partial class AiSettingsViewModel : ObservableObject
     [RelayCommand]
     private void Save(string? key)
     {
+        ClearMarks();
+
         if (_host.Config is not { } current)
         {
-            Message = "Ohne Einrichtung gibt es keine Konfiguration, in die das gehörte.";
+            Fail("Ohne Einrichtung gibt es keine Konfiguration, in die das gehörte.");
             return;
         }
 
-        // Einschalten setzt drei Dinge voraus. Sie werden einzeln gemeldet, damit niemand
-        // raten muss, welches davon fehlt.
+        // Einschalten setzt drei Dinge voraus. Sie werden einzeln gemeldet UND am Feld
+        // markiert, damit niemand raten muss, welches davon fehlt.
         if (Enabled)
         {
             if (!ConsentAccepted)
             {
-                Message = "Ohne die Bestätigung der Datenschutzhinweise lässt sich die "
-                    + "Unterstützung nicht einschalten.";
+                ConsentMissing = true;
+                Fail("Ohne die Bestätigung der Datenschutzhinweise lässt sich die "
+                     + "Unterstützung nicht einschalten. Die Stelle ist unten rot umrandet.");
                 return;
             }
 
             if (SelectedModel is null)
             {
-                Message = "Es ist kein Modell gewählt. Zuerst die Modellliste laden.";
+                ModelMissing = true;
+                Fail("Es ist kein Modell gewählt. Zuerst die Modellliste laden — der Knopf "
+                     + "steht bei der rot umrandeten Auswahl.");
                 return;
             }
 
             if (string.IsNullOrWhiteSpace(key) && !_keys.Exists())
             {
-                Message = "Es ist kein Schlüssel hinterlegt und keiner eingetragen.";
+                KeyMissing = true;
+                Fail("Es ist kein Schlüssel hinterlegt und keiner eingetragen. Das Feld ist "
+                     + "rot umrandet.");
                 return;
             }
         }
@@ -256,7 +406,8 @@ public sealed partial class AiSettingsViewModel : ObservableObject
         }
         catch (TokenStoreException ex)
         {
-            Message = "Der Schlüssel liess sich nicht ablegen: " + Redaction.Scrub(ex.Message);
+            KeyMissing = true;
+            Fail("Der Schlüssel liess sich nicht ablegen: " + Redaction.Scrub(ex.Message));
             return;
         }
 
@@ -282,6 +433,13 @@ public sealed partial class AiSettingsViewModel : ObservableObject
                 RedactIdentifiers = RedactIdentifiers,
                 ConsentGivenAt = ConsentAccepted ? givenAt : null,
                 ConsentBy = ConsentAccepted ? givenBy : null,
+
+                // Was dem eingebauten Text entspricht, wird als „nicht gesetzt“ abgelegt. So
+                // erreicht eine spaetere Verbesserung der eingebauten Anweisung auch den, der
+                // sie nie bearbeitet hat - eine abgeschriebene Kopie bliebe fuer immer stehen.
+                RolePrompt = Own(RolePrompt, AiPrompts.DefaultRole),
+                ProofreadPrompt = Own(ProofreadPrompt, AiPrompts.DefaultProofread),
+                ImprovePrompt = Own(ImprovePrompt, AiPrompts.DefaultImprove),
             },
         };
 

@@ -3,14 +3,42 @@
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
       xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+      xmlns:views="clr-namespace:TanssLogWatcher.App.Views"
                 Title="Sitzung abschließen"
-                Width="620" Height="700"
+                Width="720" Height="640" MinWidth="520" MinHeight="360"
                 WindowStartupLocation="CenterScreen"
                 WindowBackdropType="Mica"
                 ExtendsContentIntoTitleBar="True"
                 WindowCornerPreference="Round"
-                ResizeMode="NoResize"
-                Topmost="True">
+                ResizeMode="CanResize"
+                Topmost="True"
+                ShowActivated="False">
+    <!-- FESTE HOEHE statt SizeToContent, und das ist die Voraussetzung dafuer, dass das
+         Berichtsfeld mitwaechst: SizeToContent="Height" heisst "so hoch wie der Inhalt", und
+         ein Feld, das sich nach dem Fenster richtet, waehrend das Fenster sich nach ihm
+         richtet, hat keine Hoehe, auf die sich beide einigen koennen. Eins von beiden muss
+         fuehren - hier fuehrt das Fenster.
+
+         MaxHeight setzt der Quelltext dahinter auf die Arbeitsflaeche. Das bleibt: Gemessen
+         ragte dieses Fenster einmal 32 Bildpunkte unter den Bildschirmrand, und seine
+         Fussleiste lag im Streifen der Taskleiste - ein Klick auf die Taskleiste traf damit
+         "In TANSS buchen".
+
+         ShowActivated="False" und dazu KEIN Activate() im Code: Dieses Fenster geht auf,
+         waehrend jemand arbeitet - eine Fernwartung endet mitten im Tippen, nicht auf Zuruf.
+         Riss es den Vordergrund an sich, landete der naechste Tastendruck auf einem seiner
+         Knoepfe. Genau so sind heute fuenf erfundene Fernwartungen in TANSS entstanden, die
+         von Hand wieder geloescht werden mussten.
+         Topmost bleibt: Das Fenster steht ueber allem und wird gesehen - es nimmt nur nicht
+         die Tastatur mit. Wer antworten will, klickt hinein, und erst dann kann er buchen.
+
+         Die feste Hoehe 700 war gemessen zu viel: Auf dem Arbeitsplatz des Technikers
+         (2400x1520 Bildpunkte bei 200 Prozent) reichte das Fenster 32 Bildpunkte unter den
+         Bildschirmrand, und die Fussleiste mit "Verwerfen / Spaeter / In TANSS buchen" lag
+         im Streifen der Taskleiste. Ein Klick auf die Taskleiste traf damit einen Knopf
+         dieses Fensters. Deshalb: Hoehe aus dem Inhalt, Obergrenze die Arbeitsflaeche
+         (gesetzt im Code dahinter, weil sie vom Bildschirm abhaengt), Inhalt in einem
+         Rollbereich - und das Fenster laesst sich wieder in der Groesse ziehen. -->
 
     <Grid>
         <Grid.RowDefinitions>
@@ -25,118 +53,164 @@
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 
-        <StackPanel Grid.Row="1" Margin="24,8,24,0">
+        <!-- Ein Gitter und kein Stapel: Ein StackPanel gibt jedem Kind genau die Hoehe,
+             die es von sich aus haben will - "streck dich" gibt es dort nicht. Genau das
+             braucht das Berichtsfeld aber, damit sein unterer Rand am Fenster haengt.
+
+             Der Rollbereich, der hier lag, ist damit ueberfluessig: Zu rollen gibt es nur im
+             Bericht, und der rollt selbst. -->
+        <Grid Grid.Row="1" Margin="24,6,24,6">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <!-- Die einzige Zeile, die waechst. -->
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
 
             <!-- Was beendet wurde. Steht oben, weil es die Frage beantwortet, die der
                  Techniker beim Auftauchen des Fensters hat. -->
-            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,20">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <!-- Die Farbe der Anbindung, wie TANSS sie führt. Sie geht durch
-                             denselben Umsetzer wie in den Listen, damit hier keine zweite
-                             Wahrheit entsteht - eine XAML-Farbe wäre genau das. -->
-                        <Border Style="{StaticResource SystemSwatch}" Width="12" Height="12"
-                                Background="{Binding Color, Converter={StaticResource HexToBrush}}" />
-                        <ui:TextBlock Text="{Binding Destination}" FontTypography="BodyStrong"
-                                      VerticalAlignment="Center" />
-                    </StackPanel>
+            <!-- Eine Zeile statt einer Karte mit fuenf. Was beendet wurde, beantwortet sich
+                 in einem Blick; die Einzelheiten stehen ohnehin gleich darunter im Bericht.
+                 Der Hinweistext traegt den Fernwartungstyp nach - er wird selten gebraucht
+                 und kostete oben eine ganze Zeile. -->
+            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,10"
+                        ToolTip="{Binding TypeText}">
+                <!-- Die Farbe der Anbindung, wie TANSS sie führt. Sie geht durch denselben
+                     Umsetzer wie in den Listen, damit hier keine zweite Wahrheit entsteht. -->
+                <Border Style="{StaticResource SystemSwatch}" Width="12" Height="12"
+                        VerticalAlignment="Center" Margin="0,0,8,0"
+                        Background="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                <ui:TextBlock Text="{Binding Destination}" FontTypography="BodyStrong"
+                              VerticalAlignment="Center" Margin="0,0,10,0" />
+                <ui:TextBlock Text="{Binding Application}" FontSize="12" Margin="0,0,10,0"
+                              VerticalAlignment="Center"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                <ui:TextBlock Text="{Binding TimeRange}" FontSize="12"
+                              VerticalAlignment="Center"
+                              Style="{StaticResource TabularText}"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
 
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
-                            <RowDefinition Height="Auto" />
-                        </Grid.RowDefinitions>
+            <!-- Hier stand einmal ein Block mit Firmensuche, Ticketauswahl und
+                 Geraeteauswahl. Er ist bewusst wieder entfernt worden.
 
-                        <ui:TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Application}" FontSize="12"
-                                      Margin="0,0,16,2"
-                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        <ui:TextBlock Grid.Row="0" Grid.Column="1" FontSize="12" Margin="0,0,0,2"
-                                      Style="{StaticResource TabularText}" HorizontalAlignment="Left"
-                                      Text="{Binding TimeRange}"
-                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                 Der Grund ist keiner der Oberflaeche: Woran diese drei Felder haengen, ist
+                 in TANSS der Weg von der Fernwartung zur LEISTUNG - und damit zur Rechnung
+                 an den Kunden. Ein Werkzeug, das am Sitzungsende ungefragt aufgeht, darf
+                 in einen fakturierenden Vorgang nicht hineingreifen. Die Regeln dafuer
+                 (Rundung, Abrechnungsart, Stundensatz, Vertrag) stehen in TANSS, und dort
+                 bleiben sie auch.
 
-                        <ui:TextBlock Grid.Row="1" Grid.Column="0" Text="Fernwartungstyp" FontSize="12"
-                                      Margin="0,0,16,0"
-                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        <ui:TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TypeText}" FontSize="12"
-                                      HorizontalAlignment="Left"
-                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-
-            <!-- Ticket -->
-            <ui:TextBlock Text="Ticket" Margin="0,0,0,6" FontTypography="BodyStrong" />
-            <!-- Tag24 statt Ticket24: WPF-UI 4.3.0 kennt kein Ticket-Zeichen, der Name warf beim
-                 Oeffnen des Fensters eine XamlParseException. -->
-            <ui:TextBox PlaceholderText="Ticketnummer oder leer lassen"
-                        Icon="{ui:SymbolIcon Tag24}" Margin="0,0,0,20"
-                        IsEnabled="{Binding CanEdit}"
-                        Text="{Binding Ticket, UpdateSourceTrigger=PropertyChanged}" />
+                 Was das Werkzeug weiterhin tut: Es legt die Fernwartung an, mit Zeitraum,
+                 Geraetekennung und dem Bericht darunter. Die Firma setzt TANSS selbst,
+                 sofern zu dieser Geraetekennung eine Zuordnung hinterlegt ist. Alles
+                 Weitere entscheidet der Techniker in TANSS. -->
 
             <!-- Kommentar. Vorausgefüllt mit dem Bericht; bearbeitbar, weil er in TANSS die
-                 Dokumentation ist, die der Kunde später bekommt. -->
-            <ui:TextBlock Text="Bericht für TANSS" Margin="0,0,0,6" FontTypography="BodyStrong" />
-            <ui:TextBox PlaceholderText="Was wurde gemacht?"
+                 Dokumentation ist, die der Kunde später bekommt.
+
+                 Beschriftung und die drei Textwerkzeuge stehen in DERSELBEN Zeile. Vorher
+                 standen sie in zwei Zeilen ueber- und untereinander, und die untere trug drei
+                 beschriftete Schaltflaechen. Beides kostete Hoehe an der Stelle, an der der
+                 Techniker sie am wenigsten uebrig hat: unmittelbar ueber dem Feld, in das er
+                 schreiben will.
+
+                 Die Werkzeuge sind jetzt Sinnbilder ohne Beschriftung. Ihr Name steht in der
+                 Kurzinfo - genau dort, wo eine Erklaerung hingehoert, die nur beim ersten Mal
+                 gebraucht wird. Sie gehoeren sichtbar zum Feld, weil sie auf dessen Inhalt und
+                 auf sonst nichts wirken. -->
+            <Grid Grid.Row="1" Margin="0,0,0,6">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ui:TextBlock Grid.Column="0" Text="Bericht für TANSS" VerticalAlignment="Center"
+                              FontTypography="BodyStrong" />
+
+                <!-- Nur sichtbar, wenn die Sprachmodell-Unterstützung eingeschaltet UND
+                     eingewilligt ist — die Prüfung dafür sitzt in AiGateway, nicht hier. -->
+                <StackPanel Grid.Column="1" Orientation="Horizontal" design:Gap.Size="4"
+                            VerticalAlignment="Center"
+                            Visibility="{Binding IsAiAvailable, Converter={StaticResource BoolToVis}}">
+                    <ui:Button Icon="{ui:SymbolIcon TextGrammarCheckmark24}"
+                               Appearance="Transparent" Padding="8,4"
+                               ToolTip="Rechtschreibung prüfen — der Bericht wird an das eingerichtete Sprachmodell geschickt und berichtigt zurückgeschrieben."
+                               IsEnabled="{Binding IsAiBusy, Converter={StaticResource InverseBool}}"
+                               Command="{Binding ProofreadCommand}" />
+                    <ui:Button Icon="{ui:SymbolIcon Sparkle24}"
+                               Appearance="Transparent" Padding="8,4"
+                               ToolTip="Ausformulieren — aus den Stichworten wird ein Bericht. Was danach im Feld steht, ist zu lesen, bevor es nach TANSS geht."
+                               IsEnabled="{Binding IsAiBusy, Converter={StaticResource InverseBool}}"
+                               Command="{Binding ImproveCommand}" />
+                    <ui:Button Icon="{ui:SymbolIcon ArrowUndo24}"
+                               Appearance="Transparent" Padding="8,4"
+                               ToolTip="Zurücknehmen — stellt den Text vor der letzten Änderung durch das Sprachmodell wieder her."
+                               Visibility="{Binding CanUndoAi, Converter={StaticResource BoolToVis}}"
+                               Command="{Binding UndoAiCommand}" />
+                </StackPanel>
+            </Grid>
+
+            <!-- KEINE feste Hoehe mehr. Das Feld nimmt, was zwischen der Ueberschrift und
+                 den Meldungen darunter uebrig ist, und sein unterer Rand haengt damit am
+                 Fenster: Wer das Fenster groesser zieht, zieht das Feld mit groesser.
+
+                 Hier stand einmal Height="100" - eine Notmassnahme aus der Zeit, als ueber
+                 diesem Feld noch ein Block mit Firma, Ticket und Geraet sass und das Fenster
+                 ueber den Bildschirmrand hinausragte. Der Block ist fort, und der Platz
+                 gehoert jetzt dem Einzigen, was dieses Fenster ueberhaupt noch erfragt. -->
+            <ui:TextBox Grid.Row="2"
+                        PlaceholderText="Was wurde gemacht?"
                         AcceptsReturn="True" TextWrapping="NoWrap"
-                        Height="190" VerticalContentAlignment="Top"
+                        VerticalAlignment="Stretch" VerticalContentAlignment="Top"
                         FontFamily="Consolas, Cascadia Mono, Courier New"
                         VerticalScrollBarVisibility="Auto"
                         HorizontalScrollBarVisibility="Auto"
                         IsEnabled="{Binding CanEdit}"
                         Text="{Binding Comment, UpdateSourceTrigger=PropertyChanged}" />
 
-            <!-- Sprachmodell-Unterstützung. Nur sichtbar, wenn eingeschaltet UND eingewilligt —
-                 die Prüfung dafür sitzt in AiGateway, nicht hier. -->
-            <StackPanel Margin="0,10,0,0" design:Gap.Size="8"
-                        Visibility="{Binding IsAiAvailable, Converter={StaticResource BoolToVis}}">
-                <StackPanel Orientation="Horizontal" design:Gap.Size="8">
-                    <ui:Button Content="Rechtschreibung prüfen" Icon="{ui:SymbolIcon TextGrammarCheckmark24}"
-                               Appearance="Secondary"
-                               IsEnabled="{Binding IsAiBusy, Converter={StaticResource InverseBool}}"
-                               Command="{Binding ProofreadCommand}" />
-                    <ui:Button Content="Ausformulieren" Icon="{ui:SymbolIcon Sparkle24}"
-                               Appearance="Secondary"
-                               IsEnabled="{Binding IsAiBusy, Converter={StaticResource InverseBool}}"
-                               Command="{Binding ImproveCommand}" />
-                    <ui:Button Content="Zurücknehmen" Icon="{ui:SymbolIcon ArrowUndo24}"
-                               Appearance="Transparent"
-                               Visibility="{Binding CanUndoAi, Converter={StaticResource BoolToVis}}"
-                               Command="{Binding UndoAiCommand}" />
-                </StackPanel>
+            <StackPanel Grid.Row="3">
 
-                <ui:TextBlock Text="{Binding AiStatus}" FontSize="11" TextWrapping="Wrap"
-                              HorizontalAlignment="Left"
-                              Visibility="{Binding HasAiStatus, Converter={StaticResource BoolToVis}}"
-                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-            </StackPanel>
+            <ui:TextBlock Text="{Binding AiStatus}" FontSize="11" TextWrapping="Wrap"
+                          Margin="0,6,0,0" HorizontalAlignment="Left"
+                          Visibility="{Binding HasAiStatus, Converter={StaticResource BoolToVis}}"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
             <!-- Der halbfertige Zustand: Einwilligung erteilt, Unterstützung aber aus. Ohne
                  diesen Satz fehlen die Schaltflächen oben wortlos, und das sieht aus wie ein
                  Fehler. Ohne Einwilligung steht hier nichts - dann ist auch nichts zu
                  erwarten. -->
             <ui:TextBlock Text="{Binding AiHint}" FontSize="11" TextWrapping="Wrap"
-                          Margin="0,10,0,0" HorizontalAlignment="Left"
+                          Margin="0,6,0,0" HorizontalAlignment="Left"
                           Visibility="{Binding HasAiHint, Converter={StaticResource BoolToVis}}"
                           Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
-            <ui:TextBlock Margin="0,8,0,0" FontSize="12" TextWrapping="Wrap" HorizontalAlignment="Left"
-                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                          Text="Dieser Text steht anschließend als Kommentar an der Fernwartung in TANSS. Fenstertitel sind bewusst nicht enthalten — sie tragen Kundennamen und E-Mail-Betreffe." />
+            <!-- Der vierzeilige Absatz, der hier stand, ist an die drei Schaltflaechen
+                 gewandert. Er erklaerte einmal etwas und kostete danach bei JEDEM Oeffnen vier
+                 Zeilen - das Fenster wurde dadurch hoeher als der Bildschirm. -->
 
-            <!-- Der Eintrag lässt sich nicht mehr ändern, oder das Ändern ist gescheitert. -->
+            <!-- Zwei Anzeigen statt einer mit wechselnder Farbe: BasedOn auf einen ui:-Typ
+                 liess in diesem Haus schon einmal die Navigation STILL scheitern, und eine
+                 gebundene Severity waere genau so ein Stil. Die obere ist der Erfolg samt
+                 TANSS-Kennung und BLEIBT STEHEN, bis der Techniker schliesst - ein
+                 beilaeufiger Klick soll dieses Fenster nicht spurlos erledigen koennen. -->
+            <ui:InfoBar Margin="0,12,0,0" Severity="Success" IsClosable="False"
+                        IsOpen="{Binding IsBooked}"
+                        Title="In TANSS gebucht"
+                        Message="{Binding Result}" />
+
+            <!-- Der Eintrag lässt sich nicht mehr ändern, das Ändern ist gescheitert, oder
+                 das Senden ist es. -->
             <ui:InfoBar Margin="0,12,0,0" Severity="Warning" IsClosable="False"
-                        IsOpen="{Binding HasResult}"
+                        IsOpen="{Binding HasProblem}"
                         Title="Hinweis"
                         Message="{Binding Result}" />
-        </StackPanel>
+            </StackPanel>
+        </Grid>
 
         <!-- Fußleiste -->
-        <Border Grid.Row="2" Padding="24,16"
+        <Border Grid.Row="2" Padding="24,12"
                 Background="{DynamicResource LayerFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0">
@@ -151,19 +225,37 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- „Verwerfen“ steht links und unauffällig: es ist die seltene, folgenreiche
-                     Wahl. Im Original war es gleichrangig neben dem Speichern. -->
+                     Wahl. Im Original war es gleichrangig neben dem Speichern. Nach dem
+                     Buchen ist es fort - es gäbe nichts mehr zu verwerfen, die Fernwartung
+                     steht in TANSS. -->
                 <ui:Button Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,12,0"
                            Content="Verwerfen"
+                           ToolTip="Entfernt den wartenden Eintrag. Die Sitzung geht nicht nach TANSS; das Verwerfen steht mit Grund im Änderungsprotokoll."
+                           Visibility="{Binding IsBooked, Converter={StaticResource InverseBoolToVis}}"
+                           IsEnabled="{Binding IsIdle}"
                            Appearance="Transparent" Command="{Binding DiscardCommand}" />
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
                             design:Gap.Size="8">
                     <ui:Button Content="Später" Appearance="Secondary"
+                               ToolTip="Parkt die Sitzung in der Warteschlange. Sie geht von selbst NICHT hinaus — auch nicht nach einer Frist. Dort holt „Ändern“ diesen Dialog zurück, damit der Bericht nachgetragen werden kann; „Jetzt senden“ schickt sie mit der automatischen Beschreibung hinaus."
+                               Visibility="{Binding IsBooked, Converter={StaticResource InverseBoolToVis}}"
+                               IsEnabled="{Binding IsIdle}"
                                Command="{Binding LaterCommand}" />
                     <ui:Button Content="In TANSS buchen" Appearance="Primary"
+                               ToolTip="Sendet sofort. Der Text steht danach als Kommentar an der Fernwartung. Fenstertitel sind bewusst nicht enthalten — sie tragen Kundennamen und E-Mail-Betreffe."
                                Icon="{ui:SymbolIcon Save24}"
+                               Visibility="{Binding IsBooked, Converter={StaticResource InverseBoolToVis}}"
                                IsEnabled="{Binding CanEdit}"
                                Command="{Binding SaveCommand}" />
+
+                    <!-- Erst nach dem Buchen, und dann als einziger Ausgang: Das Ergebnis
+                         samt TANSS-Kennung soll gelesen werden können, bevor das Fenster
+                         verschwindet. -->
+                    <ui:Button Content="Schließen" Appearance="Primary"
+                               Icon="{ui:SymbolIcon Checkmark24}"
+                               Visibility="{Binding IsBooked, Converter={StaticResource BoolToVis}}"
+                               Command="{Binding CloseCommand}" />
                 </StackPanel>
             </Grid>
         </Border>

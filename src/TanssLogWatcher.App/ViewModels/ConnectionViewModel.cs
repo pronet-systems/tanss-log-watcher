@@ -11,7 +11,8 @@ using TanssLogWatcher.App.Runtime;
 namespace TanssLogWatcher.App.ViewModels;
 
 /// <summary>
-/// Die Verbindungsseite: Adresse, Mitarbeiter, Token, Anbindungen — und der Weg zur Einrichtung.
+/// Die Seite „Einstellungen“: Adresse, Mitarbeiter, Token, Anbindungen — und der Weg zur
+/// Einrichtung.
 /// </summary>
 /// <remarks>
 /// <para><b>Diese Seite trägt den Ausweg.</b> Sie ist die einzige, die auch im Zustand „nicht
@@ -112,12 +113,59 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     private bool _isBusy;
 
     /// <summary>Die Rückmeldung der letzten Handlung.</summary>
+    /// <remarks>
+    /// Gesetzt wird sie ausschliesslich über <see cref="Melde"/> und
+    /// <see cref="MeldeErfolg"/> — nie unmittelbar. Sonst bliebe
+    /// <see cref="MessageIsSuccess"/> von der vorigen Handlung stehen, und eine Fehlermeldung
+    /// trüge ein grünes Häkchen.
+    /// </remarks>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasMessage))]
+    [NotifyPropertyChangedFor(nameof(HasPlainMessage))]
     private string _message = string.Empty;
 
-    /// <summary>Gibt es eine Rückmeldung?</summary>
+    /// <summary>
+    /// War die letzte Handlung ein Erfolg?
+    /// </summary>
+    /// <remarks>
+    /// <b>Ein eigenes Kennzeichen und nicht aus dem Text abgeleitet.</b> Aus einer Zeichenkette
+    /// zu erraten, ob sie etwas Gutes meldet, ginge beim ersten umformulierten Satz schief —
+    /// und ein grünes Häkchen über einer Fehlermeldung ist schlimmer als gar kein Zeichen.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasSuccess))]
+    [NotifyPropertyChangedFor(nameof(HasPlainMessage))]
+    private bool _messageIsSuccess;
+
+    /// <summary>Gibt es überhaupt eine Rückmeldung?</summary>
     public bool HasMessage => !string.IsNullOrEmpty(Message);
+
+    /// <summary>Ist die Rückmeldung eine Erfolgsmeldung — grün, mit Häkchen?</summary>
+    public bool HasSuccess => HasMessage && MessageIsSuccess;
+
+    /// <summary>Ist die Rückmeldung eine gewöhnliche Auskunft — blau, mit „i“?</summary>
+    /// <remarks>
+    /// Die beiden schliessen einander aus. Zwei feste Anzeigen statt einer mit gebundener
+    /// Severity: Ein gebundener Stil auf einem <c>ui:</c>-Typ hat in diesem Haus schon einmal
+    /// die Navigation <b>still</b> scheitern lassen.
+    /// </remarks>
+    public bool HasPlainMessage => HasMessage && !MessageIsSuccess;
+
+    /// <summary>Meldet eine gewöhnliche Auskunft.</summary>
+    /// <param name="text">Der Satz für die Oberfläche.</param>
+    private void Melde(string text)
+    {
+        MessageIsSuccess = false;
+        Message = text;
+    }
+
+    /// <summary>Meldet einen Erfolg — grün und mit Häkchen.</summary>
+    /// <param name="text">Der Satz für die Oberfläche.</param>
+    private void MeldeErfolg(string text)
+    {
+        MessageIsSuccess = true;
+        Message = text;
+    }
 
     /// <summary>Die Fernwartungsanbindungen der Instanz.</summary>
     public ObservableCollection<SystemRow> Systems { get; } = [];
@@ -176,7 +224,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     private string _updateText = "Noch nicht nach Aktualisierungen gesucht.";
 
     /// <summary>Die Überschrift der Aktualisierungskarte.</summary>
-    public string UpdateHeadline => HasUpdate ? "Neue Fassung verfügbar" : "Aktualisierung";
+    public string UpdateHeadline => HasUpdate ? "Neue Version verfügbar" : "Aktualisierung";
 
     /// <summary>Läuft gerade ein Download?</summary>
     [ObservableProperty]
@@ -257,10 +305,10 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
 
             UpdateText = ChecksumVerified
                 ? string.Create(CultureInfo.CurrentCulture,
-                    $"Fassung {update.Version} ist geladen und stimmt mit der veröffentlichten "
+                    $"Version {update.Version} ist geladen und stimmt mit der veröffentlichten "
                     + $"Prüfsumme überein.")
                 : string.Create(CultureInfo.CurrentCulture,
-                    $"Fassung {update.Version} ist geladen, aber NICHT gegengeprüft: Die "
+                    $"Version {update.Version} ist geladen, aber NICHT gegengeprüft: Die "
                     + $"veröffentlichte Prüfsumme fehlt oder liess sich nicht holen.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -349,7 +397,8 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     {
         if (!IsConfigured)
         {
-            Message = "Ohne Einrichtung gibt es nichts zu prüfen. Das Zahnrad oben öffnet den Assistenten.";
+            Melde("Ohne Einrichtung gibt es nichts zu prüfen. Das Zahnrad oben öffnet den "
+                  + "Assistenten.");
             return;
         }
 
@@ -357,16 +406,22 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
         try
         {
             AppStatus status = await Host.CheckConnectionAsync().ConfigureAwait(true);
-            Message = status.State == RuntimeState.Working
-                ? "Die Verbindung trägt."
-                : status.Reason;
+
+            if (status.State == RuntimeState.Working)
+            {
+                MeldeErfolg("Verbindung erfolgreich.");
+            }
+            else
+            {
+                Melde(status.Reason);
+            }
 
             await LoadEmployeeAsync().ConfigureAwait(true);
             BuildChecks(status);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Message = Redaction.Scrub(ex.Message);
+            Melde(Redaction.Scrub(ex.Message));
         }
         finally
         {
@@ -386,7 +441,7 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
     {
         if (!IsConfigured)
         {
-            Message = "Ohne Einrichtung gibt es kein Token zu erneuern.";
+            Melde("Ohne Einrichtung gibt es kein Token zu erneuern.");
             return;
         }
 
@@ -394,12 +449,22 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
         try
         {
             TokenRotationResult result = await Host.TokenRotation.RotateNowAsync().ConfigureAwait(true);
-            Message = result.Reason;
+
+            // Das Erneuern meldet seinen Grund in beiden Faellen; gruen wird er nur, wenn es
+            // wirklich geklappt hat.
+            if (result.Rotated)
+            {
+                MeldeErfolg(result.Reason);
+            }
+            else
+            {
+                Melde(result.Reason);
+            }
             ApplyToken(Host.TokenRotation.RefreshToken());
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            Message = Redaction.Scrub(ex.Message);
+            Melde(Redaction.Scrub(ex.Message));
         }
         finally
         {
@@ -452,13 +517,13 @@ public sealed partial class ConnectionViewModel : RuntimeViewModel
         {
             UpdateCheckState.UpdateAvailable when _updates.Available is { } update =>
                 string.Create(CultureInfo.CurrentCulture,
-                    $"Fassung {update.Version} steht bereit ({update.SizeText}). "
+                    $"Version {update.Version} steht bereit ({update.SizeText}). "
                     + $"Installiert ist {CurrentVersionText}."),
             // Der Grund wird mitgenommen, wenn es einen gibt: „nichts Neues“ und „es gibt dort
             // gar nichts abzuholen“ sind beides kein Fehler, bedeuten aber Verschiedenes.
             UpdateCheckState.UpToDate => _updates.Problem
                 ?? string.Create(CultureInfo.CurrentCulture,
-                    $"Fassung {CurrentVersionText} ist die neueste."),
+                    $"Version {CurrentVersionText} ist die neueste."),
             UpdateCheckState.Checking => "Es wird nachgesehen …",
             UpdateCheckState.Failed => _updates.Problem ?? "Die Prüfung ist fehlgeschlagen.",
             _ => "Noch nicht nach Aktualisierungen gesucht.",

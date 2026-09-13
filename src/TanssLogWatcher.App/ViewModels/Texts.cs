@@ -14,17 +14,47 @@ namespace TanssLogWatcher.App.ViewModels;
 /// </remarks>
 internal static class Texts
 {
-    /// <summary>Uhrzeit ohne Datum, für Angaben aus den letzten Stunden.</summary>
+    /// <summary>
+    /// <b>Jede Zeitangabe wird zuerst auf Ortszeit gebracht.</b>
+    /// </summary>
+    /// <remarks>
+    /// <para>Gemessen am 13.09.2026 an drei echten Sitzungen; der Satz stand so in TANSS und
+    /// ging an den Kunden:</para>
+    /// <code>Zeitraum:     13.09.2026 15:52 – 13:52 (unter 1 Minute)</code>
+    /// <para>Zwei Stunden Differenz, und die Dauer daneben trotzdem richtig. Beide Zeitpunkte
+    /// waren korrekt — sie trugen nur verschiedene Zeitzonen: Der Beginn einer Sitzung ist die
+    /// Startzeit ihres Prozesses und kommt über <c>DateTimeOffset.FromFileTime</c> in
+    /// <b>Ortszeit</b> herein; das Ende setzt die Zustandsmaschine mit <c>GetUtcNow</c> in
+    /// <b>UTC</b>. Die Differenz rechnet <see cref="DateTimeOffset"/> richtig aus — deshalb
+    /// stimmte die Dauer —, aber <c>ToString("HH:mm")</c> zeigt jeden Wert in seiner eigenen
+    /// Zone.</para>
+    /// <para>Die Umrechnung steht <b>hier</b> und nicht an den Quellen: Zeitpunkte kommen aus
+    /// dem Betriebssystem, aus der Zustandsmaschine, aus SQLite und aus TANSS, und jede dieser
+    /// Quellen hat gute Gründe für ihre Zone. Nur die Anzeige hat einen Grund, sie alle gleich
+    /// zu zeigen — die Uhr an der Wand des Technikers.</para>
+    /// </remarks>
+    /// <param name="moment">Der Zeitpunkt, in welcher Zone auch immer.</param>
+    /// <returns>Uhrzeit ohne Datum, für Angaben aus den letzten Stunden.</returns>
     public static string Clock(DateTimeOffset moment) =>
-        moment.ToString("HH:mm", CultureInfo.CurrentCulture);
+        moment.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture);
 
     /// <summary>Tag und Uhrzeit, für alles, was älter sein kann als heute.</summary>
+    /// <remarks>Auf Ortszeit gebracht wie <see cref="Clock"/>; dort steht die Begründung.</remarks>
+    /// <param name="moment">Der Zeitpunkt, in welcher Zone auch immer.</param>
+    /// <returns>Tag und Uhrzeit.</returns>
     public static string Moment(DateTimeOffset moment) =>
-        moment.ToString("dd.MM. HH:mm", CultureInfo.CurrentCulture);
+        moment.ToLocalTime().ToString("dd.MM. HH:mm", CultureInfo.CurrentCulture);
 
     /// <summary>Tag ohne Uhrzeit, für Fristen in Tagen.</summary>
+    /// <remarks>
+    /// Auf Ortszeit gebracht wie <see cref="Clock"/>, und hier wiegt es sogar schwerer: Eine
+    /// Sitzung um 00:30 Ortszeit steht in UTC noch am Vortag — das Datum wäre um einen ganzen
+    /// Tag falsch, und in einem Kundenbericht ist das keine Kleinigkeit.
+    /// </remarks>
+    /// <param name="moment">Der Zeitpunkt, in welcher Zone auch immer.</param>
+    /// <returns>Der Tag.</returns>
     public static string Day(DateTimeOffset moment) =>
-        moment.ToString("dd.MM.yyyy", CultureInfo.CurrentCulture);
+        moment.ToLocalTime().ToString("dd.MM.yyyy", CultureInfo.CurrentCulture);
 
     /// <summary>
     /// Eine laufende Dauer als <c>hh:mm:ss</c>.

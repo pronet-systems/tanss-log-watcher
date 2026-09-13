@@ -26,7 +26,7 @@ namespace TanssLogWatcher.Api.Http;
 /// deshalb ebenfalls mit genau einem Versuch — andernfalls prägte eine einzige
 /// Zeitüberschreitung beim Token-Prägen gleich mehrere unwiderrufliche Token.</para>
 /// </remarks>
-public sealed class TanssClient : ITanssClient, ITanssBodyDelete
+public sealed class TanssClient : ITanssClient, ITanssBodyDelete, ITanssMetaRead
 {
     private const string TokenHeader = "apiToken";
     private const string LoggedInUserId = "loggedInUserId";
@@ -80,17 +80,48 @@ public sealed class TanssClient : ITanssClient, ITanssBodyDelete
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
 
-        // Lesend, also wiederholbar: eine 500 aus einem TANSS-Neustart darf die Oberflaeche
-        // nicht in einen Fehlerzustand zwingen. Ausgenommen sind die GET-Routen, die
-        // serverseitig etwas anlegen - dort ist jeder Versuch ein eigener, nicht ruecknehmbarer
-        // Vorgang, und eine Wiederholung erzeugt Muell statt Erfolg.
-        RetryPolicy policy = TanssRoutes.HasSideEffectOnGet(path) ? RetryPolicy.None : _retry;
-
-        return policy.ExecuteReadAsync(
+        return ReadPolicy(path).ExecuteReadAsync(
             async (_, token) => (await SendAsync<T>(HttpMethod.Get, path, null, query, token)
                 .ConfigureAwait(false)).Content,
             ct);
     }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Derselbe Aufruf wie <see cref="GetAsync{T}"/>, nur ohne den Umschlag wegzuwerfen. Beide
+    /// Wege gehen durch dieselbe <see cref="ReadPolicy"/> — die Wiederholungsregel darf nicht
+    /// davon abhängen, ob der Aufrufer <c>meta</c> haben will.
+    /// </remarks>
+    public Task<(T? Content, IReadOnlyDictionary<string, object?> Meta)> GetWithMetaAsync<T>(
+        string path, IDictionary<string, string?>? query = null, CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+
+        return ReadPolicy(path).ExecuteReadAsync(
+            (_, token) => SendAsync<T>(HttpMethod.Get, path, null, query, token), ct);
+    }
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// Genau ein Versuch, wie <see cref="PutAsync{T}"/>. Dass die Route liest, ändert daran
+    /// nichts: Das Verb entscheidet, und TANSS dedupliziert nicht.
+    /// </remarks>
+    public Task<(T? Content, IReadOnlyDictionary<string, object?> Meta)> PutWithMetaAsync<T>(
+        string path, object? body = null, IDictionary<string, string?>? query = null,
+        CancellationToken ct = default) =>
+        SendAsync<T>(HttpMethod.Put, path, body, query, ct);
+
+    /// <summary>
+    /// Die Wiederholungsregel für lesende Aufrufe.
+    /// </summary>
+    /// <remarks>
+    /// Lesend, also wiederholbar: eine 500 aus einem TANSS-Neustart darf die Oberfläche nicht
+    /// in einen Fehlerzustand zwingen. Ausgenommen sind die GET-Routen, die serverseitig etwas
+    /// anlegen — dort ist jeder Versuch ein eigener, nicht rücknehmbarer Vorgang, und eine
+    /// Wiederholung erzeugt Müll statt Erfolg.
+    /// </remarks>
+    private RetryPolicy ReadPolicy(string path) =>
+        TanssRoutes.HasSideEffectOnGet(path) ? RetryPolicy.None : _retry;
 
     /// <inheritdoc />
     public async Task<T?> PutAsync<T>(string path, object? body = null,

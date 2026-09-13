@@ -26,13 +26,21 @@ public sealed class OpenAiAssistant : IAiAssistant
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
 
     private readonly HttpClient _http;
+    private readonly AiPromptSet _prompts;
 
     /// <summary>Baut den Zugang mit einem Schlüssel.</summary>
     /// <param name="apiKey">Der Schlüssel des Anbieters.</param>
     /// <param name="baseUrl">Die Adresse; ohne Angabe die von OpenAI.</param>
-    public OpenAiAssistant(string apiKey, string? baseUrl = null)
+    /// <param name="prompts">
+    /// Die Anweisungen an das Modell; ohne Angabe die eingebauten. Sie kommen von aussen,
+    /// damit der Betrieb sie bearbeiten kann — die unverhandelbaren Regeln hängt
+    /// <see cref="AiPromptSet.System"/> ohnehin an.
+    /// </param>
+    public OpenAiAssistant(string apiKey, string? baseUrl = null, AiPromptSet? prompts = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
+
+        _prompts = prompts ?? AiPromptSet.Default;
 
         _http = new HttpClient
         {
@@ -78,8 +86,8 @@ public sealed class OpenAiAssistant : IAiAssistant
             Model = model,
             Messages =
             [
-                new ChatMessage { Role = "system", Content = AiPrompts.System },
-                new ChatMessage { Role = "user", Content = AiPrompts.For(task) + "\n\n---\n" + text },
+                new ChatMessage { Role = "system", Content = _prompts.System },
+                new ChatMessage { Role = "user", Content = _prompts.For(task) + "\n\n---\n" + text },
             ],
         };
 

@@ -95,13 +95,101 @@ public sealed class ConfigStore : IConfigStore
 
         try
         {
-            return JsonSerializer.Deserialize<AppConfig>(raw, ConfigJson.Options)
+            return JsonSerializer.Deserialize<AppConfig>(WithoutRetiredKeys(raw), ConfigJson.Options)
                 ?? throw new ConfigException($"{where} enthält nur „null“ statt einer Konfiguration.");
         }
         catch (JsonException exception)
         {
             throw new ConfigException(Explain(where, raw, exception), exception);
         }
+    }
+
+    /// <summary>
+    /// Die Schlüssel, die es einmal gab und die heute nichts mehr bedeuten.
+    /// </summary>
+    /// <remarks>
+    /// <para>Je Eintrag der Abschnitt und der Schlüssel darin. Die Liste ist absichtlich kurz
+    /// und wächst nur, wenn wirklich eine Einstellung stillgelegt wird.</para>
+    /// </remarks>
+    private static readonly (string Section, string Key)[] RetiredKeys =
+    [
+        // Es gab einmal einen Zeittakt, nach dem eine neue Videodatei begann: Eine lange
+        // Aufzeichnung ohne Abschluss hatte keinen Index und war damit unbrauchbar. Seit die
+        // Datei bruchstueckweise mit vorangestelltem Index geschrieben wird, uebersteht sie
+        // einen Absturz auch ohne Abschluss - eine Sitzung ergibt genau eine Datei, und der
+        // Takt ist ersatzlos entfallen.
+        ("recording", "segment_minutes"),
+    ];
+
+    /// <summary>
+    /// Räumt stillgelegte Schlüssel aus dem gelesenen Text, bevor er abgebildet wird.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum das sein muss.</b> Die Abschnitte lehnen unbekannte Felder ab
+    /// (<c>JsonUnmappedMemberHandling.Disallow</c>), und das ist richtig so: Wer
+    /// <c>exclude_ip_adresses</c> schreibt, hält seine Ausschlussliste für aktiv, während sie
+    /// stillschweigend ins Leere geht. Ein stillgelegter Schlüssel würde von derselben
+    /// Strenge getroffen — eine bestehende <c>config.json</c> liefe nach dem Update als
+    /// „nicht eingerichtet“ auf, und dann würde auch keine Fernwartung mehr gebucht.</para>
+    ///
+    /// <para><b>Warum nicht einfach eine tote Eigenschaft stehenlassen.</b> Weil sie dann
+    /// bleibt. Eine Einstellung, die im Schema steht und nichts tut, wird gelesen, weitergereicht
+    /// und irgendwann wieder von jemandem gesetzt. Hier verschwindet der Schlüssel beim ersten
+    /// Speichern von selbst, und das Schema ist von ihm frei.</para>
+    ///
+    /// <para><b>Die Strenge bleibt, wo sie hingehört:</b> Geräumt wird genau die Liste in
+    /// <see cref="RetiredKeys"/> und kein Feld, das bloß unbekannt ist. Ein Tippfehler fällt
+    /// weiterhin auf.</para>
+    ///
+    /// <para>Ist der Text kein Objekt oder gar kein gültiges JSON, wird er <b>unverändert</b>
+    /// weitergereicht: Die Fehlermeldung soll aus der Abbildung kommen, wo sie Zeile und Spalte
+    /// nennt, und nicht aus dieser Vorstufe.</para>
+    ///
+    /// <para><b>Kommentare gehen dabei verloren</b> — aber nur in der Abschrift, die zum
+    /// Abbilden weitergereicht wird, und nur dann, wenn wirklich etwas zu räumen war. Die
+    /// Datei auf der Platte rührt diese Methode nicht an; geschrieben wird sie erst beim
+    /// nächsten <see cref="Save"/>, und der schreibt ohnehin neu.</para>
+    /// </remarks>
+    /// <param name="raw">Der gelesene Text.</param>
+    /// <returns>Derselbe Text ohne die stillgelegten Schlüssel.</returns>
+    private static string WithoutRetiredKeys(string raw)
+    {
+        JsonNode? root;
+
+        try
+        {
+            // MIT denselben Zugestaendnissen wie der Serialisierer: Die Konfiguration darf
+            // Kommentare und nachgestellte Kommata enthalten - die mitgelieferte
+            // config.example.json macht von beidem Gebrauch. Wer hier mit den Vorgaben laese,
+            // fiele bei jeder kommentierten Datei auf die Nase und liesse den stillgelegten
+            // Schluessel stehen. Genau das ist beim ersten Anlauf passiert.
+            root = JsonNode.Parse(raw, documentOptions: new JsonDocumentOptions
+            {
+                CommentHandling = JsonCommentHandling.Skip,
+                AllowTrailingCommas = true,
+            });
+        }
+        catch (JsonException)
+        {
+            return raw;
+        }
+
+        if (root is not JsonObject document)
+        {
+            return raw;
+        }
+
+        bool changed = false;
+
+        foreach ((string section, string key) in RetiredKeys)
+        {
+            if (document[section] is JsonObject block && block.Remove(key))
+            {
+                changed = true;
+            }
+        }
+
+        return changed ? document.ToJsonString(ConfigJson.Options) : raw;
     }
 
     /// <inheritdoc/>

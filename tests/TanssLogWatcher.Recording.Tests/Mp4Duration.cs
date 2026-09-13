@@ -78,6 +78,47 @@ internal static class Mp4Duration
         return scale == 0 ? null : TimeSpan.FromSeconds((double)duration / scale);
     }
 
+    /// <summary>
+    /// Die Blöcke der obersten Ebene, in der Reihenfolge, in der sie in der Datei stehen.
+    /// </summary>
+    /// <remarks>
+    /// Für die Frage, die sich nur an der Reihenfolge entscheidet: Steht der Index
+    /// (<c>moov</c>) VOR den Daten? Genau davon hängt ab, ob eine abgebrochene Aufzeichnung
+    /// noch etwas taugt.
+    /// </remarks>
+    /// <param name="path">Die Datei.</param>
+    public static IReadOnlyList<string> BoxesOf(string path)
+    {
+        byte[] bytes = File.ReadAllBytes(path);
+        List<string> found = [];
+        int at = 0;
+
+        while (at + 8 <= bytes.Length)
+        {
+            uint size = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(at));
+            string kind = System.Text.Encoding.ASCII.GetString(bytes, at + 4, 4);
+
+            long length = size switch
+            {
+                0 => bytes.Length - at,
+                1 => at + 16 <= bytes.Length
+                    ? (long)BinaryPrimitives.ReadUInt64BigEndian(bytes.AsSpan(at + 8))
+                    : 0,
+                _ => size,
+            };
+
+            if (length < 8)
+            {
+                break;
+            }
+
+            found.Add(kind);
+            at += (int)length;
+        }
+
+        return found;
+    }
+
     private static Box? FindBox(byte[] bytes, int from, int until, string type)
     {
         int at = from;

@@ -1,0 +1,133 @@
+<Page x:Class="TanssLogWatcher.App.Views.Pages.AboutPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+      Title="Über"
+      Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False">
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="{StaticResource PagePadding}" MaxWidth="980"
+                    HorizontalAlignment="Left" design:Gap.Size="16">
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,16,0"
+                            design:Gap.Size="16">
+                    <!-- Das Logo steht ohne Kasten da. Die Vorlage bringt ihre Durchsichtigkeit
+                         schon mit (742x258, 32 Bit mit Alphakanal), und die Hausfarben tragen
+                         auf hellem wie auf dunklem Grund - an beiden Darstellungen angesehen,
+                         bevor es hier landete. -->
+                    <Image Source="/Assets/pronet-logo.png"
+                           Width="240" HorizontalAlignment="Left"
+                           RenderOptions.BitmapScalingMode="HighQuality"
+                           Stretch="Uniform" />
+
+                    <StackPanel>
+                        <ui:TextBlock Text="{Binding Product}" FontTypography="Title"
+                                      HorizontalAlignment="Left" />
+                        <ui:TextBlock HorizontalAlignment="Left" Margin="0,2,0,0"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                      Text="Erkennt Fernwartungssitzungen und bucht sie nach TANSS." />
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- Die Anschrift stand als Fenster noch in der Fussleiste. Eine Seite hat
+                     keine, also geht sie dorthin, wo die anderen Seiten ihre Schaltflaechen
+                     fuehren: oben rechts. -->
+                <ui:Button Grid.Column="1" VerticalAlignment="Top" HorizontalAlignment="Right"
+                           Content="pronet-systems.de" Icon="{ui:SymbolIcon Globe24}"
+                           Appearance="Secondary"
+                           ToolTip="Öffnet die Anschrift im eingestellten Browser"
+                           Command="{Binding OpenWebsiteCommand}" />
+            </Grid>
+
+            <Border Style="{StaticResource CardBorder}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="160" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <ui:TextBlock Grid.Row="0" Grid.Column="0" Text="Version" Margin="0,0,0,8"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Row="0" Grid.Column="1" Margin="0,0,0,8"
+                                  HorizontalAlignment="Left"
+                                  Style="{StaticResource TabularText}"
+                                  Text="{Binding Version}" />
+
+                    <ui:TextBlock Grid.Row="1" Grid.Column="0" Text="Laufzeit" Margin="0,0,0,8"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Row="1" Grid.Column="1" Margin="0,0,0,8"
+                                  HorizontalAlignment="Left" TextWrapping="Wrap"
+                                  Text="{Binding Runtime}" />
+
+                    <ui:TextBlock Grid.Row="2" Grid.Column="0" Text="Betriebssystem"
+                                  Margin="0,0,0,8"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Row="2" Grid.Column="1" Margin="0,0,0,8"
+                                  HorizontalAlignment="Left" TextWrapping="Wrap"
+                                  Text="{Binding OperatingSystemName}" />
+
+                    <ui:TextBlock Grid.Row="3" Grid.Column="0" Text="Entwicklung"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Row="3" Grid.Column="1" HorizontalAlignment="Left"
+                                  TextWrapping="Wrap" Text="{Binding Company}" />
+                </Grid>
+            </Border>
+
+            <!-- Die Pfade stehen hier, weil bei jeder Rueckfrage als Zweites nach ihnen
+                 gefragt wird. Sie zu suchen kostet mehr Zeit als sie anzuzeigen. -->
+            <Border Style="{StaticResource CardBorder}">
+                <StackPanel design:Gap.Size="8">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <ui:TextBlock Grid.Column="0" Text="Wo was liegt"
+                                      FontTypography="BodyStrong" VerticalAlignment="Center"
+                                      HorizontalAlignment="Left" />
+                        <ui:Button Grid.Column="1" Content="Ordner öffnen"
+                                   Icon="{ui:SymbolIcon FolderOpen24}" Appearance="Secondary"
+                                   Command="{Binding OpenConfigFolderCommand}" />
+                    </Grid>
+
+                    <ui:TextBlock Text="Konfiguration" FontSize="11"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Text="{Binding ConfigPath}" TextWrapping="Wrap"
+                                  HorizontalAlignment="Left" FontSize="12"
+                                  Style="{StaticResource TabularText}" />
+
+                    <ui:TextBlock Text="Zustand" FontSize="11" Margin="0,4,0,0"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Text="{Binding StatePath}" TextWrapping="Wrap"
+                                  HorizontalAlignment="Left" FontSize="12"
+                                  Style="{StaticResource TabularText}" />
+                </StackPanel>
+            </Border>
+
+            <ui:TextBlock Text="{Binding Copyright}" FontSize="11"
+                          HorizontalAlignment="Left"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+            <ui:InfoBar Severity="Informational" IsClosable="False"
+                        IsOpen="{Binding HasMessage}"
+                        Title="Hinweis" Message="{Binding Message}" />
+        </StackPanel>
+    </ScrollViewer>
+</Page>

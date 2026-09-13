@@ -5,6 +5,8 @@ using TanssLogWatcher.Api.Diagnostics;
 using TanssLogWatcher.Api.Http;
 using TanssLogWatcher.Api.Model;
 using TanssLogWatcher.App.Runtime;
+using TanssLogWatcher.Storage;
+using TanssLogWatcher.Storage.History;
 using TanssLogWatcher.Storage.Logging;
 using TanssLogWatcher.Storage.Queue;
 
@@ -33,7 +35,7 @@ namespace TanssLogWatcher.App.Services;
 /// niemand wüsste, wann.</para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
-public sealed class UploadService : PeriodicService
+public sealed class UploadService : PeriodicService, IImmediateBooking
 {
     /// <summary>Wie viele Einträge ein Durchgang höchstens sendet.</summary>
     private const int BatchSize = 25;
@@ -48,7 +50,18 @@ public sealed class UploadService : PeriodicService
     /// </remarks>
     private static readonly TimeSpan StuckAfter = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Wie oft nach abgelaufenen Aufbewahrungsfristen gesehen wird.
+    /// </summary>
+    /// <remarks>
+    /// Stündlich und nicht bei jedem Takt: Eine Frist steht in Tagen, der Takt in Sekunden.
+    /// Zweitausendachthundert Durchläufe am Tag löschten neunundzwanzigmal dasselbe Nichts.
+    /// </remarks>
+    private static readonly TimeSpan HousekeepingEvery = TimeSpan.FromHours(1);
+
     private readonly SemaphoreSlim _oneAtATime = new(1, 1);
+
+    private DateTimeOffset? _lastHousekeeping;
 
     /// <summary>Baut den Dienst.</summary>
     /// <param name="context">Der Zugang zu Zustand und Zusammenbau.</param>
@@ -101,13 +114,18 @@ public sealed class UploadService : PeriodicService
     /// Rückstau desselben misslungenen Eintrags fortschreiben.</para>
     ///
     /// <para><b>Von Hand heisst jetzt.</b> Zurückgehaltene Einträge werden vorher freigegeben —
-    /// sonst tut diese Schaltfläche buchstäblich nichts, solange die fünf Minuten Schonfrist für
-    /// den Abschlussdialog laufen oder ein Rückstau nach einem Fehlversuch steht. Genau so war
-    /// es: „1 ausstehend“ daneben, ein Klick, und die Meldung „Nichts fällig“ — nicht zu
+    /// sonst tut diese Schaltfläche buchstäblich nichts, solange ein Rückstau nach einem
+    /// Fehlversuch steht oder eine Zeile auf die Antwort des Abschlussdialogs wartet. Genau so
+    /// war es: „1 ausstehend“ daneben, ein Klick, und die Meldung „Nichts fällig“ — nicht zu
     /// unterscheiden von einer kaputten Schaltfläche.</para>
     ///
-    /// <para>Der Takt tut das <b>nicht</b>. Die Schonfrist hat ihren Sinn, solange niemand
-    /// ausdrücklich etwas anderes verlangt; der Klick ist dieses Verlangen.</para>
+    /// <para><b>Auch die wartenden Zeilen gehen dabei hinaus, und das ist kein Widerspruch zum
+    /// fehlenden Zeitablauf:</b> Sie gehen nicht, weil eine Uhr abgelaufen wäre, sondern weil
+    /// der Techniker es in diesem Augenblick verlangt hat. Sie tragen dann die automatische
+    /// Beschreibung — dasselbe, was „Später“ im Dialog tut.</para>
+    ///
+    /// <para>Der Takt tut das <b>nicht</b>. Ohne ausdrückliches Verlangen wartet eine
+    /// zurückgestellte Zeile weiter, und zwar unbegrenzt.</para>
     /// </remarks>
     /// <param name="ct">Abbruchmarke.</param>
     public async Task<UploadRunResult> FlushNowAsync(CancellationToken ct = default)
@@ -127,8 +145,13 @@ public sealed class UploadService : PeriodicService
     /// Zieht alle zurückgehaltenen Einträge auf jetzt vor.
     /// </summary>
     /// <remarks>
-    /// Hausregel 5: Misslingt es, ist das kein Grund, den Sendelauf ausfallen zu lassen — er
-    /// nimmt dann eben nur das mit, was ohnehin fällig war.
+    /// <para>Zwei Arten von Zurückhaltung, und beide gehören hierher: der Rückstau nach einem
+    /// Fehlversuch (<c>NextAttemptAt</c> in der Zukunft) und die Zeile, die auf die Antwort des
+    /// Abschlussdialogs wartet (<c>AwaitingDecision</c>). Die zweite ist der Grund, warum das
+    /// hier überhaupt bleibt: Ohne sie wäre eine unbeantwortete Zeile über die Oberfläche gar
+    /// nicht mehr loszuwerden — denn eine Uhr, die sie freigibt, gibt es nicht mehr.</para>
+    /// <para>Hausregel 5: Misslingt es, ist das kein Grund, den Sendelauf ausfallen zu lassen —
+    /// er nimmt dann eben nur das mit, was ohnehin fällig war.</para>
     /// </remarks>
     /// <param name="composition">Die Bausteine.</param>
     /// <returns>Wie viele Einträge vorgezogen wurden.</returns>
@@ -141,7 +164,8 @@ public sealed class UploadService : PeriodicService
         {
             foreach (QueuedUpload item in composition.Queue.List(QueueState.Pending).Items)
             {
-                if (item.NextAttemptAt > now && composition.Queue.Release(item.RemoteMaintenanceId))
+                if ((item.AwaitingDecision || item.NextAttemptAt > now)
+                    && composition.Queue.Release(item.RemoteMaintenanceId))
                 {
                     released++;
                 }
@@ -154,6 +178,86 @@ public sealed class UploadService : PeriodicService
         }
 
         return released;
+    }
+
+    /// <summary>
+    /// Bucht genau einen wartenden Eintrag sofort — der Weg des Abschlussdialogs.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Derselbe Sendeweg wie im Takt, und das ist der ganze Punkt.</b> Gebucht wird
+    /// über <see cref="SendOneAsync"/>: dieselbe Existenzprüfung, dasselbe
+    /// <c>MarkDone</c>/<c>MarkFailed</c>, derselbe Protokolleintrag, derselbe Verlaufsvermerk.
+    /// Ein eigener „schneller Weg“ aus dem Dialog heraus hätte die Prüfung umgangen, die
+    /// verhindert, dass TANSS eine Fernwartung zweimal führt — und TANSS dedupliziert
+    /// nicht.</para>
+    ///
+    /// <para><b>Scheitert es, bleibt die Zeile stehen.</b> Genau dafür gibt es die
+    /// Warteschlange: Der Sendedienst wiederholt sie wie jede andere, mit Rückstau und mit
+    /// Existenzprüfung. Der Dialog behauptet dann keinen Erfolg, sondern sagt, dass die
+    /// Sitzung gesichert ist und später hinausgeht.</para>
+    ///
+    /// <para>Dieselbe Sperre wie der Takt: Zwei gleichzeitige Läufe teilten sich zwar die
+    /// Einträge sauber auf, würden aber beide den Rückstau desselben Eintrags
+    /// fortschreiben.</para>
+    /// </remarks>
+    /// <param name="remoteMaintenanceId">Der Eintrag, üblicherweise die Sitzungskennung.</param>
+    /// <param name="ct">Abbruchmarke.</param>
+    /// <returns>
+    /// Was mit dem Eintrag geschehen ist, oder <see langword="null"/>, wenn er gar nicht mehr
+    /// wartete — dann ist er unterwegs, gesendet oder aufgegeben, und der Aufrufer darf keinen
+    /// zweiten Versand auslösen.
+    /// </returns>
+    public async Task<UploadReport?> BookNowAsync(string remoteMaintenanceId,
+                                                  CancellationToken ct = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteMaintenanceId);
+
+        if (Context.Composition is not { } composition)
+        {
+            return null;
+        }
+
+        await _oneAtATime.WaitAsync(ct).ConfigureAwait(false);
+
+        UploadReport report;
+        try
+        {
+            QueuedUpload? item = composition.Queue.LeaseOne(remoteMaintenanceId);
+
+            if (item is null)
+            {
+                return null;
+            }
+
+            try
+            {
+                report = await SendOneAsync(composition, item, ct).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // Wortgleich zum Takt: Der Eintrag darf nicht auf "unterwegs" stehenbleiben,
+                // sonst fasst ihn erst RequeueStuck in fuenf Minuten wieder an.
+                string reason = "Unerwarteter Fehler beim Senden: " + Redaction.Scrub(ex.Message);
+                Defer(composition, item, reason);
+                report = new UploadReport(item.RemoteMaintenanceId, UploadOutcome.Deferred,
+                                          reason);
+            }
+        }
+        finally
+        {
+            _ = _oneAtATime.Release();
+        }
+
+        // Erst nach der Sperre: Beides meldet an die Oberflaeche, und die Oberflaeche soll
+        // nicht auf einen Sendelauf warten muessen.
+        _ = RefreshQueue();
+        Context.Notifier.Raise(EntryProcessed, this, report);
+
+        return report;
     }
 
     /// <summary>Erhebt den Stand der Warteschlange und meldet ihn.</summary>
@@ -241,6 +345,14 @@ public sealed class UploadService : PeriodicService
         if (result.Attempted == 0 && Context.Status.State == RuntimeState.Degraded)
         {
             await ProbeAsync(composition, ct).ConfigureAwait(false);
+        }
+
+        // Zuletzt, damit das Aufraeumen nie einen Sendeversuch aufhaelt: Was hier geloescht
+        // wird, hat seine Frist seit Stunden ueberschritten und kann die paar Sekunden warten.
+        if (_lastHousekeeping is not { } last
+            || Context.Clock.GetUtcNow() - last >= HousekeepingEvery)
+        {
+            Housekeep(composition);
         }
 
         return result.Summary;
@@ -410,6 +522,7 @@ public sealed class UploadService : PeriodicService
                   + (result.Warning ?? "TANSS hat sie im meta-Block nicht gemeldet.");
 
             Log(composition, item, SessionOutcome.Ok, note, created.Id);
+            RecordBooked(composition, item, created.Id, note);
             Context.ReportWorking();
 
             return new UploadReport(item.RemoteMaintenanceId, UploadOutcome.Uploaded,
@@ -447,6 +560,7 @@ public sealed class UploadService : PeriodicService
 
             composition.Queue.MarkFailed(item.RemoteMaintenanceId, giveUp, nextAttempt: null);
             Log(composition, item, SessionOutcome.Error, giveUp);
+            RecordFailed(composition, item, giveUp);
             return new UploadReport(item.RemoteMaintenanceId, UploadOutcome.GivenUp, giveUp);
         }
     }
@@ -472,6 +586,136 @@ public sealed class UploadService : PeriodicService
         catch (Exception ex)
         {
             RuntimeFailure.Degrade(Context, ex, composition.Config.Tanss.BaseUrl);
+        }
+    }
+
+    /// <summary>
+    /// Lässt die Aufbewahrungsfristen laufen.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Hier und nicht in einem eigenen Dienst.</b> Dieser hat die Warteschlange
+    /// ohnehin in der Hand, und er läuft, solange das Werkzeug läuft. Eine Frist, die an einer
+    /// Ansicht hinge, liefe nur, solange jemand hinsieht — und eine Frist, die nur läuft, wenn
+    /// jemand hinsieht, ist keine.</para>
+    ///
+    /// <para>Was gelöscht wird und welche Frist für was gilt, steht bei
+    /// <see cref="StatePruner"/>. Hier steht nur, <b>wann</b>.</para>
+    /// </remarks>
+    private void Housekeep(RuntimeComposition composition)
+    {
+        _lastHousekeeping = Context.Clock.GetUtcNow();
+
+        PruneResult result =
+            new StatePruner(composition.Queue, composition.Log, HistoryRetentionOf(composition))
+                .Run(SessionLog.RetentionOf(composition.Config));
+
+        if (!result.DidAnything)
+        {
+            // Ein stuendlicher Eintrag „nichts zu tun“ waere genau die Art Rauschen, die das
+            // Protokoll unbrauchbar macht, das er gerade aufgeraeumt hat.
+            return;
+        }
+
+        try
+        {
+            _ = composition.Log.Append(new SessionLogEntry
+            {
+                Operation = "state.prune",
+                Outcome = result.FailedSteps > 0 ? SessionOutcome.Error : SessionOutcome.Ok,
+                Reason = result.Summary,
+                Trigger = SessionTrigger.Retry,
+            });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Hausregel 5: Geloescht ist geloescht, auch wenn der Vermerk darueber misslingt.
+        }
+    }
+
+    /// <summary>
+    /// Der Verlauf samt seinen beiden Fristen — oder <c>null</c>, wenn er sich nicht öffnen
+    /// lässt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b><c>history.enabled</c> wird hier ausdrücklich nicht geprüft.</b> Was ein
+    /// früherer Lauf mit eingeschaltetem Verlauf hinterlassen hat, muss gelöscht und
+    /// geschwärzt werden, wenn seine Frist abläuft. Würde das Abschalten auch das Aufräumen
+    /// abschalten, hielte ein einziger Klick die vorhandenen Zeilen für immer — samt dem
+    /// Klartext der Gegenstelle. Dieselbe Überlegung wie bei
+    /// <see cref="RuntimeComposition.Recordings"/>.</para>
+    ///
+    /// <para>Hausregel 5: Lässt sich die Datenbank gerade nicht öffnen, räumen Warteschlange
+    /// und Protokoll trotzdem auf — der Verlauf nimmt an diesem Durchlauf dann eben nicht
+    /// teil, und das Ergebnis sagt das, statt eine Null zu melden.</para>
+    /// </remarks>
+    private static HistoryRetention? HistoryRetentionOf(RuntimeComposition composition)
+    {
+        try
+        {
+            return new HistoryRetention(
+                composition.History,
+                TimeSpan.FromDays(composition.Config.History.RetentionDays),
+                SessionHistoryStore.PlainTextRetentionOf(composition.Config));
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Trägt die von TANSS vergebene Kennung in den Verlauf ein.
+    /// </summary>
+    /// <remarks>
+    /// <para>Erst hier steht fest, dass die Sitzung wirklich gebucht ist — der Beobachter
+    /// konnte sie nur einreihen. Ohne diesen Schritt zeigte der Verlauf auf Dauer
+    /// „eingereiht“, obwohl die Fernwartung längst in TANSS steht, und der Techniker legte
+    /// sie ein zweites Mal an.</para>
+    ///
+    /// <para>Abgeriegelt wie der Protokolleintrag (Hausregel 5): Der Upload ist geschehen und
+    /// wird durch einen misslungenen Vermerk nicht ungeschehen.</para>
+    /// </remarks>
+    private static void RecordBooked(RuntimeComposition composition, QueuedUpload item,
+                                     int tanssSupportId, string reason)
+    {
+        if (!composition.Config.History.Enabled)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = composition.History.MarkBooked(item.RemoteMaintenanceId, tanssSupportId, reason);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Hausregel 5: Ein nicht geschriebener Verlaufsvermerk darf keinen Upload kosten.
+        }
+    }
+
+    /// <summary>
+    /// Hält im Verlauf fest, dass der Eintrag endgültig aufgegeben wurde.
+    /// </summary>
+    /// <remarks>
+    /// <b>Nur beim Aufgeben, nicht beim Zurückstellen.</b> Ein zurückgestellter Eintrag ist
+    /// weiterhin unterwegs; ihn als gescheitert zu führen hiesse, dem Techniker eine Lücke zu
+    /// zeigen, die sich beim nächsten Sendelauf von selbst schliesst.
+    /// </remarks>
+    private static void RecordFailed(RuntimeComposition composition, QueuedUpload item,
+                                     string reason)
+    {
+        if (!composition.Config.History.Enabled)
+        {
+            return;
+        }
+
+        try
+        {
+            _ = composition.History.MarkFailed(item.RemoteMaintenanceId, reason);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Hausregel 5: siehe RecordBooked.
         }
     }
 

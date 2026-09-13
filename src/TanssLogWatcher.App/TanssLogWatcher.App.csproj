@@ -29,6 +29,7 @@
 
   <ItemGroup>
     <Resource Include="Assets/tray.ico" />
+    <Resource Include="Assets/pronet-logo.png" />
   </ItemGroup>
 
   <ItemGroup>

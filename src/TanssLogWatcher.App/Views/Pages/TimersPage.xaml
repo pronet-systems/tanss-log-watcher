@@ -14,6 +14,95 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+        <!-- Die Rueckfrage vor dem Loeschen. Sie faehrt von oben ein und legt sich UEBER die
+             Seite, statt sie zu verschieben: Ein Inhalt, der beim Erscheinen nach unten
+             rutscht, nimmt die Schaltflaeche mit, auf die gerade gezielt wurde - der naechste
+             Klick traefe dann etwas anderes.
+
+             Ausgeblendet ist sie durchsichtig UND nicht anfassbar. Nur durchsichtig hiesse:
+             eine unsichtbare Leiste, die ueber der halben Seite liegt und jeden Klick
+             schluckt. Bewegt wird der Rand und keine Verschiebung - eine benannte
+             TranslateTransform aus einer Vorlage heraus anzusprechen ist in WPF die Sorte
+             Zuweisung, die erst zur Laufzeit scheitert. -->
+        <Border Grid.Row="0" Grid.RowSpan="3" VerticalAlignment="Top" Panel.ZIndex="10"
+                CornerRadius="8" Padding="16,12"
+                Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="Opacity" Value="0" />
+                    <Setter Property="IsHitTestVisible" Value="False" />
+                    <Setter Property="Margin" Value="0,-160,0,0" />
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding HasPendingDelete}" Value="True">
+                            <Setter Property="IsHitTestVisible" Value="True" />
+                            <DataTrigger.EnterActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         To="1" Duration="0:0:0.18" />
+                                        <ThicknessAnimation Storyboard.TargetProperty="Margin"
+                                                            To="0,0,0,0" Duration="0:0:0.26">
+                                            <ThicknessAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseOut" />
+                                            </ThicknessAnimation.EasingFunction>
+                                        </ThicknessAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.EnterActions>
+                            <DataTrigger.ExitActions>
+                                <BeginStoryboard>
+                                    <Storyboard>
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                         To="0" Duration="0:0:0.16" />
+                                        <ThicknessAnimation Storyboard.TargetProperty="Margin"
+                                                            To="0,-160,0,0" Duration="0:0:0.2">
+                                            <ThicknessAnimation.EasingFunction>
+                                                <CubicEase EasingMode="EaseIn" />
+                                            </ThicknessAnimation.EasingFunction>
+                                        </ThicknessAnimation>
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </DataTrigger.ExitActions>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <ui:SymbolIcon Grid.Column="0" Symbol="Delete24" FontSize="24"
+                               Margin="0,0,14,0" VerticalAlignment="Center"
+                               Foreground="{DynamicResource StateFailedBrush}" />
+
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="0,0,16,0">
+                    <ui:TextBlock Text="Timer löschen?" FontTypography="BodyStrong"
+                                  HorizontalAlignment="Left" />
+                    <ui:TextBlock Text="{Binding PendingDeleteText}" TextWrapping="Wrap"
+                                  HorizontalAlignment="Left" Margin="0,2,0,0" />
+                    <ui:TextBlock Margin="0,2,0,0" FontSize="11" TextWrapping="Wrap"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Text="Die erfasste Zeit ist danach in TANSS weg und lässt sich nicht zurückholen." />
+                </StackPanel>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"
+                            design:Gap.Size="8">
+                    <ui:Button Content="Löschen" Icon="{ui:SymbolIcon Delete24}"
+                               Appearance="Danger"
+                               Command="{Binding ConfirmDeleteCommand}" />
+                    <ui:Button Content="Abbrechen" Appearance="Secondary" IsCancel="True"
+                               Command="{Binding CancelDeleteCommand}" />
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <Grid Grid.Row="0" Margin="0,0,0,16">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -149,8 +238,8 @@
                                                      RelativeSource={RelativeSource AncestorType=Page}}"
                                            CommandParameter="{Binding}" />
                                 <ui:Button Icon="{ui:SymbolIcon Delete24}" Appearance="Transparent"
-                                           ToolTip="Timer in TANSS löschen — erfasste Zeit ist danach weg"
-                                           Command="{Binding DataContext.DeleteCommand,
+                                           ToolTip="Timer in TANSS löschen — es wird vorher gefragt"
+                                           Command="{Binding DataContext.AskDeleteCommand,
                                                      RelativeSource={RelativeSource AncestorType=Page}}"
                                            CommandParameter="{Binding}" />
                             </StackPanel>

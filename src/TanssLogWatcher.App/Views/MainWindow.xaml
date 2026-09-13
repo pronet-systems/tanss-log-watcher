@@ -67,6 +67,17 @@
                         <ui:SymbolIcon Symbol="Timer24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
+
+                <!-- Oben und nicht im Fußbereich: Der Verlauf beantwortet eine Frage des
+                     Arbeitsalltags („war das abgerechnet, wo ist das Video von neulich“) und
+                     nicht eine der Einrichtung. Er steht unter „Timer“, weil er die drei
+                     darüber der Reihe nach fortsetzt: was läuft, was hinausgeht, was gebucht
+                     ist - und schliesslich, was davon geblieben ist. -->
+                <ui:NavigationViewItem Content="Verlauf" TargetPageType="{x:Type pages:HistoryPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="History24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
 
             <ui:NavigationView.FooterMenuItems>
@@ -88,15 +99,93 @@
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
 
-                <ui:NavigationViewItem Content="Verbindung" TargetPageType="{x:Type pages:ConnectionPage}">
+                <ui:NavigationViewItem Content="Einstellungen" TargetPageType="{x:Type pages:ConnectionPage}">
                     <ui:NavigationViewItem.Icon>
                         <ui:SymbolIcon Symbol="PlugConnected24" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+
+                <!-- Eine Seite wie jede andere, obwohl sie als Fenster begann. Der Grund
+                     dagegen trug nicht: Die Navigation arbeitet auch ohne Konfiguration, jede
+                     Seite sagt das auf ihre Art, und diese hier braucht die Laufzeit ohnehin
+                     nicht - sie liest das Erzeugnis selbst. -->
+                <ui:NavigationViewItem Content="Über" TargetPageType="{x:Type pages:AboutPage}">
+                    <ui:NavigationViewItem.Icon>
+                        <ui:SymbolIcon Symbol="Info24" />
                     </ui:NavigationViewItem.Icon>
                 </ui:NavigationViewItem>
             </ui:NavigationView.FooterMenuItems>
         </ui:NavigationView>
 
         <!-- Fußzeile: der Zustand, den man im Blick behalten will, ohne eine Seite zu öffnen. -->
+        <!-- DIE AUSKUNFT ZUR ZUSTANDSPLAKETTE.
+
+             Sie sass zuerst in einem Popup. Gemessen ist es nie erschienen - der Befehl lief,
+             die Schaltflaeche antwortete, das Popup blieb unsichtbar. Statt daran
+             weiterzuraten steht die Auskunft jetzt im gewoehnlichen Layout: dieselbe
+             Gitterzeile wie die Fusszeile, darueber ausgerichtet. Das hat keine Eigenheiten,
+             es laesst sich abmessen, und es ueberdeckt nichts, was der Techniker gerade liest.
+
+             VerticalAlignment="Bottom" in Zeile 2: Die Fusszeile ist "Auto" hoch, die Auskunft
+             legt sich darueber und waechst nach OBEN in den Inhaltsbereich hinein. -->
+        <Border Grid.Row="1" Grid.RowSpan="2" VerticalAlignment="Bottom"
+                HorizontalAlignment="Left" Margin="12,0,12,40"
+                MaxWidth="620" Padding="16,12" CornerRadius="8"
+                Background="{DynamicResource SolidBackgroundFillColorSecondaryBrush}"
+                BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                BorderThickness="1"
+                Visibility="{Binding IsWarningsOpen, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <ui:TextBlock Grid.Column="0" Text="Zustand"
+                                  FontTypography="BodyStrong" VerticalAlignment="Center" />
+
+                    <!-- Ein eigener Schliesser: Die Auskunft liegt ueber dem Inhalt, und wer
+                         sie loswerden will, soll nicht raten muessen, wohin er klickt. -->
+                    <ui:Button Grid.Column="1" Appearance="Transparent" Padding="6,2"
+                               Icon="{ui:SymbolIcon Dismiss24}"
+                               ToolTip="Schliessen"
+                               Command="{Binding ToggleWarningsCommand}" />
+                </Grid>
+
+                <!-- Ohne Warnung: der eine Satz, damit der Klick nie ins Leere geht. -->
+                <ui:TextBlock Text="{Binding NoWarningText}"
+                              FontSize="12" TextWrapping="Wrap"
+                              Visibility="{Binding HasWarnings, Converter={StaticResource InverseBoolToVis}}"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                <!-- Mit Warnung: je Eintrag Titel, Grund und Vorschlag. Der Vorschlag ist der
+                     einzige Teil, mit dem jemand etwas anfangen kann - er faellt nicht weg. -->
+                <ItemsControl ItemsSource="{Binding Warnings}"
+                              Visibility="{Binding HasWarnings, Converter={StaticResource BoolToVis}}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,0,0,10">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <ui:SymbolIcon Symbol="Warning24" FontSize="16"
+                                                   VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <ui:TextBlock Text="{Binding Title}"
+                                                  FontTypography="BodyStrong"
+                                                  TextWrapping="Wrap"
+                                                  VerticalAlignment="Center" />
+                                </StackPanel>
+                                <ui:TextBlock Text="{Binding Reason}" FontSize="12"
+                                              TextWrapping="Wrap" Margin="24,0,0,4"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBlock Text="{Binding Advice}" FontSize="12"
+                                              TextWrapping="Wrap" Margin="24,0,0,0" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+        </Border>
+
         <Border Grid.Row="2"
                 Background="{DynamicResource LayerFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
@@ -121,7 +210,45 @@
                         <!-- Die Farbe der Plakette folgt dem Zustand. Über Auslöser und nicht
                              über eine Eigenschaft im Ansichtsmodell: Ein Pinsel dort wäre beim
                              Wechsel zwischen heller und dunkler Darstellung eingefroren. -->
-                        <Border Padding="6,1" VerticalAlignment="Center">
+                        <!-- Die Plakette ist anklickbar: Sie sagte "verbunden, mit Warnung",
+                             und es gab nirgends einen Ort, an dem stand, WELCHE. Ein Hinweis,
+                             den niemand nachlesen kann, beunruhigt nur.
+
+                             Ein Ereignis im Quelltext dahinter und kein Befehl: Die Auskunft
+                             braucht das Element selbst als Bezugspunkt (PlacementTarget), und
+                             der Klick tut nichts als aufklappen - er greift in keinen Zustand
+                             ein, der eine Pruefung verdiente. Denselben Griff benutzt schon das
+                             Symbol im Infobereich. -->
+                        <!-- EINE SCHALTFLAECHE und kein Border mit Mausereignis. Der Border
+                             hatte MouseLeftButtonUp; gemessen ist der Behandler nie gelaufen -
+                             der Klick trifft die Beschriftung darin, und dieses Ereignis ist
+                             kein zuverlaessiger Weg nach oben.
+
+                             Eine Schaltflaeche loest das dreifach: Sie fuehrt einen Befehl
+                             statt eines Ereignisses, sie ist mit der Tastatur erreichbar, und
+                             sie traegt das Invoke-Muster - damit laesst sich der Klick
+                             nachmessen, statt ihn zu glauben.
+
+                             Die Vorlage ist auf den reinen Inhalt heruntergenommen: Die Farbe
+                             der Plakette steckt im Border darin, und der Standardrahmen einer
+                             Schaltflaeche legte sich sonst darum. Kein BasedOn auf einen
+                             ui:-Typ - das liess in diesem Haus schon einmal die Navigation
+                             STILL scheitern. -->
+                        <!-- KEIN eigener Margin: design:Gap.Size setzt den Abstand zum
+                             Nachbarn nur dann, wenn das Kind keinen eigenen hat. Hier stand
+                             Margin="0" - damit klebte die Plakette an der Adresse daneben. -->
+                        <Button Command="{Binding ToggleWarningsCommand}"
+                                Cursor="Hand" Padding="0"
+                                BorderThickness="0" Background="Transparent"
+                                VerticalAlignment="Center"
+                                AutomationProperties.AutomationId="Zustandsplakette"
+                                ToolTip="Anklicken: zeigt, was gerade zu beachten ist.">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <ContentPresenter />
+                                </ControlTemplate>
+                            </Button.Template>
+                        <Border x:Name="StatePill" Padding="6,1" VerticalAlignment="Center">
                             <Border.Style>
                                 <Style TargetType="Border" BasedOn="{StaticResource StatePillOnColor}">
                                     <Setter Property="Background" Value="{DynamicResource StateIdleBrush}" />
@@ -140,9 +267,11 @@
                             </Border.Style>
                             <ui:TextBlock Text="{Binding StateText}" FontSize="11" />
                         </Border>
+                        </Button>
+
                         <!-- Die einzige Angabe hier, deren Länge der Kunde bestimmt. Sie darf
                              kürzen, statt den Rest der Zeile hinauszuschieben; vollständig
-                             steht sie im Hinweisfenster und unter „Verbindung“. -->
+                             steht sie im Hinweisfenster und unter „Einstellungen“. -->
                         <ui:TextBlock Text="{Binding BaseUrlText}"
                                       FontSize="12" VerticalAlignment="Center"
                                       TextTrimming="CharacterEllipsis"
@@ -156,6 +285,30 @@
 
                 <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
                             design:Gap.Size="16">
+                    <!-- DIE NEUE FASSUNG.
+
+                         Geprueft wurde schon immer - eine Minute nach dem Start und danach
+                         taeglich. Gesagt wurde es nur auf der Seite "Verbindung", und die
+                         oeffnet im Betrieb niemand: Das Werkzeug laeuft mit geschlossenem
+                         Fenster. Eine Aktualisierung, von der man nur erfaehrt, wenn man
+                         ohnehin nachsieht, ist keine Benachrichtigung.
+
+                         Anklickbar und nicht bloss ein Hinweis: Der Klick fuehrt dorthin, wo
+                         sich die Fassung auch holen laesst. Ein Hinweis ohne Weg dahin
+                         zwaenge den Techniker, danach zu suchen.
+
+                         Sichtbar nur, wenn es wirklich etwas gibt - sonst waere es eine
+                         Dauerzeile, die man nach drei Tagen nicht mehr liest. -->
+                    <ui:Button Appearance="Transparent" Padding="8,2"
+                               VerticalAlignment="Center"
+                               Icon="{ui:SymbolIcon ArrowDownload24}"
+                               Content="{Binding UpdateText}"
+                               FontSize="12"
+                               AutomationProperties.AutomationId="Aktualisierungshinweis"
+                               ToolTip="Eine neuere Fassung steht bereit. Anklicken öffnet „Verbindung“ — dort lässt sie sich holen und einspielen."
+                               Visibility="{Binding UpdateAvailable, Converter={StaticResource BoolToVis}}"
+                               Click="OnUpdateHintClick" />
+
                     <ui:TextBlock Text="{Binding QueueText}" FontSize="12" VerticalAlignment="Center"
                                   Visibility="{Binding HasQueue, Converter={StaticResource BoolToVis}}"
                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />

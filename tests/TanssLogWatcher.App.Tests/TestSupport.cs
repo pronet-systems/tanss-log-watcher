@@ -1,7 +1,9 @@
 using System.IO;
 using System.Runtime.Versioning;
+using TanssLogWatcher.Api.Model;
 using TanssLogWatcher.App.Runtime;
 using TanssLogWatcher.Recording;
+using TanssLogWatcher.Storage.Config;
 using Xunit;
 
 namespace TanssLogWatcher.App.Tests;
@@ -95,9 +97,85 @@ internal sealed class FixedWindows(params WindowBox[] windows) : IWindowGeometry
     public IReadOnlyList<WindowBox> WindowsOf(int processId) => _windows;
 }
 
+/// <summary>
+/// Eine Fensterquelle, deren Geometrie sich von Abruf zu Abruf ändert.
+/// </summary>
+/// <remarks>
+/// <b>Sie bildet einen gemessenen Vorfall nach.</b> Ein Remotedesktop-Fenster ändert beim
+/// Verbindungsaufbau zweimal seine Grösse; im Betrieb ergab das drei Videodateien für eine
+/// Fernwartung von neunzehn Sekunden. Die Grössen stammen aus den Dateien, die dabei
+/// entstanden sind: 836×496, dann 860×496, dann Vollbild.
+/// </remarks>
+[SupportedOSPlatform("windows")]
+internal sealed class GrowingWindow(nint handle, ScreenBox screen) : IWindowGeometrySource
+{
+    private int _calls;
+
+    public IReadOnlyList<WindowBox> WindowsOf(int processId)
+    {
+        int call = Interlocked.Increment(ref _calls);
+
+        // Die dritte Lage ist das maximierte Fenster samt seines unsichtbaren Anfassrahmens -
+        // es ragt gemessen um dreizehn Bildpunkte ueber jeden Bildschirmrand hinaus.
+        return call switch
+        {
+            <= 2 => [new WindowBox(handle, screen.Left + 500, screen.Top + 300, 836, 496)],
+            <= 4 => [new WindowBox(handle, screen.Left + 500, screen.Top + 300, 860, 496)],
+            _ => [new WindowBox(handle, screen.Left - 13, screen.Top - 13,
+                                screen.Width + 26, screen.Height - 70)],
+        };
+    }
+}
+
+/// <summary>
+/// Die echten Bildschirme dieses Rechners.
+/// </summary>
+/// <remarks>
+/// Hier wird nichts erfunden: Die Aufzeichnung läuft gegen ein echtes Fenster auf einem echten
+/// Bildschirm, also muss auch die Bildschirmlage die echte sein. Nachgebildet wird nur die
+/// Aufzählung — und auch die nur, damit der Testläufer seine eigenen Fenster nicht mitbringt.
+/// </remarks>
+[SupportedOSPlatform("windows5.0")]
+internal sealed class FixedScreens : IScreenSource
+{
+    private readonly IReadOnlyList<ScreenInfo> _screens = new Win32ScreenSource().Screens();
+
+    public IReadOnlyList<ScreenInfo> Screens() => _screens;
+}
+
 /// <summary>Vorlagen für die Testfälle.</summary>
 internal static class Sample
 {
+    /// <summary>Eine gültige Konfiguration, wie sie geprüft durch die Anwendung geht.</summary>
+    public static AppConfig Config() => new()
+    {
+        Tanss = new TanssSection
+        {
+            BaseUrl = "https://tanss.kunde.de/backend",
+            EmployeeId = 1,
+        },
+        Monitoring =
+        [
+            new MonitoringEntry
+            {
+                Key = "mstsc",
+                RemoteSupportTypeId = 1003,
+            },
+        ],
+    };
+
+    /// <summary>Eine Nutzlast, wie sie in die Warteschlange geht.</summary>
+    public static RemoteSupportWrite Upload(string id) => new()
+    {
+        TypeId = 1003,
+        EmployeeId = 1,
+        StartTime = 1_757_000_000,
+        EndTime = 1_757_000_600,
+        RemoteMaintenanceId = id,
+        Comment = "Microsoft Remotedesktop: srv-test01",
+        DeviceName = "srv-test01",
+    };
+
     /// <summary>Eine Sitzung, wie die Beobachtung sie meldet.</summary>
     public static SessionSnapshot Session(nint window, string? id = null) => new()
     {

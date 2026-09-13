@@ -161,7 +161,7 @@ public sealed partial class UpdateService : IDisposable
             if (!TryParseTag(release.TagName, out Version? tagVersion) || tagVersion is not { } version)
             {
                 return Finish(UpdateCheckState.Failed,
-                    $"Die Marke „{release.TagName}“ ist keine Fassungsnummer, mit der sich "
+                    $"Die Marke „{release.TagName}“ ist keine Versionsnummer, mit der sich "
                     + "vergleichen liesse.");
             }
 

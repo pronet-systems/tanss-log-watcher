@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
 using TanssLogWatcher.Storage.Logging;
@@ -50,6 +51,187 @@ public sealed class StateDatabaseTests
         );
         PRAGMA user_version = 1;
         """;
+
+    /// <summary>
+    /// Der Aufbau, wie ihn Stand 3 hinterliess — mit den Spalten der Stände 2 und 3, aber
+    /// ohne <c>open_sessions.identity_key</c> und ohne <c>session_history</c>.
+    /// </summary>
+    /// <remarks>
+    /// Der Sprung 3 → 5 überspringt einen Stand. Er ist der Fall, den eine Installation
+    /// mitbringt, die eine Fassung übersprungen hat — und der einzige, in dem in einem Lauf
+    /// sowohl eine ganze Tabelle als auch eine einzelne Spalte nachzuziehen ist.
+    /// </remarks>
+    private const string SchemaVersionThree = """
+        CREATE TABLE queue (
+          remote_maintenance_id TEXT    PRIMARY KEY,
+          payload               TEXT    NOT NULL,
+          created_at            INTEGER NOT NULL,
+          attempts              INTEGER NOT NULL DEFAULT 0,
+          next_attempt_at       INTEGER NOT NULL DEFAULT 0,
+          last_error            TEXT,
+          leased_at             INTEGER,
+          completed_at          INTEGER,
+          outcome_unknown       INTEGER NOT NULL DEFAULT 0,
+          state                 TEXT    NOT NULL DEFAULT 'pending'
+              CHECK (state IN ('pending','sending','done','failed'))
+        );
+        CREATE TABLE open_sessions (
+          remote_maintenance_id  TEXT    PRIMARY KEY,
+          monitor_key            TEXT    NOT NULL,
+          remote_support_type_id INTEGER NOT NULL,
+          started_at             INTEGER NOT NULL,
+          last_seen_at           INTEGER NOT NULL,
+          process_id             INTEGER NOT NULL DEFAULT 0,
+          target                 TEXT,
+          device_name            TEXT,
+          user_name              TEXT,
+          comment                TEXT    NOT NULL DEFAULT '',
+          ticket_id              INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE session_log (
+          id                    INTEGER PRIMARY KEY,
+          ts                    INTEGER NOT NULL,
+          remote_maintenance_id TEXT,
+          operation             TEXT    NOT NULL,
+          outcome               TEXT    NOT NULL,
+          reason                TEXT    NOT NULL,
+          trigger               TEXT    NOT NULL,
+          http_status           INTEGER,
+          duration_ms           INTEGER,
+          tanss_support_id      INTEGER,
+          detail                TEXT,
+          window_title          TEXT
+        );
+        CREATE TABLE recordings (
+          id                    INTEGER PRIMARY KEY,
+          remote_maintenance_id TEXT    NOT NULL,
+          relative_path         TEXT    NOT NULL,
+          segment               INTEGER NOT NULL DEFAULT 1,
+          started_at            INTEGER NOT NULL,
+          ended_at              INTEGER,
+          recorded_seconds      INTEGER NOT NULL DEFAULT 0,
+          bytes                 INTEGER NOT NULL DEFAULT 0,
+          delete_after          INTEGER NOT NULL,
+          deleted_at            INTEGER,
+          delete_reason         TEXT,
+          state                 TEXT    NOT NULL DEFAULT 'recording'
+              CHECK (state IN ('recording','kept','purged','missing'))
+        );
+        PRAGMA user_version = 3;
+        """;
+
+    /// <summary>Was Stand 4 dem Stand 3 hinzufügte: der Verlauf. Wird danach angewandt.</summary>
+    private const string SchemaVersionFour = """
+        CREATE TABLE session_history (
+          remote_maintenance_id   TEXT    PRIMARY KEY,
+          started_at              INTEGER NOT NULL,
+          ended_at                INTEGER NOT NULL,
+          profile_key             TEXT    NOT NULL DEFAULT '',
+          profile_name            TEXT    NOT NULL DEFAULT '',
+          destination             TEXT,
+          destination_fingerprint TEXT,
+          remote_support_type_id  INTEGER NOT NULL DEFAULT 0,
+          ticket_id               INTEGER NOT NULL DEFAULT 0,
+          tanss_support_id        INTEGER,
+          disposition             TEXT    NOT NULL
+              CHECK (disposition IN ('enqueued','booked','discarded','not_mapped',
+                                     'dry_run','failed','unknown')),
+          reason                  TEXT    NOT NULL DEFAULT '',
+          ended_estimated         INTEGER NOT NULL DEFAULT 0,
+          origin                  TEXT    NOT NULL DEFAULT 'live'
+              CHECK (origin IN ('live','backfill')),
+          delete_after            INTEGER NOT NULL,
+          redacted_at             INTEGER,
+          created_at              INTEGER NOT NULL
+        );
+        PRAGMA user_version = 4;
+        """;
+
+    /// <summary>Eine laufende Sitzung, wie sie ein Lauf vor Stand 5 hinterliess.</summary>
+    private const string RunningSessionBeforeFive = """
+        INSERT INTO open_sessions (remote_maintenance_id, monitor_key,
+            remote_support_type_id, started_at, last_seen_at, process_id, target,
+            device_name, comment)
+        VALUES ('sitzung-offen', 'rdp', 1001, 1757000000, 1757000600, 4711,
+                'kunde-ts01', 'kunde-ts01', 'Remotedesktop: kunde-ts01');
+        """;
+
+    [Fact]
+    public void Der_Sprung_von_Stand_4_auf_5_holt_die_Bezeichnerspalte_nach()
+    {
+        // Eine SPALTE in einer vorhandenen Tabelle: CREATE TABLE IF NOT EXISTS ruehrt die
+        // nicht an, nur EnsureColumn zieht sie nach. Ohne diese Zeile scheiterte JEDE
+        // Abfrage der laufenden Sitzungen beim naechsten Start - also genau das, was die
+        // Tabelle retten soll.
+        using TempDirectory temp = new();
+        string path = temp.File("state.db");
+
+        Raw.Execute(path, SchemaVersionThree);
+        Raw.Execute(path, SchemaVersionFour);
+        Raw.Execute(path, RunningSessionBeforeFive);
+
+        using (StateDatabase database = new(path))
+        {
+            Assert.Equal(4, database.PreviousSchemaVersion);
+
+            using UploadQueue queue = new(database);
+
+            // Die alte Zeile ist noch da und traegt KEINEN Bezeichner. "null" heisst hier
+            // "nicht ermittelt" - ein Ersatzwert waere eine erfundene Angabe, und aus einer
+            // erfundenen Kennung entstuende in TANSS eine falsche Firmenzuordnung.
+            OpenSession old = Assert.Single(queue.LoadOpenSessions());
+            Assert.Equal("sitzung-offen", old.RemoteMaintenanceId);
+            Assert.Null(old.IdentityKey);
+
+            // Und ab jetzt haelt die Spalte, was sie soll.
+            queue.SaveOpenSession(old with { IdentityKey = "kunde-ts01.kunde.local" });
+            Assert.Equal("kunde-ts01.kunde.local",
+                Assert.Single(queue.LoadOpenSessions()).IdentityKey);
+        }
+
+        // Gegen die Konstante und nicht gegen eine Zahl: Der naechste Stand soll diese
+        // Pruefung nicht umbringen, sondern sie mitnehmen.
+        Assert.Equal(StateDatabase.SchemaVersion.ToString(CultureInfo.InvariantCulture),
+                     Raw.Text(path, "PRAGMA user_version;"));
+    }
+
+    [Fact]
+    public void Eine_Datei_vom_Stand_3_kommt_auch_durch()
+    {
+        // Der uebersprungene Stand: eine Installation, die eine Fassung ausgelassen hat.
+        // Hier ist in EINEM Lauf beides nachzuziehen - eine ganze Tabelle (session_history,
+        // Stand 4) und eine einzelne Spalte (identity_key, Stand 5).
+        using TempDirectory temp = new();
+        string path = temp.File("state.db");
+
+        Raw.Execute(path, SchemaVersionThree);
+        Raw.Execute(path, RunningSessionBeforeFive);
+
+        using (StateDatabase database = new(path))
+        {
+            Assert.Equal(3, database.PreviousSchemaVersion);
+
+            using UploadQueue queue = new(database);
+            OpenSession old = Assert.Single(queue.LoadOpenSessions());
+            Assert.Null(old.IdentityKey);
+
+            queue.SaveOpenSession(old with { IdentityKey = "kunde-ts01.kunde.local" });
+            Assert.Equal("kunde-ts01.kunde.local",
+                Assert.Single(queue.LoadOpenSessions()).IdentityKey);
+        }
+
+        Assert.Equal(StateDatabase.SchemaVersion.ToString(CultureInfo.InvariantCulture),
+                     Raw.Text(path, "PRAGMA user_version;"));
+        // Die Tabelle aus Stand 4 steht ebenfalls - der uebersprungene Stand ist mitgekommen.
+        Assert.Equal("1", Raw.Text(path,
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' "
+            + "AND name = 'session_history';"));
+
+        // Und die Spalte aus Stand 6 ebenso. Sie entscheidet, ob eine Sitzung auf den
+        // Abschlussdialog wartet; fehlte sie, scheiterte jede Abfrage der Warteschlange.
+        Assert.Equal("1", Raw.Text(path,
+            "SELECT COUNT(*) FROM pragma_table_info('queue') WHERE name = 'awaiting_decision';"));
+    }
 
     [Fact]
     public async Task Das_Beenden_wartet_auf_eine_laufende_Abfrage()

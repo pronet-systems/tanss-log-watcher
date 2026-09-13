@@ -158,8 +158,19 @@ public sealed class DestinationResolver
             {
                 return [];
             }
+
+            // Eine Anwendung, die dauerhaft offen steht, hat mit einem nicht passenden Titel
+            // ebenfalls eine Aussage getroffen: Es laeuft gerade keine Fernwartung. Der
+            // Platzhalter ist fuer ein Fenster OHNE Titel gedacht - und ein solches liefert die
+            // Fensterquelle gar nicht erst mit, es kommt also hier nie an.
+            if (profile.RequiresResolvedDestination && processWindows.Count > 0)
+            {
+                return [];
+            }
         }
 
+        // Ohne gesetztes Muster gaebe es nichts zu erkennen - dann bleibt der Platzhalter auch
+        // fuer eine dauerhaft offene Anwendung, sonst lieferte sie nie wieder eine Sitzung.
         return [new ResolvedDestination(SessionConstants.NoDestinationTitle,
                                         SessionConstants.NoDestinationTitle, mainWindowHandle)];
     }

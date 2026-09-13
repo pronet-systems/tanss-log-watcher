@@ -8,6 +8,7 @@ using TanssLogWatcher.Monitoring.Model;
 using TanssLogWatcher.Monitoring.Native;
 using TanssLogWatcher.Storage;
 using TanssLogWatcher.Storage.Config;
+using TanssLogWatcher.Storage.History;
 using TanssLogWatcher.Storage.Logging;
 using TanssLogWatcher.Storage.Queue;
 using TanssLogWatcher.Storage.Recordings;
@@ -19,12 +20,21 @@ namespace TanssLogWatcher.App.Runtime;
 /// Der Zusammenbau: aus einer geprüften <see cref="AppConfig"/> entstehen hier alle Bausteine.
 /// </summary>
 /// <remarks>
-/// <para><b>Wortgleich zu <c>TanssLogWatcher.Cli/Composition.cs</c>, und das mit Absicht.</b>
-/// Die Oberfläche verweist nicht auf die Kommandozeile — ein Werkzeug mit Fenstern, das eine
-/// Konsolenanwendung als Bibliothek einbindet, zöge deren Befehlszeilenauswertung und deren
-/// Konsolenausgabe mit herein. Der Preis ist diese eine wiederholte Datei; der Gegenwert ist,
-/// dass beide Programme dieselbe Reihenfolge, dieselbe Verzögerung und dieselben
-/// Einstellungen benutzen. Wer hier etwas ändert, ändert es dort mit.</para>
+/// <para><b>Nahe verwandt mit <c>TanssLogWatcher.Cli/Composition.cs</c>, und das mit
+/// Absicht.</b> Die Oberfläche verweist nicht auf die Kommandozeile — ein Werkzeug mit
+/// Fenstern, das eine Konsolenanwendung als Bibliothek einbindet, zöge deren
+/// Befehlszeilenauswertung und deren Konsolenausgabe mit herein. Der Preis ist diese eine
+/// wiederholte Datei; der Gegenwert ist, dass beide Programme dieselbe Reihenfolge, dieselbe
+/// Verzögerung und dieselben Einstellungen benutzen. <b>Wer an Netz, Beobachtung,
+/// Warteschlange oder Protokoll etwas ändert, ändert es dort mit.</b></para>
+///
+/// <para><b>Zwei Bausteine führt nur dieser Zusammenbau</b>, und das ist kein Versehen:
+/// <see cref="Recordings"/> und <see cref="History"/>. Beide hängen an Diensten, die es in
+/// der Kommandozeile nicht gibt — die Bildschirmaufzeichnung und der Aufräumtakt aus
+/// <c>UploadService.Housekeep</c> laufen ausschliesslich im Fensterprogramm. Sie dort
+/// nachzubilden hiesse, zwei Eigenschaften anzulegen, die niemand liest. Wer der
+/// Kommandozeile einen dieser Dienste gibt, zieht den zugehörigen Baustein mit — und mit ihm
+/// die Fristen, die sonst niemand laufen lässt.</para>
 ///
 /// <para>Es gibt genau diese eine Stelle, an der Netz, Beobachtung und Ablage verdrahtet
 /// werden. Jeder zweite Ort, an dem ein Baustein gebaut wird, ist ein Ort, an dem eine
@@ -47,6 +57,7 @@ public sealed class RuntimeComposition : IDisposable
     private readonly Lazy<UploadQueue> _queue;
     private readonly Lazy<SessionLog> _log;
     private readonly Lazy<RecordingStore> _recordings;
+    private readonly Lazy<SessionHistoryStore> _history;
     private readonly Lazy<HostNameResolver> _hostNames;
     private readonly Lazy<SessionEngine> _engine;
     private bool _disposed;
@@ -81,6 +92,8 @@ public sealed class RuntimeComposition : IDisposable
         Tickets = new TicketRepository(Client);
         Timers = new TimerRepository(Client);
         Supports = new SupportRepository(Client);
+        Companies = new CompanyRepository(Client);
+        NewTickets = new TicketCreator(Client);
 
         Windows = new WindowSource(loggers.CreateLogger<WindowSource>());
         Processes = new ProcessSource(loggers.CreateLogger<ProcessSource>());
@@ -98,6 +111,22 @@ public sealed class RuntimeComposition : IDisposable
         // Sicherungsstrategie, und die Buchfuehrung ueber Aufzeichnungen ist der Nachweis, an
         // dem eine Auskunft nach Art. 15 DSGVO haengt.
         _recordings = new Lazy<RecordingStore>(() => new RecordingStore(Database));
+
+        // Ausschliesslich ueber FromConfig, und aus demselben Grund wie beim Protokoll: Nur
+        // dort loest history.redact_destination ueber logging.redact_window_titles auf. Ein
+        // "?? false" an einer Aufrufstelle kehrte die ausdrueckliche Entscheidung des
+        // Technikers still um - die Gegenstelle ist derselbe Text, den die Schwaerzung
+        // verbirgt, bei zehn von sechsunddreissig Profilen der ganze Fenstertitel.
+        // Der Nachtrag haengt HIER und nicht am Programmstart: Ein Aufruf im Start zwaenge
+        // die Datenbank in jedem Fall ins Dasein und naehme der traegen Erzeugung genau die
+        // Wirkung, derentwegen es sie gibt. So laeuft er beim ERSTEN Zugriff auf den Verlauf
+        // - der die Datei ohnehin oeffnet - und durch Lazy genau einmal je Programmlauf.
+        _history = new Lazy<SessionHistoryStore>(() =>
+        {
+            SessionHistoryStore history = SessionHistoryStore.FromConfig(config, Database);
+            Backfill(config, Database, history);
+            return history;
+        });
 
         _hostNames = new Lazy<HostNameResolver>(
             () => new HostNameResolver(logger: loggers.CreateLogger<HostNameResolver>()));
@@ -139,6 +168,24 @@ public sealed class RuntimeComposition : IDisposable
     /// <summary>Leistungen — aus einem Timer vorbereiten und anlegen.</summary>
     public ISupportRepository Supports { get; }
 
+    /// <summary>Die Firmensuche über <c>PUT /api/v1/search</c>.</summary>
+    /// <remarks>
+    /// <para>Sie wird gebraucht, sobald ein Ticket angelegt werden soll: Ein Ticket ohne Firma
+    /// landet in TANSS in einer eigenen Liste, die niemand im Alltag ansieht.</para>
+    /// <para><b>Nur hier und nicht in der Kommandozeile.</b> Gesucht wird ausschliesslich aus
+    /// einem Dialog heraus; eine Eigenschaft in <c>Cli/Composition.cs</c>, die niemand liest,
+    /// wäre eine zweite Stelle, an der eine Einstellung fehlen kann.</para>
+    /// </remarks>
+    public ICompanyRepository Companies { get; }
+
+    /// <summary>Tickets anlegen — <c>POST /api/v1/tickets</c>.</summary>
+    /// <remarks>
+    /// Getrennt von <see cref="Tickets"/>, weil der lesende Vertrag schmal bleiben soll. Auch
+    /// dieser Baustein läuft nur im Fensterprogramm: Ein Ticket entsteht auf Anweisung des
+    /// Technikers und niemals aus einem Takt heraus.
+    /// </remarks>
+    public ITicketCreation NewTickets { get; }
+
     /// <summary>Quelle der sichtbaren Fenster.</summary>
     public IWindowSource Windows { get; }
 
@@ -169,6 +216,18 @@ public sealed class RuntimeComposition : IDisposable
     /// abläuft — und zwar unabhängig davon, ob heute noch aufgezeichnet wird.
     /// </remarks>
     public RecordingStore Recordings => _recordings.Value;
+
+    /// <summary>
+    /// Der Verlauf abgeschlossener Sitzungen — auf derselben Datenbank.
+    /// </summary>
+    /// <remarks>
+    /// <para>Er entsteht auch dann, wenn <c>history.enabled</c> aus ist: Was ein früherer Lauf
+    /// mit eingeschaltetem Verlauf hinterlassen hat, muss gelöscht und geschwärzt werden, wenn
+    /// seine Frist abläuft. Ein Speicher, der sich beim Abschalten in eine Attrappe
+    /// verwandelte, hielte diese Zeilen für immer. Ob <b>geschrieben</b> wird, entscheidet
+    /// deshalb der jeweilige Dienst an <c>history.enabled</c> und nicht dieser Zusammenbau.</para>
+    /// </remarks>
+    public SessionHistoryStore History => _history.Value;
 
     /// <summary>Die Rückwärtsauflösung mit Zwischenspeicher.</summary>
     public IHostNameResolver HostNames => _hostNames.Value;
@@ -226,6 +285,11 @@ public sealed class RuntimeComposition : IDisposable
             _recordings.Value.Dispose();
         }
 
+        if (_history.IsValueCreated)
+        {
+            _history.Value.Dispose();
+        }
+
         if (_database.IsValueCreated)
         {
             _database.Value.Dispose();
@@ -237,6 +301,70 @@ public sealed class RuntimeComposition : IDisposable
         }
 
         Client.Dispose();
+    }
+
+    /// <summary>
+    /// Trägt den Verlauf einmalig aus dem nach, was schon in der Datenbank steht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Genau einmal, und nur beim ersten Start nach der Überführung.</b>
+    /// <see cref="SessionHistoryBackfill.IsDue"/> liest
+    /// <see cref="StateDatabase.PreviousSchemaVersion"/> — den Stand, den die Datei beim
+    /// Öffnen trug. Eine frisch angelegte Datei (<c>0</c>) hat nichts nachzutragen, eine
+    /// Datei auf dem laufenden Stand ebenfalls nicht. Dazwischen lag
+    /// <c>session_history</c> noch nicht vor, während Warteschlange und Protokoll bereits
+    /// schrieben; genau diese Sitzungen holt der Nachtrag. Dass er innerhalb der trägen
+    /// Erzeugung des Verlaufs steht, gibt die Einmaligkeit schon durch
+    /// <see cref="Lazy{T}"/> her — liefe er dennoch ein zweites Mal, kostete er drei
+    /// Abfragen und änderte nichts, denn er fügt nur ein, was nicht schon dasteht.</para>
+    ///
+    /// <para><b>Ein misslungener Nachtrag kostet den Nachtrag, nicht den Start.</b> Deshalb
+    /// der eigene <c>catch</c>: Der Speicher wird in jedem Fall zurückgegeben. Innerhalb des
+    /// Laufes fängt der Nachtrag nur unlesbare Nutzlasten ab — ein Fehler der Datenbank
+    /// selbst käme hier heraus und dürfte weder die Seite noch die Dienste anhalten.</para>
+    ///
+    /// <para><c>history.enabled</c> wird hier sehr wohl geprüft: Der Nachtrag <b>schreibt</b>,
+    /// und was ein abgeschalteter Verlauf nicht führen soll, soll er auch nicht nachträglich
+    /// bekommen. Das unterscheidet ihn vom Aufräumtakt, der die Fristen bestehender Zeilen
+    /// unabhängig davon laufen lassen muss.</para>
+    /// </remarks>
+    /// <param name="config">Die geprüfte Konfiguration; sie trägt Schalter und Frist.</param>
+    /// <param name="database">Die geöffnete Zustandsdatenbank.</param>
+    /// <param name="history">Der eben gebaute Verlauf, in den geschrieben wird.</param>
+    private void Backfill(AppConfig config, StateDatabase database, SessionHistoryStore history)
+    {
+        try
+        {
+            if (!config.History.Enabled || !SessionHistoryBackfill.IsDue(database))
+            {
+                return;
+            }
+
+            BackfillResult done = SessionHistoryBackfill.FromConfig(config, database, history);
+
+            if (done.Notice is not { } notice)
+            {
+                return;
+            }
+
+            // Der Satz nennt die Fehlstellen selbst. Unlesbare Zeilen machen den Eintrag zum
+            // Fehler und nicht zum Erfolg: Wer im Protokoll nach Fehlern sucht, soll die
+            // Sitzungen finden, die der Verlauf nicht bekommen hat.
+            _ = Log.Append(new SessionLogEntry
+            {
+                Operation = "history.backfill",
+                Outcome = done.Unreadable > 0 ? SessionOutcome.Error : SessionOutcome.Ok,
+                Reason = notice,
+                Trigger = SessionTrigger.Startup,
+            });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Hausregel 5. Der Verlauf bleibt dann leerer als moeglich - die Seite sagt das
+            // wahrheitsgemaess, und keine Sitzung von heute geht dadurch verloren.
+            _loggers.CreateLogger<RuntimeComposition>().LogWarning(
+                ex, "Der einmalige Nachtrag des Verlaufs ist misslungen.");
+        }
     }
 
     /// <summary>

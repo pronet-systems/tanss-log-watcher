@@ -1,0 +1,233 @@
+<UserControl x:Class="TanssLogWatcher.App.Views.CompanyPicker"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:design="clr-namespace:TanssLogWatcher.App.Design">
+
+    <!--
+        Die Firmenauswahl. Erwartet ein CompanyPickerViewModel als DataContext.
+
+        EIN Bedienelement, wie Ticket und Gerät daneben: ein beschreibbares Auswahlfeld.
+        Vorher waren es fünf — Suchfeld, "Suchen", "Zurücksetzen", Meldezeile, Trefferliste —
+        und im Dialog darüber noch eine Zeile "Firma | … | Suche schliessen". Dasselbe leistet
+        ein ComboBox mit IsEditable, und es steht dort, wo der Techniker es erwartet.
+
+        KEIN BasedOn auf einen ui:-Typ, nirgends in dieser Datei. Ein solcher Verweis liess die
+        Navigation schon einmal STILL scheitern - die Seite ging einfach nicht auf, ohne Meldung.
+
+        Das EINE BasedOn weiter unten zeigt auf {x:Type ComboBoxItem} und damit auf einen Typ des
+        Rahmenwerks, nicht auf einen ui:-Typ. Es ist gemessen und nicht angenommen: Der Ladefall
+        "Die_Zeilenvorlage_der_Aufklappliste_entsteht" baut die Zeile mit genau diesem Stil. Faellt
+        der Schluessel je weg, faellt dieser Fall um - und zwar laut und nicht still. Ohne das
+        BasedOn saehen die Zeilen der Aufklappliste anders aus als das ganze uebrige Fenster.
+
+        Der wichtigste Satz dieser Ansicht steht in einer einzigen Bindung: {Binding Message}.
+        Er kommt woertlich aus der Suche und unterscheidet "es gibt keine Firma" von "es sind zu
+        viele, TANSS hat deshalb nichts geliefert". Wer ihn hier gegen einen selbstgebauten Text
+        austauscht, holt die Unwahrheit "keine Firma gefunden" zurueck.
+    -->
+
+    <StackPanel>
+        <!-- EINE Zeile: Beschriftung und Feld. Die Beschriftung steht hier drin und nicht im
+             Fenster, damit die Auswahl an BEIDEN Einsatzorten gleich aussieht - und mit
+             derselben Spaltenbreite (60 + 8) wie Ticket und Gerät daneben. Die Saetze darunter
+             ruecken um genau diese 68 ein und beginnen so unter dem Feld. -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <ui:TextBlock Grid.Column="0" Text="Firma" VerticalAlignment="Center"
+                          Margin="0,0,8,0" MinWidth="60"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+            <!--
+                Tippen sucht (entprellt, ab drei Zeichen), die Treffer stehen in der
+                Aufklappliste dieses Feldes.
+
+                Text und SelectedItem sind ZWEI Bindungen auf ZWEI Eigenschaften, und das ist
+                der Kern: Query ist Text, Picked ist eine Wahl. Waere beides dieselbe
+                Eigenschaft, gaelte ein halb getippter Name als gewaehlte Firma - und im Feld
+                waere der Unterschied nicht zu sehen.
+
+                IsTextSearchEnabled="False": Sonst vervollstaendigt WPF die Eingabe aus der
+                Liste, markiert dabei eine Zeile und macht damit genau das, was hier nicht
+                passieren darf - aus Getipptem eine Auswahl. Nebenbei schluckt es die Eingabe,
+                weil es den getippten Rest ueberschreibt.
+
+                StaysOpenOnEdit="True": Ohne das faellt die Aufklappliste beim naechsten
+                Tastendruck zu, und die Treffer waeren nur zu sehen, solange niemand tippt.
+
+                TextSearch.TextPath="Name": Was nach der Wahl IM Feld steht. Ohne die Angabe
+                nimmt WPF ToString() der Zeile - das ist "Name (Kundennummer · Ort)" und damit
+                ein Text, den niemand als Suchbegriff weitertippen kann.
+            -->
+            <ComboBox Grid.Column="1" VerticalAlignment="Center"
+                      HorizontalAlignment="Stretch"
+                      IsEditable="True"
+                      IsTextSearchEnabled="False"
+                      StaysOpenOnEdit="True"
+                      TextSearch.TextPath="Name"
+                      MaxDropDownHeight="320"
+                      ItemsSource="{Binding Companies}"
+                      SelectedItem="{Binding Picked, Mode=TwoWay}"
+                      IsDropDownOpen="{Binding IsDropDownOpen, Mode=TwoWay}"
+                      Text="{Binding Query, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      ToolTip="Firmennamen eintippen — gesucht wird ab drei Zeichen. Der Begriff darf mitten im Namen stehen: „roN“ findet „ProNet“. Gewählt wird aus der Liste; getippter Text allein ist keine Firma.">
+
+                <!-- Gesperrt heisst nicht waehlbar, und zwar schon hier: Eine abgeschaltete
+                     Zeile nimmt weder den Klick noch den Tastenweg an. Sie bleibt trotzdem
+                     sichtbar - sie wegzulassen hiesse, auf die Suche nach einer gesperrten
+                     Firma "gibt es nicht" zu antworten.
+
+                     Das ist die zweite Sperre und nicht die einzige: Die erste sitzt im Setzer
+                     von Selected und greift auch dann, wenn diese Vorlage umgebaut wird.
+
+                     ShowOnDisabled, weil die Kurzinfo gerade an der gesperrten Zeile gebraucht
+                     wird: Dort steht, WARUM sie nicht geht. -->
+                <ComboBox.ItemContainerStyle>
+                    <Style TargetType="ComboBoxItem" BasedOn="{StaticResource {x:Type ComboBoxItem}}">
+                        <Setter Property="IsEnabled" Value="{Binding IsSelectable}" />
+                        <Setter Property="ToolTip" Value="{Binding Details}" />
+                        <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                        <Setter Property="Padding" Value="10,6" />
+                    </Style>
+                </ComboBox.ItemContainerStyle>
+
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <!-- Der Streifen zeigt die GEWAEHLTE Zeile, und das ist nicht
+                                 dasselbe wie die markierte: Bei jedem Zeilentausch verliert das
+                                 Feld seine Markierung, die gewaehlte Firma aber nicht. Ohne den
+                                 Streifen waere in der Liste nicht mehr zu sehen, welche es
+                                 ist. -->
+                            <Border Grid.Column="0" Width="3" Margin="0,0,10,0"
+                                    CornerRadius="2"
+                                    Background="{DynamicResource StateRunningBrush}"
+                                    Visibility="{Binding IsChosen,
+                                                         Converter={StaticResource BoolToVis}}" />
+
+                            <StackPanel Grid.Column="1">
+                                <ui:TextBlock Text="{Binding Name}" TextWrapping="Wrap"
+                                              FontWeight="SemiBold" />
+
+                                <!-- Kundennummer und Ort sind hier kein Beiwerk: Gemessen stand
+                                     derselbe Firmenname fuenfmal mit verschiedenen Kennungen in
+                                     EINER Trefferliste. Ohne diese Zeile ist die Auswahl ein
+                                     Ratespiel - und im Feld steht danach nur noch der Name. -->
+                                <StackPanel Orientation="Horizontal" Margin="0,2,0,0"
+                                            design:Gap.Size="6">
+                                    <ui:TextBlock Text="{Binding CustomerNumber}" FontSize="12"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <ui:TextBlock Text="·" FontSize="12"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                    <ui:TextBlock Text="{Binding Place}" FontSize="12"
+                                                  TextWrapping="Wrap"
+                                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                </StackPanel>
+                            </StackPanel>
+
+                            <!-- inaktiv bleibt gekennzeichnet und waehlbar; gesperrt traegt
+                                 dieselbe Pille und nimmt den Klick nicht an. -->
+                            <Border Grid.Column="2" Style="{StaticResource StatePill}"
+                                    Margin="8,0,0,0" VerticalAlignment="Center"
+                                    Visibility="{Binding HasStatusNote,
+                                                         Converter={StaticResource BoolToVis}}">
+                                <TextBlock Text="{Binding StatusTag}" FontSize="11" />
+                            </Border>
+                        </Grid>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+        </Grid>
+
+        <!-- Die Aussage der Auswahl. Alles, was hier stehen kann, steht schon fertig im
+             Ansichtsmodell; diese Ansicht formuliert nichts.
+
+             Nur zu sehen, wenn es etwas zu MELDEN gibt: zu viele Treffer, ein Netzfehler,
+             nachweislich keine Firma, oder dass gar nicht gefragt wurde. Eine vollzaehlige
+             Trefferliste meldet nichts - sie steht ja in der Aufklappliste.
+
+             Rahmen und Farbe kommen ausschliesslich aus dem Stil und nicht aus Attributen am
+             Element: Ein am Element gesetzter Wert schlaegt jeden Setter eines Ausloesers, und
+             die Hervorhebung des unsicheren Falls liefe still ins Leere. -->
+        <Border Margin="68,8,0,0"
+                Visibility="{Binding HasMessage, Converter={StaticResource BoolToVis}}">
+            <Border.Style>
+                <Style TargetType="Border">
+                    <Setter Property="CornerRadius" Value="6" />
+                    <Setter Property="Padding" Value="12,8" />
+                    <Setter Property="BorderThickness" Value="1" />
+                    <Setter Property="Background" Value="{DynamicResource ControlFillColorDefaultBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                    <Style.Triggers>
+                        <!-- Nicht ermittelt oder gescheitert: Das ist der Fall, in dem eine
+                             leere Liste NICHTS beweist. Er bekommt einen eigenen Rand, damit
+                             ihn niemand fuer "nichts gefunden" haelt. -->
+                        <DataTrigger Binding="{Binding IsUncertain}" Value="True">
+                            <Setter Property="BorderThickness" Value="2" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource StatePendingBrush}" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Border.Style>
+
+            <StackPanel>
+                <ui:TextBlock Text="{Binding Message}" TextWrapping="Wrap" />
+
+                <!-- Der Ausweg aus einem Netzaussetzer, und nur dann zu sehen. Die Eingabetaste
+                     kann ihn nicht ersetzen: Im Auswahlfeld uebernimmt sie die markierte Zeile.
+                     Eine dauerhaft stehende Schaltflaeche waere dagegen genau das
+                     Bedienelement, das hier wegsollte. -->
+                <ui:Button Margin="0,8,0,0" Appearance="Secondary"
+                           Content="Noch einmal versuchen"
+                           Visibility="{Binding IsUncertain, Converter={StaticResource BoolToVis}}"
+                           Command="{Binding SearchCommand}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Was gewaehlt ist, steht ausgeschrieben da. Im Feld steht nur der Name, und der ist
+             gemessen nicht eindeutig - Kundennummer und Ort gehoeren dazu, sonst ist beim
+             Buchen nicht mehr zu erkennen, welche der fuenf gleichnamigen es war. -->
+        <Border Style="{StaticResource CardBorder}" Margin="68,8,0,0"
+                Visibility="{Binding HasSelection, Converter={StaticResource BoolToVis}}">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal" design:Gap.Size="6">
+                    <ui:TextBlock Text="Gebucht wird auf:" FontSize="12"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Text="{Binding Selected.CustomerNumber}" FontSize="12"
+                                  FontWeight="SemiBold" />
+                    <ui:TextBlock Text="·" FontSize="12"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Text="{Binding Selected.Place}" FontSize="12"
+                                  TextWrapping="Wrap" />
+                </StackPanel>
+
+                <ui:TextBlock Text="{Binding Selected.StatusNote}" FontSize="12"
+                              TextWrapping="Wrap" Margin="0,4,0,0"
+                              Visibility="{Binding Selected.HasStatusNote,
+                                                   Converter={StaticResource BoolToVis}}"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+            </StackPanel>
+        </Border>
+
+        <!-- Ein Klick, der nichts tut, sieht aus wie ein Fehler des Werkzeugs. Hier steht,
+             dass es eine Regel war. -->
+        <Border Margin="68,8,0,0" CornerRadius="6" Padding="12,8" BorderThickness="2"
+                Background="{DynamicResource ControlFillColorDefaultBrush}"
+                BorderBrush="{DynamicResource StateFailedBrush}"
+                Visibility="{Binding HasSelectionProblem,
+                                     Converter={StaticResource BoolToVis}}">
+            <ui:TextBlock Text="{Binding SelectionProblem}" TextWrapping="Wrap" />
+        </Border>
+    </StackPanel>
+</UserControl>

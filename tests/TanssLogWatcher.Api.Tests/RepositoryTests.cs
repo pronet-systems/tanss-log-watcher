@@ -117,7 +117,10 @@ public sealed class RepositoryTests
         Assert.Equal(42, body.RootElement.GetProperty("employeeId").GetInt32());
         Assert.Equal(SessionId, body.RootElement.GetProperty("remoteMaintenanceId").GetString());
         Assert.Equal(0, body.RootElement.GetProperty("ticketId").GetInt32());
-        Assert.Equal(string.Empty, body.RootElement.GetProperty("deviceId").GetString());
+        // Ohne Geraetekennung gehoert das Feld nicht in den Rumpf: Ein leeres "deviceId"
+        // ginge sonst bei JEDER Fernwartung hinaus und luede zu einer Zuordnung auf die
+        // leere Zeichenkette ein. Bis heute war genau das der Fall.
+        Assert.False(body.RootElement.TryGetProperty("deviceId", out _));
     }
 
     [Fact]

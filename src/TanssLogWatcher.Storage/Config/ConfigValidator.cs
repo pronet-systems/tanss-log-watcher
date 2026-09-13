@@ -61,6 +61,7 @@ public static class ConfigValidator
         CheckProxy(config.Proxy, problems);
         CheckLogging(config.Logging, problems);
         CheckRecording(config.Recording, problems);
+        CheckHistory(config.History, problems);
         return problems;
     }
 
@@ -319,6 +320,20 @@ public static class ConfigValidator
     /// <param name="problems">Die Sammelliste der Beanstandungen.</param>
     private static void CheckRecording(RecordingSection recording, List<string> problems)
     {
+        // recording.segment_minutes wird weder geprueft noch bemaengelt noch gemeldet: Der
+        // Schluessel bewirkt nichts und faellt beim naechsten Speichern weg. Eine Beanstandung
+        // hielte das ganze Werkzeug an - fuer eine Einstellung, die ohnehin ins Leere geht.
+
+        if (!string.IsNullOrWhiteSpace(recording.Scope)
+            && !RecordingSection.Scopes.Contains(recording.Scope, StringComparer.Ordinal))
+        {
+            problems.Add(
+                $"recording.scope: „{recording.Scope}“ ist kein gültiger Aufnahmebereich. "
+                + $"Erlaubt sind {string.Join(", ", RecordingSection.Scopes)} — „windows“ nimmt "
+                + "nur die Fenster der Sitzung auf, „screen“ den ganzen Bildschirm, auf dem sie "
+                + "liegt.");
+        }
+
         RequireRange(problems, "recording.retention_days", recording.RetentionDays, 1, 3650,
             "0 löschte die Aufzeichnung noch am selben Tag und machte sie damit wertlos; "
             + "zehn Jahre sind die äusserste Grenze, oberhalb derer keine Aufbewahrung mehr "
@@ -333,11 +348,6 @@ public static class ConfigValidator
             "Ohne Herzschlag bekäme ein stehender Bildschirm keine Zeitachse, und der "
             + "Abspieler spränge über die Stille hinweg. Länger als eine Minute wäre keine "
             + "Zeitachse mehr, sondern eine Andeutung.");
-
-        RequireRange(problems, "recording.segment_minutes", recording.SegmentMinutes, 1, 120,
-            "Abschnitte begrenzen den Schaden eines Absturzes auf den letzten angefangenen. "
-            + "Zwei Stunden in einer Datei sind zwei Stunden, die bei einem Fehler ganz "
-            + "verloren sind.");
 
         RequireRange(problems, "recording.minimum_free_megabytes",
             recording.MinimumFreeMegabytes, 128, 1_048_576,
@@ -379,6 +389,50 @@ public static class ConfigValidator
                 $"recording.directory: „{recording.Directory}“ ist kein vollständiger Pfad. "
                 + "Ein relativer Pfad zeigte je nach Startverzeichnis woandershin — und "
                 + "gelöscht wird später ausschliesslich unterhalb dieses Ordners.");
+        }
+    }
+
+    /// <summary>
+    /// Prüft den Abschnitt zum Verlauf.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Was hier bewusst nicht geprüft wird:</b> ob <c>history.retention_days</c> über
+    /// <c>recording.retention_days</c> liegt. Eine solche Regel hielte das ganze Werkzeug an,
+    /// bis der Benutzer die Aufbewahrung personenbezogener Daten <b>verlängert</b> — ein
+    /// Startverbot als Hebel zu längerer Speicherung. Stattdessen sagt
+    /// <see cref="HistorySection.RetentionDays"/> ausdrücklich „frühestens“: Die Verlaufszeile
+    /// bleibt stehen, solange noch eine Aufzeichnung zu ihr liegt, und der Hinweis
+    /// „Aufzeichnung gelöscht“ kommt damit auch dann zustande, wenn die Zahlen ungünstig
+    /// stehen.</para>
+    ///
+    /// <para>Beanstandet wird nur, was <b>in sich</b> widersprüchlich ist: eine
+    /// Schwärzungsfrist jenseits der Aufbewahrungsfrist käme nie zum Zuge.</para>
+    /// </remarks>
+    /// <param name="history">Der Abschnitt.</param>
+    /// <param name="problems">Die Sammelliste der Beanstandungen.</param>
+    private static void CheckHistory(HistorySection history, List<string> problems)
+    {
+        // history.redact_destination wird nicht geprueft: null ist der Normalfall und heisst
+        // "es gilt logging.redact_window_titles". Eine Beanstandung gaebe es hier nur fuer
+        // einen Wert, den JSON ohnehin nicht liefern kann.
+
+        RequireRange(problems, "history.retention_days", history.RetentionDays, 1, 3650,
+            "0 löschte den Verlauf sofort und nähme der Seite „Verlauf“ ihren Gegenstand; "
+            + "zehn Jahre sind die äusserste Grenze, oberhalb derer keine Aufbewahrung von "
+            + "Gegenstellen mehr zu rechtfertigen wäre.");
+
+        RequireRange(problems, "history.plain_text_days", history.PlainTextDays, 0, 3650,
+            "Die Zahl sagt, wie lange die Gegenstelle im Klartext steht. 0 ist zulässig und "
+            + "heisst: beim nächsten Aufräumtakt schwärzen.");
+
+        if (history.PlainTextDays > history.RetentionDays)
+        {
+            string plain = history.PlainTextDays.ToString(CultureInfo.InvariantCulture);
+            string keep = history.RetentionDays.ToString(CultureInfo.InvariantCulture);
+            problems.Add(
+                $"history.plain_text_days ({plain}) ist grösser als history.retention_days "
+                + $"({keep}). Der Klartext soll vor der Zeile verschwinden, nicht nach ihr — "
+                + "sonst ist die Schwärzung eine Zusage, die nie zum Zuge kommt.");
         }
     }
 

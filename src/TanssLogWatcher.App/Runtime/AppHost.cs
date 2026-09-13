@@ -35,6 +35,7 @@ public sealed class AppHost : IRuntimeContext, IDisposable
     private readonly IConfigStore _store;
     private readonly ILoggerFactory _loggers;
     private readonly bool _ownsLoggers;
+    private readonly string? _statePath;
     private readonly object _gate = new();
     private RuntimeComposition? _composition;
     // Bewusst die konkrete Liste: Sie entsteht bei jedem Laden neu und wird danach nur noch
@@ -54,12 +55,20 @@ public sealed class AppHost : IRuntimeContext, IDisposable
     /// <param name="loggers">Die Protokollfabrik; ohne Angabe eine eigene, die mit freigegeben wird.</param>
     /// <param name="notifier">Die Umlenkung auf den Strang der Oberfläche.</param>
     /// <param name="clock">Die Uhr; für Tests einsetzbar.</param>
+    /// <param name="statePath">
+    /// Abweichender Pfad der Zustandsdatenbank. Nur für Tests gedacht — wie der gleichnamige
+    /// Zugang in <see cref="RuntimeComposition"/>, an den er durchgereicht wird. Ohne Angabe
+    /// gilt der vorgesehene Ort im lokalen Profil. Ohne diesen Zugang schriebe jeder Test,
+    /// der den Host baut, in die echte Zustandsdatenbank des angemeldeten Benutzers.
+    /// </param>
     public AppHost(IConfigStore? store = null, ILoggerFactory? loggers = null,
-                   RuntimeNotifier? notifier = null, TimeProvider? clock = null)
+                   RuntimeNotifier? notifier = null, TimeProvider? clock = null,
+                   string? statePath = null)
     {
         _store = store ?? ConfigStore.Default();
         _ownsLoggers = loggers is null;
         _loggers = loggers ?? CreateLoggers();
+        _statePath = statePath;
 
         Notifier = notifier ?? new RuntimeNotifier();
         Clock = clock ?? TimeProvider.System;
@@ -389,7 +398,7 @@ public sealed class AppHost : IRuntimeContext, IDisposable
         RuntimeComposition composition;
         try
         {
-            composition = new RuntimeComposition(config, _loggers);
+            composition = new RuntimeComposition(config, _loggers, _statePath);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -422,7 +431,7 @@ public sealed class AppHost : IRuntimeContext, IDisposable
             // und war auf dem zweiten schlicht falsch - der Benutzer wartete dann auf ein
             // Ergebnis, das nie kam.
             Advice = "Ob TANSS antwortet, sagt die Schaltfläche „Verbindung prüfen“ unter "
-                + "„Verbindung“.",
+                + "„Einstellungen“.",
             ConfigPath = _store.Path,
             Warnings = _warnings,
             Since = Clock.GetLocalNow(),
@@ -458,6 +467,14 @@ public sealed class AppHost : IRuntimeContext, IDisposable
     private static List<RuntimeWarning> CollectWarnings(AppConfig config)
     {
         List<RuntimeWarning> warnings = [];
+
+        // Auf recording.segment_minutes wird ABSICHTLICH nicht mehr geprueft. Der Schluessel
+        // bewirkt seit dem Umbau auf fortlaufende Aufzeichnung nichts; er wird gelesen, damit
+        // eine bestehende Datei weiter laedt, und beim naechsten Speichern faellt er weg.
+        //
+        // Eine Warnung dafuer war der Fehler: Sie setzte die Plakette dauerhaft auf "verbunden,
+        // mit Warnung" fuer etwas, das niemanden etwas angeht und wozu es nichts zu tun gab.
+        // Eine Warnung, auf die keine Handlung folgt, stumpft alle uebrigen ab.
 
         if (!config.Tanss.VerifyTls)
         {

@@ -42,22 +42,18 @@ public sealed class RecordingPathsTests
                         StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData(1, "teil-01.mp4")]
-    [InlineData(9, "teil-09.mp4")]
-    [InlineData(10, "teil-10.mp4")]
-    [InlineData(100, "teil-100.mp4")]
-    public void Die_Abschnitte_sind_durchnummeriert(int segment, string expected)
-    {
-        Assert.Equal(Path.Combine("2026-09-13", "1430-a1b2c3d4", expected),
-                     RecordingPaths.SegmentFor(Start, "a1b2c3d4", segment));
-    }
-
+    /// <summary>
+    /// Eine Sitzung, eine Datei — und sie heisst wie die Begleitdatei daneben. Früher hiessen
+    /// sie <c>teil-01.mp4</c> und so fort; seit es keine Teile mehr gibt, wäre das eine Lüge.
+    /// </summary>
     [Fact]
-    public void Es_gibt_keinen_nullten_Abschnitt()
+    public void Die_Videodatei_heisst_wie_die_Begleitdatei()
     {
-        _ = Assert.Throws<ArgumentOutOfRangeException>(
-            () => RecordingPaths.SegmentFor(Start, "a1b2c3d4", 0));
+        Assert.Equal(Path.Combine("2026-09-13", "1430-a1b2c3d4", "sitzung.mp4"),
+                     RecordingPaths.VideoFor(Start, "a1b2c3d4"));
+
+        Assert.Equal(Path.GetFileNameWithoutExtension(RecordingPaths.ManifestName),
+                     Path.GetFileNameWithoutExtension(RecordingPaths.VideoName));
     }
 
     [Fact]

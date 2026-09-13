@@ -32,6 +32,18 @@ public sealed record SessionSnapshot
     /// <summary>Die Gegenstelle — Rechnername, Adresse oder Kennung.</summary>
     public required string Destination { get; init; }
 
+    /// <summary>
+    /// Der identifizierende Anteil des Ziels.
+    /// </summary>
+    /// <remarks>
+    /// Meist derselbe Text wie <see cref="Destination"/>, aber nicht immer: Bei den Profilen,
+    /// die über die offene Verbindung auflösen, ist die Gegenstelle für Menschen aufbereitet
+    /// und der Bezeichner die nackte Adresse. Für die Gerätekennung, die nach TANSS geht, zählt
+    /// ausschliesslich dieser Wert — <see cref="Destination"/> wird für die Anzeige gekürzt und
+    /// taugt deshalb nicht als Schlüssel.
+    /// </remarks>
+    public string IdentityKey { get; init; } = string.Empty;
+
     /// <summary>Prozesskennung der beobachteten Anwendung.</summary>
     public int ProcessId { get; init; }
 
@@ -98,6 +110,26 @@ public enum SessionDisposition
 
     /// <summary>Das Einreihen selbst ist fehlgeschlagen. Der Grund steht dabei.</summary>
     Failed,
+
+    /// <summary>
+    /// Der Abschlussdialog hält sie: Sie steht <b>nirgends</b> — und genau das ist der
+    /// Regelfall beim Sitzungsende.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Ausgang, den es vorher nicht gab.</b> Bis hierher wurde jede beendete
+    /// Sitzung zuerst eingereiht und der Dialog ergänzte danach die Zeile. Gebucht wird jetzt
+    /// direkt aus dem Dialog heraus; die Warteschlange ist allein der Fehlerpfad. Zwischen dem
+    /// Ende der Sitzung und der Antwort im Dialog gibt es deshalb keine Warteschlangenzeile —
+    /// und keiner der fünf übrigen Werte sagt das, ohne etwas zu behaupten, was nicht
+    /// zutrifft.</para>
+    /// <para><b>Verloren ist sie trotzdem nicht.</b> Die laufende Sitzung bleibt bis zur
+    /// Antwort in <c>open_sessions</c> vermerkt; stürzt das Werkzeug ab, während der Dialog
+    /// offen steht, holt die Wiederherstellung beim nächsten Start sie von dort und legt sie
+    /// erneut vor.</para>
+    /// <para>Für die Anzeige heisst dieser Wert: Der Dialog geht auf und ist vollständig zu
+    /// beantworten.</para>
+    /// </remarks>
+    Held,
 }
 
 /// <summary>Eine abgeschlossene Sitzung samt dem, was mit ihr geschehen ist.</summary>
@@ -209,8 +241,9 @@ public sealed record UploadRunResult
     /// Wie viele zurückgehaltene Einträge auf Befehl vorgezogen wurden.
     /// </summary>
     /// <remarks>
-    /// Nur bei „Jetzt senden“ von Hand. Der Takt zieht nichts vor — die Schonfrist ist genau
-    /// dafür da, dass der Abschlussdialog in Ruhe fertig geschrieben werden kann.
+    /// Nur bei „Jetzt senden“ von Hand — das ist der Rückstau nach einem Fehlversuch <b>und</b>
+    /// die Zeile, die noch auf die Antwort des Abschlussdialogs wartet. Der Takt zieht nichts
+    /// vor: Eine Sitzung geht nur hinaus, wenn jemand es sagt.
     /// </remarks>
     public int Released { get; init; }
 

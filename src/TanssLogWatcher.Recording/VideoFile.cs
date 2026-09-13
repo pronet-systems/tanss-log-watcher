@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using Windows.Win32;
+using Windows.Win32.Foundation;
 using Windows.Win32.Media.MediaFoundation;
 
 namespace TanssLogWatcher.Recording;
@@ -60,17 +61,49 @@ public sealed class VideoFile : IDisposable
     private readonly int _height;
     private readonly int _stride;
 
+    /// <summary>Die kleinste Länge eines Bruchstücks, in 100-ns-Einheiten: eine Sekunde.</summary>
+    /// <remarks>
+    /// Gemessen an 200 Bildern 1920×1080 bei 4 B/s: Die Zahl der Bruchstücke folgt der Dauer
+    /// genau (0,5 s → 100 Stück, 1 s → 50, 2 s → 25, 4 s → 13), der Verlust bei einem Absturz
+    /// aber kaum — 15, 17, 17 und 24 von 200 Bildern. Der Verlust steckt also fast ganz im
+    /// Rückstau des H.264-Kodierers und nicht in der Bruchstücklänge. Kürzer als eine Sekunde
+    /// bringt deshalb nichts mehr und verdoppelt nur die Verwaltungsdaten.
+    /// </remarks>
+    private const ulong MinimumFragment = 10_000_000;
+
     private IMFSinkWriter? _writer;
+    private IMFMediaSink? _sink;
+    private IMFByteStream? _byteStream;
     private bool _completed;
 
-    private VideoFile(IMFSinkWriter writer, uint streamIndex, int width, int height)
+    private VideoFile(IMFSinkWriter writer, IMFMediaSink? sink, IMFByteStream? byteStream,
+                      uint streamIndex, int width, int height)
     {
         _writer = writer;
+        _sink = sink;
+        _byteStream = byteStream;
         _streamIndex = streamIndex;
         _width = width;
         _height = height;
         _stride = width * 4;
     }
+
+    /// <summary>
+    /// Wird gerufen, wenn der bruchstückweise Weg versagt hat und zurückgefallen wird.
+    /// </summary>
+    /// <remarks>
+    /// Kein Fehler, sondern eine Meldung fürs Protokoll: Die Aufzeichnung läuft weiter, sie
+    /// überlebt nur einen Absturz nicht mehr. Wer das nicht protokolliert, sucht später
+    /// vergeblich, warum ausgerechnet auf diesem Rechner eine Datei ganz verloren ging.
+    /// </remarks>
+    public static Action<Exception>? Fallback { get; set; }
+
+    /// <summary>Ob die Datei bruchstückweise geschrieben wird.</summary>
+    /// <remarks>
+    /// Gehört in die Begleitdatei der Aufzeichnung: Wer später eine abgebrochene Datei in der
+    /// Hand hält, muss wissen, ob er Bruchstücke erwarten darf.
+    /// </remarks>
+    public bool Fragmented => _sink is not null;
 
     /// <summary>Die Breite der Datei in Bildpunkten.</summary>
     public int Width => _width;
@@ -111,31 +144,48 @@ public sealed class VideoFile : IDisposable
 
         MediaFoundation.Start();
 
-        IMFSinkWriter writer;
-
         try
         {
-            PInvoke.MFCreateSinkWriterFromURL(path, null, null, out writer);
+            try
+            {
+                // Die Pruefung ist keine Foermlichkeit: MFCreateFMPEG4MediaSink traegt in den
+                // Metadaten windows8.0, VideoFile traegt windows6.1. Ohne diese Wache meldet
+                // CA1416 - und unter TreatWarningsAsErrors steht der Bau. Gemessen: (6, 2)
+                // reicht dem Analysator NICHT, (8) raeumt die Meldung weg.
+                if (!OperatingSystem.IsWindowsVersionAtLeast(8))
+                {
+                    return OpenWhole(path, width, height, framesPerSecond, quality);
+                }
+
+                return OpenFragmented(path, width, height, framesPerSecond, quality);
+            }
+            catch (Exception ex) when (ex is not RecordingException
+                                       and not OutOfMemoryException)
+            {
+                // Hausregel 5, und breit gefangen mit Absicht. CsWin32 uebersetzt HRESULTs
+                // ueber Marshal.ThrowExceptionForHR, und das liefert je nach Wert eine andere
+                // CLR-Art: E_FAIL und die MF_E_* werden zur COMException, E_NOINTERFACE zur
+                // InvalidCastException - aber E_INVALIDARG zur ArgumentException, E_NOTIMPL zur
+                // NotImplementedException und E_ACCESSDENIED zur UnauthorizedAccessException.
+                // Gemessen mit eingespritzten HRESULTs: Ein Filter auf COMException und
+                // InvalidCastException laesst genau die drei letzten durch, und dann kostet ein
+                // zickiger Kodierer die ganze Aufzeichnung statt nur die Absturzsicherung.
+                // Ausgenommen bleiben die RecordingException - die meldet ein Dateiproblem, das
+                // der Weg am Stueck genauso haette - und der Speichermangel, bei dem ein
+                // zweiter Versuch nichts besser macht.
+                Fallback?.Invoke(ex);
+                return OpenWhole(path, width, height, framesPerSecond, quality);
+            }
+        }
+        catch (RecordingException)
+        {
+            MediaFoundation.Stop();
+            throw;
         }
         catch (Exception ex)
         {
             MediaFoundation.Stop();
-            throw new RecordingException(
-                $"Media Foundation konnte „{path}“ nicht zum Schreiben anlegen. Üblichste "
-                + "Ursache: Der Ordner gibt es nicht oder er ist schreibgeschützt.", ex);
-        }
-
-        try
-        {
-            uint stream = AddStream(writer, width, height, framesPerSecond, quality);
-            writer.BeginWriting();
-            return new VideoFile(writer, stream, width, height);
-        }
-        catch
-        {
-            _ = Marshal.ReleaseComObject(writer);
-            MediaFoundation.Stop();
-            throw;
+            throw new RecordingException(NotWritable(path), ex);
         }
     }
 
@@ -237,14 +287,190 @@ public sealed class VideoFile : IDisposable
         _ = Marshal.ReleaseComObject(_writer);
         _writer = null;
 
+        // Der Schreiber aus MFCreateSinkWriterFromURL nimmt seine Senke mit, der aus
+        // MFCreateSinkWriterFromMediaSink nicht. Wer hier nicht selbst herunterfaehrt, laesst
+        // die Datei offen, und die naechste Aufzeichnung findet sie gesperrt.
+        if (_sink is not null)
+        {
+            // Shutdown schliesst den Byte-Strom gleich mit. Ein Close danach meldet gemessen
+            // E_INVALIDARG - und CsWin32 macht daraus eine ArgumentException, keine
+            // COMException. Also gar nicht erst schliessen, nur loslassen.
+            Shutdown(_sink);
+            _ = Marshal.ReleaseComObject(_sink);
+            _sink = null;
+        }
+
+        if (_byteStream is not null)
+        {
+            _ = Marshal.ReleaseComObject(_byteStream);
+            _byteStream = null;
+        }
+
         MediaFoundation.Stop();
     }
 
-    private static unsafe uint AddStream(IMFSinkWriter writer, int width, int height,
-                                         int framesPerSecond, int quality)
+    private static string NotWritable(string path) =>
+        $"Media Foundation konnte „{path}“ nicht zum Schreiben anlegen. Üblichste Ursache: "
+        + "Der Ordner gibt es nicht oder er ist schreibgeschützt.";
+
+    // Aufraeumen darf nie scheitern (Hausregel 5). CsWin32 uebersetzt die HRESULTs dieser
+    // Aufrufe in verschiedene CLR-Arten - E_INVALIDARG wird zur ArgumentException, nicht zur
+    // COMException -, deshalb wird hier breit gefangen und nichts weitergereicht.
+    private static void Shutdown(IMFMediaSink sink)
     {
-        // Die Ausgabe: H.264, High Profile. Die Bitrate ist eine Vorgabe und keine Zusage -
-        // die Ratensteuerung unten fuehrt ueber die Qualitaet, nicht ueber die Rate.
+        try
+        {
+            sink.Shutdown();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private static void Close(IMFByteStream stream)
+    {
+        try
+        {
+            stream.Close();
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    /// <summary>
+    /// Legt die Datei bruchstückweise an: eigener Byte-Strom, fragmentierende Senke, Schreiber
+    /// darauf.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Wofür das gut ist.</b> Der Weg am Stück schreibt den Index (<c>moov</c>) erst
+    /// beim Abschluss. Gemessen an 200 Bildern 1920×1080 bei 4 B/s, Prozess nach dem letzten
+    /// Bild hart getötet: Die Datei des ganzen Weges trug 21,6 MB Nutzdaten, aber keinen
+    /// <c>moov</c>-Block — Windows öffnete sie gar nicht erst (0xC00D36C4), 0 von 200 Bildern.
+    /// Die bruchstückweise Datei trug Kopf und 46 vollständige <c>moof</c>/<c>mdat</c>-Paare;
+    /// ein <c>IMFSourceReader</c> las 183 von 200 Bildern daraus. <b>Ein Absturz kostet also
+    /// 17 Bilder statt aller 200.</b></para>
+    /// <para><b>Was es kostet.</b> Bei gleichem Inhalt 23.219.569 statt 23.214.070 Byte, also
+    /// <b>+0,0237 %</b>. So wenig, weil die 50 <c>moof</c>-Blöcke zwar hinzukommen, der
+    /// <c>moov</c>-Block dafür von 3.075 auf 662 Byte schrumpft — die Abtastwerttabellen
+    /// entfallen dort.</para>
+    /// <para>Die Senke bringt ihren Datenstrom schon mit; er hat fest die Nummer 0, und
+    /// <c>AddStream</c> wird hier deshalb nicht gerufen.</para>
+    /// </remarks>
+    [SupportedOSPlatform("windows8.0")]
+    private static VideoFile OpenFragmented(string path, int width, int height,
+                                            int framesPerSecond, int quality)
+    {
+        HRESULT opened = PInvoke.MFCreateFile(MF_FILE_ACCESSMODE.MF_ACCESSMODE_WRITE,
+                                              MF_FILE_OPENMODE.MF_OPENMODE_DELETE_IF_EXIST,
+                                              MF_FILE_FLAGS.MF_FILEFLAGS_NONE,
+                                              path,
+                                              out IMFByteStream byteStream);
+
+        // Eine RecordingException, keine COMException: Ein Ordner, den es nicht gibt, ist kein
+        // Grund, es mit dem ganzen Weg noch einmal zu versuchen - der scheiterte genauso, und
+        // der Rueckfall stuende faelschlich im Protokoll.
+        if (opened.Failed)
+        {
+            throw new RecordingException(NotWritable(path),
+                                         Marshal.GetExceptionForHR(opened.Value)!);
+        }
+
+        IMFMediaSink? sink = null;
+        IMFSinkWriter? writer = null;
+
+        try
+        {
+            IMFMediaType output = VideoType(width, height, framesPerSecond);
+
+            try
+            {
+                PInvoke.MFCreateFMPEG4MediaSink(byteStream, output, null, out sink)
+                       .ThrowOnFailure();
+            }
+            finally
+            {
+                _ = Marshal.ReleaseComObject(output);
+            }
+
+            // Das einzige Attribut, das hier gesetzt wird - und es muss vor BeginWriting
+            // stehen. Gemessen: Die Zahl der moof-Bloecke folgt diesem Wert genau.
+            ((IMFAttributes)sink).SetUINT64(PInvoke.MF_MPEG4SINK_MIN_FRAGMENT_DURATION,
+                                            MinimumFragment);
+
+            PInvoke.MFCreateSinkWriterFromMediaSink(sink, null, out writer).ThrowOnFailure();
+
+            SetInput(writer, 0, width, height, framesPerSecond, quality);
+            writer.BeginWriting();
+
+            return new VideoFile(writer, sink, byteStream, 0, width, height);
+        }
+        catch
+        {
+            if (writer is not null)
+            {
+                _ = Marshal.ReleaseComObject(writer);
+            }
+
+            if (sink is not null)
+            {
+                Shutdown(sink);
+                _ = Marshal.ReleaseComObject(sink);
+            }
+            else
+            {
+                // Nur wenn es noch keine Senke gibt, die den Strom mitnehmen koennte.
+                Close(byteStream);
+            }
+
+            _ = Marshal.ReleaseComObject(byteStream);
+            throw;
+        }
+    }
+
+    /// <summary>Legt die Datei am Stück an — der Weg von früher, jetzt der Rückfall.</summary>
+    private static VideoFile OpenWhole(string path, int width, int height,
+                                       int framesPerSecond, int quality)
+    {
+        PInvoke.MFCreateSinkWriterFromURL(path, null, null, out IMFSinkWriter writer)
+               .ThrowOnFailure();
+
+        try
+        {
+            uint stream = AddStream(writer, width, height, framesPerSecond, quality);
+            writer.BeginWriting();
+            return new VideoFile(writer, null, null, stream, width, height);
+        }
+        catch
+        {
+            _ = Marshal.ReleaseComObject(writer);
+            throw;
+        }
+    }
+
+    private static uint AddStream(IMFSinkWriter writer, int width, int height,
+                                  int framesPerSecond, int quality)
+    {
+        IMFMediaType output = VideoType(width, height, framesPerSecond);
+
+        try
+        {
+            writer.AddStream(output, out uint stream);
+            SetInput(writer, stream, width, height, framesPerSecond, quality);
+            return stream;
+        }
+        finally
+        {
+            _ = Marshal.ReleaseComObject(output);
+        }
+    }
+
+    // Die Ausgabe: H.264, High Profile. Die Bitrate ist eine Vorgabe und keine Zusage -
+    // die Ratensteuerung in SetInput fuehrt ueber die Qualitaet, nicht ueber die Rate.
+    // Getrennt von AddStream, weil MFCreateFMPEG4MediaSink diesen Typ schon beim Anlegen
+    // verlangt, lange bevor es einen Schreiber gibt.
+    private static IMFMediaType VideoType(int width, int height, int framesPerSecond)
+    {
         PInvoke.MFCreateMediaType(out IMFMediaType output);
 
         try
@@ -258,55 +484,56 @@ public sealed class VideoFile : IDisposable
             SetSize(output, PInvoke.MF_MT_FRAME_SIZE, (uint)width, (uint)height);
             SetSize(output, PInvoke.MF_MT_FRAME_RATE, (uint)framesPerSecond, 1);
             SetSize(output, PInvoke.MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+            return output;
+        }
+        catch
+        {
+            _ = Marshal.ReleaseComObject(output);
+            throw;
+        }
+    }
 
-            writer.AddStream(output, out uint stream);
+    // Die Eingabe: BGRA, von oben nach unten. Der positive Streifenabstand ist noetig - ohne
+    // ihn nimmt Media Foundation die Zeilen von unten nach oben und das Bild steht auf dem
+    // Kopf. HIER, und nur hier, wirken auch die Kodiereinstellungen: Ueber
+    // GetServiceForStream(ICodecAPI) melden dieselben Werte Erfolg und tun nichts -
+    // nachgemessen an identischem Inhalt, 2380 KiB gegen 932 KiB.
+    private static void SetInput(IMFSinkWriter writer, uint stream, int width, int height,
+                                 int framesPerSecond, int quality)
+    {
+        PInvoke.MFCreateMediaType(out IMFMediaType input);
 
-            // Die Eingabe: BGRA, von oben nach unten. Der positive Streifenabstand ist noetig -
-            // ohne ihn nimmt Media Foundation die Zeilen von unten nach oben und das Bild
-            // steht auf dem Kopf.
-            PInvoke.MFCreateMediaType(out IMFMediaType input);
+        try
+        {
+            input.SetGUID(PInvoke.MF_MT_MAJOR_TYPE, PInvoke.MFMediaType_Video);
+            input.SetGUID(PInvoke.MF_MT_SUBTYPE, PInvoke.MFVideoFormat_RGB32);
+            input.SetUINT32(PInvoke.MF_MT_INTERLACE_MODE,
+                            (uint)MFVideoInterlaceMode.MFVideoInterlace_Progressive);
+            input.SetUINT32(PInvoke.MF_MT_DEFAULT_STRIDE, (uint)(width * 4));
+            input.SetUINT32(PInvoke.MF_MT_ALL_SAMPLES_INDEPENDENT, 1);
+            SetSize(input, PInvoke.MF_MT_FRAME_SIZE, (uint)width, (uint)height);
+            SetSize(input, PInvoke.MF_MT_FRAME_RATE, (uint)framesPerSecond, 1);
+            SetSize(input, PInvoke.MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+
+            PInvoke.MFCreateMediaType(out IMFMediaType parameters);
 
             try
             {
-                input.SetGUID(PInvoke.MF_MT_MAJOR_TYPE, PInvoke.MFMediaType_Video);
-                input.SetGUID(PInvoke.MF_MT_SUBTYPE, PInvoke.MFVideoFormat_RGB32);
-                input.SetUINT32(PInvoke.MF_MT_INTERLACE_MODE,
-                                (uint)MFVideoInterlaceMode.MFVideoInterlace_Progressive);
-                input.SetUINT32(PInvoke.MF_MT_DEFAULT_STRIDE, (uint)(width * 4));
-                input.SetUINT32(PInvoke.MF_MT_ALL_SAMPLES_INDEPENDENT, 1);
-                SetSize(input, PInvoke.MF_MT_FRAME_SIZE, (uint)width, (uint)height);
-                SetSize(input, PInvoke.MF_MT_FRAME_RATE, (uint)framesPerSecond, 1);
-                SetSize(input, PInvoke.MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+                parameters.SetUINT32(RateControlMode, QualityMode);
+                parameters.SetUINT32(Quality, (uint)quality);
+                parameters.SetUINT32(GopSize, (uint)(framesPerSecond * 4));
+                parameters.SetUINT32(BPictureCount, 0);
 
-                // HIER, und nur hier, wirken die Kodiereinstellungen. Ueber
-                // GetServiceForStream(ICodecAPI) melden dieselben Werte Erfolg und tun nichts -
-                // nachgemessen an identischem Inhalt, 2380 KiB gegen 932 KiB.
-                PInvoke.MFCreateMediaType(out IMFMediaType parameters);
-
-                try
-                {
-                    parameters.SetUINT32(RateControlMode, QualityMode);
-                    parameters.SetUINT32(Quality, (uint)quality);
-                    parameters.SetUINT32(GopSize, (uint)(framesPerSecond * 4));
-                    parameters.SetUINT32(BPictureCount, 0);
-
-                    writer.SetInputMediaType(stream, input, parameters);
-                }
-                finally
-                {
-                    _ = Marshal.ReleaseComObject(parameters);
-                }
+                writer.SetInputMediaType(stream, input, parameters);
             }
             finally
             {
-                _ = Marshal.ReleaseComObject(input);
+                _ = Marshal.ReleaseComObject(parameters);
             }
-
-            return stream;
         }
         finally
         {
-            _ = Marshal.ReleaseComObject(output);
+            _ = Marshal.ReleaseComObject(input);
         }
     }
 

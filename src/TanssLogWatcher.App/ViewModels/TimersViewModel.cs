@@ -50,11 +50,16 @@ public sealed partial class TimersViewModel : RuntimeViewModel
         _ticker.Tick += OnTick;
         _ticker.Start();
 
+        // Ein Aufruf, und er zieht beides mit. Vorher liefen hier zwei Aufgaben nebeneinander
+        // los, die auf dieselbe Verbindung zugriffen.
         _ = LoadAsync();
-        _ = LoadTicketsAsync();
     }
 
     /// <summary>Holt die offenen Tickets für die Auswahl.</summary>
+    /// <remarks>
+    /// Die gewählte Zeile wird gehalten, wenn es sie danach noch gibt: Wer ein Ticket gewählt
+    /// hat und dann „Neu laden“ drückt, soll seine Wahl nicht verlieren.
+    /// </remarks>
     private async Task LoadTicketsAsync()
     {
         _ = await _lookup.RefreshAsync(Host.Composition).ConfigureAwait(true);
@@ -101,6 +106,46 @@ public sealed partial class TimersViewModel : RuntimeViewModel
     [ObservableProperty]
     private TicketRow? _selectedTicket;
 
+    /// <summary>
+    /// Der Timer, für den die Rückfrage steht; <c>null</c>, wenn keine steht.
+    /// </summary>
+    /// <remarks>
+    /// Die Zeile selbst und nicht ihre Kennung: Die Leiste zeigt Titel, Ticket und die bisher
+    /// erfasste Zeit, damit die Frage beantwortbar ist. „Wirklich löschen?“ allein wird
+    /// weggeklickt, ohne dass jemand hinsieht.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPendingDelete))]
+    [NotifyPropertyChangedFor(nameof(PendingDeleteText))]
+    private TimerRow? _pendingDelete;
+
+    /// <summary>Steht gerade eine Rückfrage?</summary>
+    public bool HasPendingDelete => PendingDelete is not null;
+
+    /// <summary>Was in der Rückfrage über den Timer steht.</summary>
+    /// <remarks>
+    /// Der Zusatz steht INNERHALB der Interpolation und nicht als Verkettung dahinter:
+    /// <c>string.Create</c> nimmt die Zeichenkette als Handler, und ein angehängter
+    /// Bedingungsausdruck macht daraus eine gewöhnliche Verkettung, auf die diese Überladung
+    /// nicht mehr passt (CS1620). Zwei interpolierte Zeichenketten mit <c>+</c> dazwischen
+    /// gingen — wie anderswo im Haus —, ein <c>?:</c> geht nicht.
+    /// </remarks>
+    public string PendingDeleteText
+    {
+        get
+        {
+            if (PendingDelete is not { } row)
+            {
+                return string.Empty;
+            }
+
+            string laeuft = row.IsRunning ? " Er läuft gerade." : string.Empty;
+
+            return string.Create(CultureInfo.CurrentCulture,
+                $"„{row.Title}“ · {row.TicketText} · {row.ElapsedText} erfasst.{laeuft}");
+        }
+    }
+
     /// <summary>Was zur Ticketauswahl zu sagen ist.</summary>
     public string TicketHint => Tickets.Count > 0
         ? Texts.Count(Tickets.Count, "offenes Ticket", "offene Tickets") + " zur Auswahl."
@@ -110,15 +155,43 @@ public sealed partial class TimersViewModel : RuntimeViewModel
     /// <summary>Gibt es etwas anzuzeigen?</summary>
     public bool IsEmpty => Timers.Count == 0;
 
-    /// <summary>Holt die Timer neu.</summary>
+    /// <summary>
+    /// Holt alles neu, was diese Seite zeigt: die Timer <b>und</b> die Ticketauswahl.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Hier hängt „Neu laden“ dran, und bis hierher zog es die Tickets nicht mit.</b>
+    /// Die Auswahl wurde einmal im Konstruktor gefüllt und blieb danach stehen: Ein Ticket, das
+    /// während der Sitzung aufgemacht wurde, tauchte auch nach dem Klick nicht auf, und eines,
+    /// das inzwischen erledigt war, blieb wählbar.</para>
+    /// <para>Die Tickets zuerst: Sie füllen die Auswahl über der Liste, und die soll nicht
+    /// leer bleiben, während die Timer noch kommen.</para>
+    /// </remarks>
     [RelayCommand]
     private async Task LoadAsync()
     {
+        await LoadTicketsAsync().ConfigureAwait(true);
+        await LoadTimersAsync().ConfigureAwait(true);
+    }
+
+    /// <summary>
+    /// Holt die Timer neu — ohne die Ticketauswahl.
+    /// </summary>
+    /// <remarks>
+    /// Der Weg für alles, was ohnehin gerade an den Timern gearbeitet hat: Umschalten, Anlegen,
+    /// Löschen, Buchen und jede Zustandsmeldung. Die Ticketliste ändert sich dabei nicht, und
+    /// sie mitzuholen kostete drei weitere Aufrufe an TANSS je Handgriff.
+    /// </remarks>
+    private async Task LoadTimersAsync()
+    {
+        // Die Zeilen werden gleich ersetzt; eine Rueckfrage, die auf eine abgeloeste Zeile
+        // zeigte, loeschte nach dem Neuladen etwas anderes als das, wonach gefragt wurde.
+        PendingDelete = null;
+
         if (Host.Composition is not { } composition)
         {
             Timers.Clear();
             Summary = "Ohne Einrichtung gibt es keine Timer zu holen. "
-                + "Das Zahnrad unter „Verbindung“ öffnet den Assistenten.";
+                + "Das Zahnrad unter „Einstellungen“ öffnet den Assistenten.";
             OnPropertyChanged(nameof(IsEmpty));
             return;
         }
@@ -177,7 +250,7 @@ public sealed partial class TimersViewModel : RuntimeViewModel
         try
         {
             _ = await composition.Timers.ToggleAsync(row.Id).ConfigureAwait(true);
-            await LoadAsync().ConfigureAwait(true);
+            await LoadTimersAsync().ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -222,7 +295,7 @@ public sealed partial class TimersViewModel : RuntimeViewModel
             NewTitle = string.Empty;
             SelectedTicket = null;
 
-            await LoadAsync().ConfigureAwait(true);
+            await LoadTimersAsync().ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -266,32 +339,60 @@ public sealed partial class TimersViewModel : RuntimeViewModel
             Summary = "Die Leistung ist gebucht. Der Timer bleibt bestehen — TANSS merkt sich "
                 + "an der Leistung, aus welchem Timer sie entstanden ist.";
 
-            await LoadAsync().ConfigureAwait(true);
+            await LoadTimersAsync().ConfigureAwait(true);
         }
     }
 
     /// <summary>
-    /// Löscht einen Timer.
+    /// Stellt die Rückfrage — und löscht ausdrücklich nichts.
     /// </summary>
     /// <remarks>
-    /// Ohne Rückfrage an dieser Stelle, aber mit einer Schaltfläche, die zurückhaltend gestaltet
-    /// ist: Ein Timer ist erfasste Arbeitszeit, und was hier verschwindet, ist in TANSS weg.
-    /// Die Rückfrage stellt die Ansicht.
+    /// <para><b>Ein Timer ist erfasste Arbeitszeit.</b> Was hier verschwindet, ist in TANSS weg
+    /// und nicht zurückzuholen. Die Dokumentation dieser Stelle sagte die Rückfrage seit jeher
+    /// zu („Die Rückfrage stellt die Ansicht“) — gestellt hat sie niemand, und die Schaltfläche
+    /// löschte beim ersten Klick.</para>
+    ///
+    /// <para><b>Die Rückfrage steht in der Seite und nicht in einem Fenster.</b> Sie ist damit
+    /// bloss ein Zustand dieses Ansichtsmodells und lässt sich ohne Oberfläche prüfen. Ein
+    /// modaler Dialog wäre genau das nicht gewesen — und eine Zusage, die sich nur von Hand
+    /// prüfen lässt, ist die Art Zusage, die hier schon zweimal jahrelang nicht eingelöst war.
+    /// </para>
     /// </remarks>
-    /// <param name="row">Die zu löschende Zeile.</param>
+    /// <param name="row">Die Zeile, nach der gefragt werden soll.</param>
     [RelayCommand]
-    private async Task DeleteAsync(TimerRow? row)
+    private void AskDelete(TimerRow? row) => PendingDelete = row;
+
+    /// <summary>Nimmt die Rückfrage zurück; es bleibt alles, wie es war.</summary>
+    [RelayCommand]
+    private void CancelDelete() => PendingDelete = null;
+
+    /// <summary>
+    /// Löscht den Timer, nach dem gefragt wurde.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Ohne Übergabewert, und genau darin liegt die Zusage.</b> Dieser Befehl kann nur
+    /// löschen, was <see cref="AskDelete"/> zuvor hingelegt hat. Eine Schaltfläche, die ihn aus
+    /// Versehen mit einer Zeile bindet, löscht nichts — die Rückfrage lässt sich nicht umgehen,
+    /// auch nicht durch einen Fehlgriff im XAML.</para>
+    ///
+    /// <para>Die Rückfrage wird <b>vor</b> dem Netzaufruf zurückgenommen: Die Leiste soll
+    /// verschwinden, sobald entschieden ist, und nicht erst, wenn TANSS geantwortet hat.</para>
+    /// </remarks>
+    [RelayCommand]
+    private async Task ConfirmDeleteAsync()
     {
-        if (row is null || Host.Composition is not { } composition)
+        if (PendingDelete is not { } row || Host.Composition is not { } composition)
         {
             return;
         }
+
+        PendingDelete = null;
 
         IsBusy = true;
         try
         {
             await composition.Timers.DeleteAsync(row.Id).ConfigureAwait(true);
-            await LoadAsync().ConfigureAwait(true);
+            await LoadTimersAsync().ConfigureAwait(true);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -304,7 +405,7 @@ public sealed partial class TimersViewModel : RuntimeViewModel
     }
 
     /// <inheritdoc />
-    protected override void OnStatusUpdated(AppStatus status) => _ = LoadAsync();
+    protected override void OnStatusUpdated(AppStatus status) => _ = LoadTimersAsync();
 
     /// <inheritdoc />
     protected override void Dispose(bool disposing)

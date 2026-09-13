@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 using TanssLogWatcher.App.Runtime;
 
 namespace TanssLogWatcher.App.ViewModels;
@@ -21,13 +22,32 @@ namespace TanssLogWatcher.App.ViewModels;
 [SupportedOSPlatform("windows")]
 public sealed partial class ShellViewModel : RuntimeViewModel
 {
-    /// <summary>Baut die Anzeige und meldet sich an allen drei Diensten an.</summary>
+    private readonly UpdateService? _updates;
+
+    /// <summary>Baut die Anzeige und meldet sich an den Diensten an.</summary>
     /// <param name="host">Die Laufzeit.</param>
-    public ShellViewModel(AppHost host) : base(host)
+    /// <param name="updates">
+    /// Die Prüfung auf neue Fassungen. Bleibt sie offen, zeigt die Fußzeile nichts dazu — für
+    /// Prüfstände, die ohne Netz laufen sollen.
+    /// </param>
+    public ShellViewModel(AppHost host, UpdateService? updates = null) : base(host)
     {
         host.Sessions.ActiveSessionsChanged += OnSessionsChanged;
         host.Uploads.QueueChanged += OnQueueChanged;
         host.TokenRotation.TokenChanged += OnTokenChanged;
+
+        _updates = updates;
+
+        if (updates is not null)
+        {
+            updates.CheckCompleted += OnUpdateChecked;
+
+            // Der Dienst prueft eine Minute nach dem Start und danach taeglich. Er kann also
+            // schon fertig sein, bevor dieses Fenster zum ersten Mal aufgeht - dann ist das
+            // Ereignis laengst gefallen. Deshalb hier gleich der Stand von jetzt.
+            _updateAvailable = updates.State == UpdateCheckState.UpdateAvailable;
+            _updateVersion = updates.Available?.Version.ToString() ?? string.Empty;
+        }
 
         _sessionCount = host.Sessions.ActiveSessions.Count;
         _pending = host.Uploads.Queue.Pending;
@@ -81,6 +101,77 @@ public sealed partial class ShellViewModel : RuntimeViewModel
     /// </remarks>
     [ObservableProperty]
     private bool _isPaused;
+
+    /// <summary>
+    /// Was läuft, aber nicht in Ordnung ist — der Inhalt der Plakette beim Anklicken.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Befund, aus dem das hier entstanden ist.</b> Die Plakette sagte „verbunden,
+    /// mit Warnung“ — und es gab in der ganzen Oberfläche keinen Ort, an dem stand, welche.
+    /// Die Warnungen wurden erhoben, in den Zustand gelegt und nie gezeigt. Eine Anzeige, die
+    /// auf etwas hinweist, das niemand nachlesen kann, ist schlimmer als keine: Sie
+    /// beunruhigt, ohne zu helfen.</para>
+    /// <para>Jede Warnung trägt Titel, Grund und Vorschlag — Hausregel 3 — und alle drei
+    /// gehören auf den Schirm. Der Vorschlag ist der einzige Teil, mit dem jemand etwas
+    /// anfangen kann.</para>
+    /// </remarks>
+    public IReadOnlyList<RuntimeWarning> Warnings => Status.Warnings;
+
+    /// <summary>Gibt es überhaupt eine Warnung?</summary>
+    public bool HasWarnings => Status.HasWarnings;
+
+    /// <summary>
+    /// Was steht in der Auskunft, wenn es nichts zu warnen gibt?
+    /// </summary>
+    /// <remarks>
+    /// Ein Klick, der nichts tut, sieht aus wie ein Fehler des Werkzeugs. Deshalb antwortet die
+    /// Plakette auch dann, wenn alles in Ordnung ist — dann eben mit genau diesem Satz.
+    /// </remarks>
+    public string NoWarningText => Status.State switch
+    {
+        RuntimeState.Working => "Keine Warnung. Verbindung, Token und Konfiguration sind in "
+                                + "Ordnung.",
+        RuntimeState.Degraded => Status.Reason,
+        _ => "Noch nicht eingerichtet — das Zahnrad unter „Verbindung“ öffnet den Assistenten.",
+    };
+
+    /// <summary>Steht die Auskunft zur Plakette gerade offen?</summary>
+    [ObservableProperty]
+    private bool _isWarningsOpen;
+
+    /// <summary>Liegt eine neuere Fassung vor?</summary>
+    /// <remarks>
+    /// <para><b>Warum das in die Fußzeile gehört.</b> Geprüft wurde schon immer — eine Minute
+    /// nach dem Start und danach täglich. Gesagt wurde es nur auf der Seite „Verbindung“, und
+    /// die öffnet im Betrieb niemand: Das Werkzeug läuft mit geschlossenem Fenster. Eine
+    /// Aktualisierung, von der man nur erfährt, wenn man ohnehin nachsieht, ist keine
+    /// Benachrichtigung.</para>
+    /// <para>Die Fußzeile ist der richtige Ort und nicht ein Fenster, das sich aufdrängt: Eine
+    /// neue Fassung ist keine Störung, sondern eine Auskunft. Sie darf warten, bis jemand
+    /// hinsieht — sie darf nur nicht unsichtbar sein.</para>
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UpdateText))]
+    private bool _updateAvailable;
+
+    /// <summary>Die Nummer der neuen Fassung.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(UpdateText))]
+    private string _updateVersion = string.Empty;
+
+    /// <summary>Was in der Fußzeile steht, wenn eine neue Fassung vorliegt.</summary>
+    public string UpdateText => UpdateVersion.Length == 0
+        ? "Aktualisierung verfügbar"
+        : string.Create(CultureInfo.CurrentCulture, $"Version {UpdateVersion} verfügbar");
+
+    /// <summary>Klappt die Auskunft zur Plakette auf und wieder zu.</summary>
+    /// <remarks>
+    /// Ein Umschalter und nicht bloss ein Aufklappen: Ein zweiter Klick auf dieselbe Stelle
+    /// soll wieder schliessen. Sonst muss man daneben treffen, um etwas loszuwerden, das man
+    /// selbst geoeffnet hat.
+    /// </remarks>
+    [RelayCommand]
+    private void ToggleWarnings() => IsWarningsOpen = !IsWarningsOpen;
 
     /// <summary>Die kurze Beschriftung der Plakette, etwa „verbunden“.</summary>
     public string StateText => Status.State switch
@@ -150,6 +241,12 @@ public sealed partial class ShellViewModel : RuntimeViewModel
         OnPropertyChanged(nameof(BaseUrlText));
         OnPropertyChanged(nameof(EmployeeText));
         OnPropertyChanged(nameof(TrayToolTip));
+
+        // Die Auskunft der Plakette haengt am Zustand und aendert sich mit ihm. Ohne diese drei
+        // Zeilen stuende beim naechsten Oeffnen die Warnung von vorhin da.
+        OnPropertyChanged(nameof(Warnings));
+        OnPropertyChanged(nameof(HasWarnings));
+        OnPropertyChanged(nameof(NoWarningText));
     }
 
     /// <inheritdoc />
@@ -160,12 +257,33 @@ public sealed partial class ShellViewModel : RuntimeViewModel
             Host.Sessions.ActiveSessionsChanged -= OnSessionsChanged;
             Host.Uploads.QueueChanged -= OnQueueChanged;
             Host.TokenRotation.TokenChanged -= OnTokenChanged;
+
+            if (_updates is not null)
+            {
+                _updates.CheckCompleted -= OnUpdateChecked;
+            }
         }
 
         base.Dispose(disposing);
     }
 
     partial void OnIsPausedChanged(bool value) => Host.Sessions.IsEnabled = !value;
+
+    /// <summary>Übernimmt das Ergebnis einer Prüfung auf neue Fassungen.</summary>
+    /// <remarks>
+    /// <b>Der Dienst löst auf einem Hintergrundstrang aus</b> — er sagt das selbst. Die
+    /// Zuweisung an eine gebundene Eigenschaft muss deshalb über den Strang der Oberfläche
+    /// laufen; dafür gibt es <see cref="RuntimeNotifier"/>, den dieselbe Laufzeit schon für
+    /// jede andere Meldung benutzt.
+    /// </remarks>
+    /// <param name="sender">Der Dienst.</param>
+    /// <param name="state">Wie die Prüfung ausgegangen ist.</param>
+    private void OnUpdateChecked(object? sender, UpdateCheckState state) =>
+        Host.Notifier.Post(() =>
+        {
+            UpdateAvailable = state == UpdateCheckState.UpdateAvailable;
+            UpdateVersion = _updates?.Available?.Version.ToString() ?? string.Empty;
+        });
 
     private void OnSessionsChanged(object? sender, IReadOnlyList<SessionSnapshot> sessions) =>
         SessionCount = sessions.Count;

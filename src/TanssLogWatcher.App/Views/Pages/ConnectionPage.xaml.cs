@@ -6,7 +6,7 @@ using TanssLogWatcher.App.ViewModels;
 namespace TanssLogWatcher.App.Views.Pages;
 
 /// <summary>
-/// Die Verbindungsseite — und der Weg zum Einrichtungsassistenten.
+/// Die Seite „Einstellungen“ — und der Weg zum Einrichtungsassistenten.
 /// </summary>
 /// <remarks>
 /// Zum Muster „Modell nur bei sichtbarer Seite“ siehe <see cref="SessionsPage"/>. Eigen ist

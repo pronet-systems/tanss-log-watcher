@@ -17,8 +17,13 @@ public enum RecordingAction
     /// <summary>Fortsetzen.</summary>
     Resume,
 
-    /// <summary>Die laufende Datei abschliessen und eine neue beginnen.</summary>
-    RollSegment,
+    /// <summary>
+    /// Die Leinwand auf einen anderen Bildschirm schieben.
+    /// </summary>
+    /// <remarks>
+    /// Kein Dateiwechsel: Die Bildgrösse liegt in der laufenden Datei fest, der Ursprung nicht.
+    /// </remarks>
+    MoveCanvas,
 
     /// <summary>Endgültig beenden.</summary>
     Stop,
@@ -43,11 +48,30 @@ public sealed record RecordingDecision(
 /// <param name="Windows">Die gerade sichtbaren Fenster der Sitzung, mit Geometrie.</param>
 /// <param name="SessionEnded">Hat die Sitzungsbeobachtung das Ende gemeldet?</param>
 /// <param name="FreeMegabytes">Wie viel Platz auf dem Zieldatenträger noch frei ist.</param>
+/// <param name="Screens">
+/// Die angeschlossenen Bildschirme. Leer heisst: nicht ermittelbar — dann gilt die Hüllfläche
+/// der Fenster wie früher. Sie kommen von aussen herein wie die Fenster, damit der Direktor
+/// weiterhin kein Windows kennt und sich ohne Bildschirm prüfen lässt; das Handle darin ist für
+/// ihn eine Zahl ohne Bedeutung und dient allein dem Rekorder, der den Bildschirm aufnimmt.
+/// </param>
 public readonly record struct RecordingInput(
     DateTimeOffset Now,
     IReadOnlyList<WindowBox> Windows,
     bool SessionEnded,
-    long FreeMegabytes);
+    long FreeMegabytes,
+    IReadOnlyList<ScreenInfo> Screens)
+{
+    /// <summary>Ein Takt ohne Kenntnis der Bildschirme.</summary>
+    /// <param name="now">Die Wanduhr.</param>
+    /// <param name="windows">Die sichtbaren Fenster.</param>
+    /// <param name="sessionEnded">Ist die Sitzung beendet?</param>
+    /// <param name="freeMegabytes">Freier Platz.</param>
+    public RecordingInput(DateTimeOffset now, IReadOnlyList<WindowBox> windows,
+                          bool sessionEnded, long freeMegabytes)
+        : this(now, windows, sessionEnded, freeMegabytes, [])
+    {
+    }
+}
 
 /// <summary>
 /// Der Direktor: Er entscheidet alles und ruft nichts auf.
@@ -59,9 +83,16 @@ public readonly record struct RecordingInput(
 /// nichts. Ohne diesen Schnitt liesse sich die Aufzeichnung nur mit einem Bildschirm prüfen,
 /// und das hiesse: gar nicht.</para>
 ///
+/// <para><b>Eine Sitzung, eine Datei.</b> Früher wechselte er die Datei aus zwei Gründen: nach
+/// einer eingestellten Zeit, und sobald die Fenster nicht mehr auf die Leinwand passten. Beides
+/// ist fort. Im Betrieb gemessen, was der zweite Grund anrichtete: Eine Fernwartung von
+/// neunzehn Sekunden ergab drei Dateien, weil ein Remotedesktop-Fenster beim Verbindungsaufbau
+/// zweimal seine Grösse ändert. Die Leinwand ist jetzt die Bildschirmfläche und passt deshalb
+/// immer; wandert die Sitzung auf einen anderen Bildschirm, wandert nur der Ursprung mit.</para>
+///
 /// <para><b>Er führt einen Zustand.</b> Anders als eine reine Rechenvorschrift merkt er sich,
-/// ob gerade aufgezeichnet wird, seit wann das Segment läuft und wann die Fenster
-/// verschwunden sind. Genau diese drei Angaben entscheiden über Pause, Abschnittswechsel und
+/// ob gerade aufgezeichnet wird, wann die Fenster verschwunden sind und seit wann die Sitzung
+/// auf einem anderen Bildschirm liegt. Genau diese Angaben entscheiden über Pause, Wechsel und
 /// Ende — und sie aus der Umgebung neu zu erraten wäre die Sorte Doppelbuchführung, die
 /// irgendwann auseinanderläuft.</para>
 ///
@@ -76,8 +107,10 @@ public sealed class RecordingDirector
 
     private DirectorState _state = DirectorState.NotStarted;
     private CanvasLayout? _canvas;
-    private DateTimeOffset _segmentStartedAt;
     private DateTimeOffset? _windowsGoneSince;
+    private ScreenInfo? _pendingScreen;
+    private DateTimeOffset? _pendingSince;
+    private DateTimeOffset? _lastMove;
 
     /// <summary>Baut den Direktor.</summary>
     /// <param name="options">Die geprüften Stellschrauben.</param>
@@ -101,6 +134,22 @@ public sealed class RecordingDirector
     public CanvasLayout? Canvas => _canvas;
 
     /// <summary>
+    /// Wie oft die Leinwand auf einen anderen Bildschirm geschoben wurde.
+    /// </summary>
+    /// <remarks>Gehört in die Begleitdatei: Sie erklärt einen Sprung im Bild.</remarks>
+    public int CanvasMoves { get; private set; }
+
+    /// <summary>
+    /// Der Bildschirm, auf dem die Sitzung gerade liegt; <c>null</c>, solange keiner bekannt ist.
+    /// </summary>
+    /// <remarks>
+    /// Der Direktor benutzt davon nur die Lage. Das Handle gibt er weiter, damit der Rekorder im
+    /// Bildschirmbetrieb weiss, welchen Bildschirm er aufnehmen soll — er selbst kann damit
+    /// nichts anfangen und soll es auch nicht.
+    /// </remarks>
+    public ScreenInfo? Screen { get; private set; }
+
+    /// <summary>
     /// Ein Takt.
     /// </summary>
     /// <remarks>
@@ -114,6 +163,7 @@ public sealed class RecordingDirector
     public RecordingDecision Decide(RecordingInput input)
     {
         ArgumentNullException.ThrowIfNull(input.Windows);
+        ArgumentNullException.ThrowIfNull(input.Screens);
 
         if (_state is DirectorState.Stopped)
         {
@@ -147,7 +197,8 @@ public sealed class RecordingDirector
 
     private RecordingDecision StartIfPossible(RecordingInput input, List<WindowBox> visible)
     {
-        if (CanvasLayout.For(visible) is not { } canvas)
+        if (CanvasLayout.ForScreens(visible, [.. input.Screens.Select(s => s.Box)])
+            is not { } canvas)
         {
             // Noch kein Fenster mit Flaeche - etwa weil die Fernwartung erst startet. Es wird
             // nichts angelegt: eine leere Datei waere eine Aufzeichnung, die es nicht gibt.
@@ -156,8 +207,8 @@ public sealed class RecordingDirector
 
         _canvas = canvas;
         _state = DirectorState.Recording;
-        _segmentStartedAt = input.Now;
         _windowsGoneSince = null;
+        Screen = Nearest(input.Screens, canvas);
 
         return new RecordingDecision(RecordingAction.Start, visible,
             $"Aufzeichnung begonnen, {canvas.Width}×{canvas.Height} Bildpunkte, "
@@ -177,6 +228,9 @@ public sealed class RecordingDirector
             }
 
             _state = DirectorState.Paused;
+            _pendingScreen = null;
+            _pendingSince = null;
+
             return new RecordingDecision(RecordingAction.Pause, [],
                 "Angehalten: Kein Fenster der Sitzung ist gerade sichtbar — minimiert oder "
                 + "geschlossen. Die Zeit der Pause zählt nicht zur Aufzeichnung.");
@@ -184,22 +238,7 @@ public sealed class RecordingDirector
 
         _windowsGoneSince = null;
 
-        if (_canvas is { } canvas && !canvas.Fits(visible))
-        {
-            return Roll(input, visible,
-                "Die Fenster passen nicht mehr auf die Leinwand — verschoben, vergrössert oder "
-                + "auf einen anderen Bildschirm gewandert. Die Grösse liegt in der Datei fest, "
-                + "deshalb beginnt hier eine neue; skaliert wird nicht.");
-        }
-
-        if (input.Now - _segmentStartedAt >= _options.SegmentLength)
-        {
-            return Roll(input, visible,
-                $"Abschnitt nach {Describe(_options.SegmentLength)} abgeschlossen. Eine lange "
-                + "Aufzeichnung in einer einzigen Datei wäre bei einem Fehler ganz verloren.");
-        }
-
-        return RecordingDecision.Nothing;
+        return FollowScreen(input, visible);
     }
 
     private RecordingDecision WhilePaused(RecordingInput input, List<WindowBox> visible)
@@ -210,33 +249,120 @@ public sealed class RecordingDirector
         }
 
         _windowsGoneSince = null;
+        _state = DirectorState.Recording;
+        _pendingScreen = null;
+        _pendingSince = null;
+        _lastMove = input.Now;
 
-        if (_canvas is { } canvas && canvas.Fits(visible))
-        {
-            _state = DirectorState.Recording;
-            return new RecordingDecision(RecordingAction.Resume, visible,
-                "Fortgesetzt: Die Fenster sind wieder da und passen auf die bestehende "
-                + "Leinwand.");
-        }
-
-        return Roll(input, visible,
-            "Fortgesetzt, aber die Fenster liegen jetzt anders — die alte Leinwand passt "
-            + "nicht mehr. Es beginnt eine neue Datei.");
+        return new RecordingDecision(RecordingAction.Resume, visible,
+            "Fortgesetzt: Die Fenster sind wieder da.");
     }
 
-    private RecordingDecision Roll(RecordingInput input, List<WindowBox> visible, string reason)
+    /// <summary>
+    /// Schiebt die Leinwand nach, wenn die Sitzung auf einen anderen Bildschirm gewandert ist.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Mit Beharrungszeit und Sperrfrist, und beides aus einem Grund.</b> Ein Fenster,
+    /// das genau auf der Grenze zweier Bildschirme liegt, gehört bei jedem Takt ein bisschen
+    /// anders zugeordnet. Ohne Beharrungszeit spränge das Bild im Sekundentakt hin und her, und
+    /// das Video wäre unbrauchbar — schlimmer als eine zweite Datei.</para>
+    ///
+    /// <para>Entschieden wird über die <b>Fläche</b> und nicht über ein Hauptfenster: Wer das
+    /// erste Fenster nähme, folgte einem Anmeldedialog, der längst geschlossen ist; wer den
+    /// Tastaturfokus nähme, folgte dem Techniker in sein Mailfenster. Die Fläche ist das, was
+    /// man sieht.</para>
+    /// </remarks>
+    private RecordingDecision FollowScreen(RecordingInput input, List<WindowBox> visible)
     {
-        if (CanvasLayout.For(visible) is not { } canvas)
+        if (_canvas is not { } canvas || input.Screens.Count == 0)
         {
             return RecordingDecision.Nothing;
         }
 
-        _canvas = canvas;
-        _state = DirectorState.Recording;
-        _segmentStartedAt = input.Now;
+        if (_lastMove is { } last && input.Now - last < _options.ScreenSwitchLockout)
+        {
+            // Sperrfrist nach einem Wechsel: Erst ankommen, dann weitersehen.
+            return RecordingDecision.Nothing;
+        }
 
-        return new RecordingDecision(RecordingAction.RollSegment, visible,
-            $"{reason} Neue Leinwand: {canvas.Width}×{canvas.Height} Bildpunkte.");
+        long total = visible.Sum(w => (long)w.Width * w.Height);
+
+        if (total <= 0)
+        {
+            return RecordingDecision.Nothing;
+        }
+
+        ScreenInfo? best = null;
+        long bestOverlap = 0;
+
+        foreach (ScreenInfo screen in input.Screens.Where(s => s.Box.HasArea))
+        {
+            long overlap = visible.Sum(screen.Box.Overlap);
+
+            if (overlap > bestOverlap)
+            {
+                best = screen;
+                bestOverlap = overlap;
+            }
+        }
+
+        if (best is not { } target
+            || (target.Box.Left == canvas.OriginLeft && target.Box.Top == canvas.OriginTop))
+        {
+            _pendingScreen = null;
+            _pendingSince = null;
+            return RecordingDecision.Nothing;
+        }
+
+        if ((double)bestOverlap / total < _options.ScreenSwitchShare)
+        {
+            // Die Sitzung liegt noch zu gross zur Haelfte auf dem bisherigen Bildschirm.
+            _pendingScreen = null;
+            _pendingSince = null;
+            return RecordingDecision.Nothing;
+        }
+
+        if (_pendingScreen != target)
+        {
+            _pendingScreen = target;
+            _pendingSince = input.Now;
+            return RecordingDecision.Nothing;
+        }
+
+        if (input.Now - (_pendingSince ?? input.Now) < _options.ScreenSwitchDelay)
+        {
+            return RecordingDecision.Nothing;
+        }
+
+        _canvas = canvas.MovedTo(target.Box.Left, target.Box.Top);
+        _pendingScreen = null;
+        _pendingSince = null;
+        _lastMove = input.Now;
+        Screen = target;
+        CanvasMoves++;
+
+        string note = target.Box.Width > canvas.Width || target.Box.Height > canvas.Height
+            ? " Der neue Bildschirm ist grösser als das Bild; was darüber hinausragt, wird "
+              + "beschnitten — die Bildgrösse einer laufenden Datei lässt sich nicht ändern."
+            : string.Empty;
+
+        return new RecordingDecision(RecordingAction.MoveCanvas, visible,
+            $"Die Sitzung liegt jetzt auf dem Bildschirm bei {target.Box.Left}/{target.Box.Top}; das "
+            + "Bild folgt ihr dorthin. Eine neue Datei kostet das nicht." + note);
+    }
+
+    /// <summary>Der Bildschirm, dessen Ecke links oben auf der Leinwand liegt.</summary>
+    private static ScreenInfo? Nearest(IReadOnlyList<ScreenInfo> screens, CanvasLayout canvas)
+    {
+        foreach (ScreenInfo screen in screens)
+        {
+            if (screen.Box.Left == canvas.OriginLeft && screen.Box.Top == canvas.OriginTop)
+            {
+                return screen;
+            }
+        }
+
+        return screens.Count > 0 ? screens[0] : null;
     }
 
     private RecordingDecision Stop(string reason)
@@ -248,11 +374,6 @@ public sealed class RecordingDirector
 
     private static string Describe(int windows) =>
         windows == 1 ? "ein Fenster" : $"{windows} Fenster";
-
-    private static string Describe(TimeSpan span) =>
-        span.TotalMinutes >= 1
-            ? $"{span.TotalMinutes:0} Minuten"
-            : $"{span.TotalSeconds:0} Sekunden";
 
     private enum DirectorState
     {

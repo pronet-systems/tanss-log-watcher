@@ -9,7 +9,7 @@ namespace TanssLogWatcher.App.ViewModels;
 /// </summary>
 /// <remarks>
 /// <para><b>Gemeinsam geführt, weil vier Seiten dieselbe Antwort brauchen.</b> Sitzungen,
-/// Warteschlange, Überwachung und Verbindung zeigen alle den Typ — jede für sich abzufragen
+/// Warteschlange, Überwachung und Einstellungen zeigen alle den Typ — jede für sich abzufragen
 /// hieße, beim Blättern durch die Navigation viermal dieselbe Liste zu holen.</para>
 ///
 /// <para><b>Ein Fehlschlag ist kein Fehler.</b> Die Anbindungen sind Beiwerk: Ohne sie steht
@@ -166,9 +166,16 @@ public sealed class SystemLookup
     /// Holt die offenen Tickets des eigenen Mitarbeiters.
     /// </summary>
     /// <remarks>
-    /// Misslingt es, bleibt die Liste leer — die Oberfläche zeigt dann eine leere Auswahl und
-    /// sagt, dass nichts geladen werden konnte. Eine eingetippte Nummer wird trotzdem geprüft,
-    /// und zwar einzeln über <c>FindAsync</c>: Die Prüfung hängt nicht an dieser Liste.
+    /// <para>Misslingt es, bleibt die Liste leer — die Oberfläche zeigt dann eine leere Auswahl
+    /// und sagt, dass nichts geladen werden konnte.</para>
+    /// <para><b>Richtigstellung.</b> Hier stand, eine eingetippte Nummer werde „trotzdem
+    /// geprüft, und zwar einzeln über <c>FindAsync</c>“. Das stimmte nicht: <c>FindAsync</c>
+    /// hatte im ganzen Werkzeug keinen einzigen Aufrufer, und die Abschlussmaske liess jede Zahl
+    /// durch, die <c>int.TryParse</c> annahm. Geprüft wird seither wirklich — aber an einer
+    /// anderen Stelle und über einen anderen Weg: Die beiden Dialoge fragen
+    /// <c>ITicketVerification.CheckAsync</c> (siehe <c>TicketCheckPanel</c>), sobald das
+    /// Ticketfeld den Fokus verliert. Richtig bleibt der Kern des Satzes: Diese Liste ist für
+    /// die Prüfung ohne Belang — sie ist eine Bequemlichkeit, keine Schranke.</para>
     /// </remarks>
     private async Task LoadTicketsAsync(RuntimeComposition composition, CancellationToken ct)
     {

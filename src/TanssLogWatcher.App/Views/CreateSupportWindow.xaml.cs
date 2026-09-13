@@ -29,6 +29,10 @@ public partial class CreateSupportWindow
         ViewModel = new CreateSupportViewModel(host, timer, tickets);
         ViewModel.Finished += (_, _) => Close();
         DataContext = ViewModel;
+
+        // Der Anleger fuehrt eine Firmenauswahl mit Entprellungstakt. Ohne diese Zeile liefe
+        // der Takt nach dem Schliessen weiter und hielte den Dialog im Speicher.
+        Closed += (_, _) => ViewModel.Dispose();
     }
 
     /// <summary>Das Ansichtsmodell des Dialogs.</summary>

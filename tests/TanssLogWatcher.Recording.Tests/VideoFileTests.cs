@@ -69,7 +69,7 @@ public sealed class VideoFileTests : IDisposable
     /// kein Abspieler öffnet. Genau deshalb ist <c>Complete</c> nicht <c>Dispose</c>.
     /// </summary>
     [Fact]
-    public void Ohne_Abschluss_bleibt_die_Datei_unbrauchbar()
+    public void Ohne_Abschluss_fehlt_nur_der_Schlussindex()
     {
         string mitAbschluss = Path.Combine(_folder, "mit.mp4");
         string ohneAbschluss = Path.Combine(_folder, "ohne.mp4");
@@ -92,7 +92,77 @@ public sealed class VideoFileTests : IDisposable
 
         Assert.True(mit > ohne,
             $"Die abgeschlossene Datei ({mit} Byte) müsste grösser sein als die nicht "
-            + $"abgeschlossene ({ohne} Byte) — der Index fehlt dort.");
+            + $"abgeschlossene ({ohne} Byte) — der Schlussindex fehlt dort.");
+
+        // Der Schlussindex (mfra) ist genau der Unterschied. Er ist eine Bequemlichkeit fuer
+        // den Abspieler, keine Bedingung.
+        Assert.Contains("mfra", Mp4Duration.BoxesOf(mitAbschluss));
+        Assert.DoesNotContain("mfra", Mp4Duration.BoxesOf(ohneAbschluss));
+    }
+
+    /// <summary>
+    /// Die Zusage, für die der ganze Umbau gemacht wurde: Eine Aufzeichnung, die nie
+    /// abgeschlossen wurde, ist trotzdem abspielbar.
+    /// </summary>
+    /// <remarks>
+    /// <para>Das war einmal anders und ist der Grund, warum es früher alle zehn Minuten eine
+    /// neue Datei gab: Der Weg am Stück schreibt den Index erst beim Abschluss, und ohne ihn
+    /// öffnet Windows die Datei gar nicht erst — gemessen 0xC00D36C4, null von zweihundert
+    /// Bildern, bei 21,6 MB Nutzdaten in der Datei.</para>
+    /// <para>Bruchstückweise geschrieben steht der Index <b>vor</b> den Daten, und jedes
+    /// Bruchstück trägt seinen eigenen. Gemessen: 183 von 200 Bildern nach einem harten
+    /// Prozessabbruch; die fehlenden siebzehn stecken im Rückstau des Kodierers.</para>
+    /// <para><b>Warum hier gewartet und nicht bloss viel geschrieben wird.</b> Der Index geht
+    /// zusammen mit dem ersten Bruchstück auf die Platte. Wer vorher abstürzt, hat auch keinen —
+    /// das ist richtig so und nicht zu heilen. Die Vorgängerfassung schrieb deshalb erst
+    /// vierzig, dann zweihundert Bilder und hoffte, der Kodierer sei in dieser Zeit fertig. Das
+    /// war keine Zusage, sondern eine Wette: Unter voller Last — sechs Prüfprojekte
+    /// nebeneinander auf ausgelasteten Kernen — verlor sie gelegentlich, und der Prüffall
+    /// scheiterte ohne erkennbaren Grund. Gemessen drei Fehlschläge in etwa sechzehn
+    /// vollständigen Durchläufen, allein aufgerufen dagegen nie.</para>
+    /// <para>Gewartet wird jetzt auf die <b>Tatsache</b> statt auf eine Dauer: geschrieben, bis
+    /// wirklich ein Bruchstück auf der Platte steht. Danach erst der Abbruch. Geprüft wird
+    /// damit unverändert, was zugesagt ist — eine nie abgeschlossene Datei ist abspielbar —,
+    /// nur eben ohne Wette. Kommt gar kein Bruchstück zustande, scheitert der Prüffall mit
+    /// diesem Befund statt mit einem irreführenden.</para>
+    /// </remarks>
+    [Fact]
+    public void Eine_abgebrochene_Aufzeichnung_traegt_ihren_Index_schon_vorn()
+    {
+        string path = Path.Combine(_folder, "abgebrochen.mp4");
+        int geschrieben = 0;
+
+        using (VideoFile file = VideoFile.Create(path, 320, 240, 4))
+        {
+            Assert.True(file.Fragmented,
+                "Die Datei wird nicht bruchstückweise geschrieben — dann überlebt sie keinen "
+                + "Absturz, und der Zeittakt hätte nicht wegfallen dürfen.");
+
+            // In Schueben schreiben und nach jedem nachsehen. KEIN Complete(), kein Flush -
+            // das waere der geordnete Abschluss und damit ein anderer Prüffall.
+            while (geschrieben < MaximaleBilder && !HatBruchstueck(path))
+            {
+                Schreibe(file, Schub, 4, geschrieben);
+                geschrieben += Schub;
+            }
+        }
+
+        Assert.True(geschrieben < MaximaleBilder || HatBruchstueck(path),
+            $"Nach {geschrieben} Bildern steht noch kein Bruchstück auf der Platte. Entweder "
+            + "schreibt der Kodierer gar nichts, oder er staut mehr zurück als erwartet — in "
+            + "beiden Fällen überlebte eine echte Aufzeichnung den Absturz nicht.");
+
+        List<string> boxes = [.. Mp4Duration.BoxesOf(path)];
+
+        int index = boxes.IndexOf("moov");
+        int data = boxes.IndexOf("moof");
+
+        Assert.True(index >= 0,
+            "Die abgebrochene Datei hat gar keinen Index. Blöcke: "
+            + string.Join(", ", boxes));
+        Assert.True(data > index,
+            $"Der Index steht nicht vor den Daten: {string.Join(", ", boxes.Take(6))}");
+        Assert.Contains("mdat", boxes);
     }
 
     /// <summary>
@@ -296,6 +366,41 @@ public sealed class VideoFileTests : IDisposable
     }
 
     /// <summary>Schreibt Bilder mit wechselnder Farbe, damit der Kodierer etwas zu tun hat.</summary>
+    /// <summary>Wie viele Bilder je Schub geschrieben werden, bevor nachgesehen wird.</summary>
+    /// <remarks>
+    /// Vierzig war die Zahl der ersten Fassung dieses Prüffalls; sie reicht im Regelfall für
+    /// ein Bruchstück. Kleiner hiesse: häufiger die Datei lesen, und das Lesen kostet mehr als
+    /// das Schreiben von vierzig kleinen Bildern.
+    /// </remarks>
+    private const int Schub = 40;
+
+    /// <summary>Die Obergrenze, damit ein stummer Kodierer nicht ewig läuft.</summary>
+    /// <remarks>
+    /// Zweitausend Bilder sind bei vier Bildern je Sekunde über acht Minuten Aufzeichnung —
+    /// weit jenseits dessen, was ein Rückstau je erklären könnte. Wer sie erreicht, hat kein
+    /// Zeitproblem, sondern einen Kodierer, der nichts schreibt.
+    /// </remarks>
+    private const int MaximaleBilder = 2000;
+
+    /// <summary>Steht schon ein Bruchstück auf der Platte?</summary>
+    /// <remarks>
+    /// Gelesen wird die Datei, die gerade beschrieben wird. Das ist Absicht: Genau diesen
+    /// Zustand fände auch ein Absturz vor. Ein Lesefehler heisst deshalb schlicht „noch
+    /// nicht“ — die Datei ist dann in der Hand des Kodierers, und das ist keine Auskunft über
+    /// ihren Inhalt.
+    /// </remarks>
+    private static bool HatBruchstueck(string path)
+    {
+        try
+        {
+            return Mp4Duration.BoxesOf(path).Contains("moof");
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+    }
+
     private static void Schreibe(VideoFile file, int frames, int framesPerSecond,
                                  int startIndex = 0)
     {

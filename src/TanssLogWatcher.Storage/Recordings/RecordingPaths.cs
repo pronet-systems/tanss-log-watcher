@@ -61,20 +61,21 @@ public static class RecordingPaths
         return Path.Combine(day, $"{time}-{Short(sessionId)}");
     }
 
+    /// <summary>Der Name der Videodatei in jedem Sitzungsordner.</summary>
+    /// <remarks>
+    /// Derselbe Stamm wie die Begleitdatei <c>sitzung.json</c> — das zeigt den Zusammenhang
+    /// ohne Erklärung. Früher hiessen die Dateien <c>teil-01.mp4</c>, <c>teil-02.mp4</c> und so
+    /// fort; seit eine Sitzung genau eine Datei ergibt, wäre „Teil“ eine Lüge.
+    /// </remarks>
+    public const string VideoName = "sitzung.mp4";
+
     /// <summary>
-    /// Die Datei eines Abschnitts, relativ zur Wurzel.
+    /// Die Videodatei einer Sitzung, relativ zur Wurzel.
     /// </summary>
     /// <param name="startedAt">Wann die Sitzung begann.</param>
     /// <param name="sessionId">Die Sitzungskennung.</param>
-    /// <param name="segment">Der wievielte Abschnitt, beginnend bei 1.</param>
-    public static string SegmentFor(DateTimeOffset startedAt, string sessionId, int segment)
-    {
-        ArgumentOutOfRangeException.ThrowIfLessThan(segment, 1);
-
-        string name = string.Create(CultureInfo.InvariantCulture, $"teil-{segment:00}.mp4");
-
-        return Path.Combine(FolderFor(startedAt, sessionId), name);
-    }
+    public static string VideoFor(DateTimeOffset startedAt, string sessionId) =>
+        Path.Combine(FolderFor(startedAt, sessionId), VideoName);
 
     /// <summary>
     /// Prüft, ob ein Pfad tatsächlich unterhalb der Wurzel liegt.

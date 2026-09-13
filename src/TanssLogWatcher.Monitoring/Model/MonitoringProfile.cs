@@ -101,6 +101,57 @@ public sealed record MonitoringProfile
         return false;
     }
 
+    /// <summary>
+    /// Verlangt dieses Profil ein erkanntes Ziel, bevor eine Sitzung entsteht?
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Platzhalter ist für ein Fenster ohne Titel gedacht, nicht für ein Fenster
+    /// mit dem falschen Titel.</b> Findet das Muster in keinem Fenstertitel ein Ziel, legt die
+    /// Auflösung sonst eine Sitzung mit
+    /// <see cref="SessionConstants.NoDestinationTitle"/> an — in der Erwartung, dass gleich ein
+    /// echtes Ziel nachkommt. Für eine Anwendung, die nur während einer Verbindung überhaupt
+    /// läuft, ist das richtig: Microsoft Remotedesktop wird gestartet, um sich zu verbinden,
+    /// und sein Fenster trägt in den ersten Sekunden noch keinen Namen.</para>
+    ///
+    /// <para><b>Für eine Anwendung, die dauerhaft offen steht, ist es falsch</b> — und es ist
+    /// im Betrieb aufgefallen: AnyDesk läuft mit seinem Hauptfenster, ob eine Fernwartung
+    /// besteht oder nicht. Dessen Titel lautet dann schlicht <c>AnyDesk</c>, das Muster
+    /// „alles vor dem Bindestrich“ greift nicht — und es entstand eine Sitzung, obwohl niemand
+    /// verbunden war. Wer die Anwendung nur öffnet oder von einer Webseite starten lässt, hat
+    /// keine Fernwartung gemacht.</para>
+    ///
+    /// <para>Voreingestellt <c>false</c>, und das mit Bedacht: Eine Sitzung zu viel ist
+    /// sichtbar und wird im Abschlussdialog verworfen; eine Sitzung zu wenig kostet Arbeitszeit,
+    /// die niemand mehr findet. Gesetzt wird die Angabe deshalb nur dort, wo sicher ist, dass
+    /// die Anwendung auch ohne Fernwartung offen steht.</para>
+    /// </remarks>
+    public bool RequiresResolvedDestination { get; init; }
+
+    /// <summary>
+    /// Taugt der Bezeichner dieses Profils als dauerhafte Kennung des Geräts?
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Wofür das gebraucht wird.</b> TANSS führt eine eigene Übersetzungstabelle
+    /// <c>deviceId → Firma</c>; wird beim Anlegen einer Fernwartung eine <c>deviceId</c>
+    /// mitgeschickt, setzt TANSS die Firma selbst ein. Nachgemessen am 13.09.2026 gegen eine
+    /// Instanz der Fassung 10.10.0: mit hinterlegter Zuordnung kam die Firma zurück, ohne sie
+    /// eine 0. Der Nutzen steht und fällt damit, dass die Kennung <b>morgen dasselbe Gerät
+    /// bezeichnet wie heute</b>.</para>
+    ///
+    /// <para><b>Voreingestellt <c>false</c>, und zwar ausdrücklich.</b> Wer ein Profil
+    /// hinzufügt, muss sich die Frage stellen — ein stillschweigendes Ja wäre hier teuer: Aus
+    /// einem Fenstertitel wie „Dokument1 - Word“ entstünde eine Kennung, und wer sie einmal
+    /// einem Kunden zuordnet, bucht fortan jedes Word-Fenster auf diesen Kunden.</para>
+    ///
+    /// <para><b>Nicht gesetzt ist es deshalb bei:</b> allen Profilen, deren Ziel der
+    /// <b>ganze</b> Fenstertitel ist (<c>host</c>, <c>WindowsTerminal</c>, <c>cmd</c>,
+    /// <c>powershell</c>, <c>RoyalTS</c> und weitere); den beiden Outlook-Profilen, deren Ziel
+    /// die <b>Nachrichtenbetreffzeile</b> ist; <c>devenv</c> und <c>Code</c>, deren Ziel eine
+    /// Projektmappe oder Datei benennt; und <c>Zoom</c>, dessen Ziel eine Besprechung ist und
+    /// kein Gerät.</para>
+    /// </remarks>
+    public bool YieldsDeviceIdentity { get; init; }
+
     /// <summary>Ordinaler Gleichheitstest gegen <see cref="IgnoredTitles"/>.</summary>
     public bool IsIgnoredTitle(string title) => IgnoredTitles.Contains(title, StringComparer.Ordinal);
 

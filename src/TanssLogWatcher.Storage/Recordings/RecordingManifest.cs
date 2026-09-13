@@ -62,6 +62,25 @@ public sealed record RecordingManifest
     /// <summary>Die Abmessungen des Bildes.</summary>
     public string Canvas { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Was aufgenommen wurde: <c>windows</c> oder <c>screen</c>.
+    /// </summary>
+    /// <remarks>
+    /// Gehört zur Aufzeichnung und nicht in eine Konfigurationsdatei: Wer sie Monate später in
+    /// der Hand hält, soll sehen können, ob hier nur die Fenster der Sitzung zu sehen sind oder
+    /// der ganze Bildschirm des Technikers — das ist der Unterschied, auf den es ankommt.
+    /// </remarks>
+    public string Scope { get; init; } = "windows";
+
+    /// <summary>
+    /// Wie oft das Bild während der Sitzung einem anderen Bildschirm gefolgt ist.
+    /// </summary>
+    /// <remarks>
+    /// Sie erklärt einen Sprung im Bild. Ohne diesen Vermerk sähe ein Bildschirmwechsel wie ein
+    /// Schnitt aus — und ein Schnitt weckt den Verdacht, es fehle etwas.
+    /// </remarks>
+    public int ScreenChanges { get; init; }
+
     /// <summary>Bilder je Sekunde.</summary>
     public int FramesPerSecond { get; init; }
 

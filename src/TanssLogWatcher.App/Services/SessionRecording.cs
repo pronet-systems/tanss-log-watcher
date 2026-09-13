@@ -34,6 +34,7 @@ internal sealed class SessionRecording : IDisposable
     private readonly string _root;
     private readonly RecordingStore _store;
     private readonly IWindowGeometrySource _geometry;
+    private readonly IScreenSource _screens;
     private readonly TimeProvider _clock;
     private readonly TimeSpan _retention;
     private readonly TaskCompletionSource _done =
@@ -56,16 +57,18 @@ internal sealed class SessionRecording : IDisposable
     /// <param name="root">Die Wurzel, unter der Aufzeichnungen liegen.</param>
     /// <param name="store">Die Buchführung.</param>
     /// <param name="geometry">Woher die Fenster samt Lage kommen.</param>
+    /// <param name="screens">Woher die Bildschirme kommen.</param>
     /// <param name="clock">Die Uhr.</param>
     public SessionRecording(SessionSnapshot session, RecordingSection settings, string root,
                             RecordingStore store, IWindowGeometrySource geometry,
-                            TimeProvider clock)
+                            IScreenSource screens, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(settings);
         ArgumentException.ThrowIfNullOrWhiteSpace(root);
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(geometry);
+        ArgumentNullException.ThrowIfNull(screens);
         ArgumentNullException.ThrowIfNull(clock);
 
         _session = session;
@@ -73,10 +76,11 @@ internal sealed class SessionRecording : IDisposable
         _root = root;
         _store = store;
         _geometry = geometry;
+        _screens = screens;
         _clock = clock;
         _retention = TimeSpan.FromDays(settings.RetentionDays);
         _options = ToOptions(settings);
-        _recorder = new SessionRecorder(_options, PathForSegment);
+        _recorder = new SessionRecorder(_options, PathForVideo);
     }
 
     /// <summary>Die Sitzung, die aufgezeichnet wird.</summary>
@@ -109,9 +113,9 @@ internal sealed class SessionRecording : IDisposable
 
         return new RecordingOptions
         {
+            Scope = settings.CapturesScreen ? CaptureScope.Screen : CaptureScope.SessionWindows,
             FramesPerSecond = settings.FramesPerSecond,
             Heartbeat = TimeSpan.FromSeconds(settings.HeartbeatSeconds),
-            SegmentLength = TimeSpan.FromMinutes(settings.SegmentMinutes),
             MinimumFreeMegabytes = settings.MinimumFreeMegabytes,
         };
     }
@@ -212,7 +216,8 @@ internal sealed class SessionRecording : IDisposable
             : _geometry.WindowsOf(_session.ProcessId);
 
         bool running = _recorder.Tick(new RecordingInput(
-            _clock.GetLocalNow(), windows, ended, RecordingGate.FreeMegabytes(_root)));
+            _clock.GetLocalNow(), windows, ended, RecordingGate.FreeMegabytes(_root),
+            _screens.Screens()));
 
         if (_recorder.LastReason.Length > 0)
         {
@@ -223,28 +228,24 @@ internal sealed class SessionRecording : IDisposable
     }
 
     /// <summary>
-    /// Liefert den Pfad des nächsten Abschnitts — und schliesst dabei den vorigen ab.
+    /// Liefert den Pfad der Aufzeichnung und trägt sie in die Buchführung ein.
     /// </summary>
     /// <remarks>
-    /// Der Rekorder ruft diese Stelle genau dann auf, wenn er eine neue Datei anlegt; der
-    /// vorige Abschnitt ist zu diesem Zeitpunkt bereits geschlossen und vollständig auf der
-    /// Platte. Das ist der einzige Augenblick, in dem seine endgültige Grösse feststeht.
+    /// Genau einmal je Sitzung gerufen: Eine Sitzung ergibt eine Datei. Eingetragen wird beim
+    /// Beginn und nicht beim Ende — stürzt das Werkzeug mitten im Schreiben ab, bliebe die
+    /// Datei sonst als Waise liegen, und niemand wüsste, zu welcher Sitzung sie gehört und wann
+    /// sie zu löschen wäre.
     /// </remarks>
-    private string PathForSegment(int segment)
+    private string PathForVideo()
     {
         CloseEntry();
 
-        string relative = RecordingPaths.SegmentFor(
-            _session.StartedAt, _session.SessionId, segment);
-
+        string relative = RecordingPaths.VideoFor(_session.StartedAt, _session.SessionId);
         string full = Path.Combine(_root, relative);
 
         _ = Directory.CreateDirectory(Path.GetDirectoryName(full)!);
 
-        // Eingetragen wird beim Beginn und nicht beim Ende: Stuerzt das Werkzeug mitten im
-        // Schreiben ab, bliebe die Datei sonst als Waise liegen - niemand wuesste, zu welcher
-        // Sitzung sie gehoert und wann sie zu loeschen waere.
-        _openEntry = _store.Begin(_session.SessionId, relative, segment, _retention);
+        _openEntry = _store.Begin(_session.SessionId, relative, 1, _retention);
         _openPath = full;
         _openAtRecorded = _recorder.Recorded;
 
@@ -329,6 +330,8 @@ internal sealed class SessionRecording : IDisposable
                     p => new ManifestPause(p.StartedAt, (long)p.Length.TotalSeconds))],
                 Files = [.. _relativeFiles.Select(f => Path.GetFileName(f) ?? f)],
                 Canvas = Describe(),
+                Scope = _settings.Scope,
+                ScreenChanges = _recorder.ScreenChanges,
                 FramesPerSecond = _options.FramesPerSecond,
                 DeleteAfter = started + _retention,
                 LegalBasis = _settings.LegalBasis ?? string.Empty,

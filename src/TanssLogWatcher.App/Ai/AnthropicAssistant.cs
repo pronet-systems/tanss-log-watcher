@@ -17,13 +17,20 @@ namespace TanssLogWatcher.App.Ai;
 public sealed class AnthropicAssistant : IAiAssistant
 {
     private readonly AnthropicClient _client;
+    private readonly AiPromptSet _prompts;
 
     /// <summary>Baut den Zugang mit einem Schlüssel.</summary>
     /// <param name="apiKey">Der Schlüssel des Anbieters.</param>
-    public AnthropicAssistant(string apiKey)
+    /// <param name="prompts">
+    /// Die Anweisungen an das Modell; ohne Angabe die eingebauten. Sie kommen von aussen,
+    /// damit der Betrieb sie bearbeiten kann — die unverhandelbaren Regeln hängt
+    /// <see cref="AiPromptSet.System"/> ohnehin an.
+    /// </param>
+    public AnthropicAssistant(string apiKey, AiPromptSet? prompts = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(apiKey);
         _client = new AnthropicClient { ApiKey = apiKey };
+        _prompts = prompts ?? AiPromptSet.Default;
     }
 
     /// <inheritdoc />
@@ -52,13 +59,13 @@ public sealed class AnthropicAssistant : IAiAssistant
         {
             Model = model,
             MaxTokens = 4096,
-            System = AiPrompts.System,
+            System = _prompts.System,
             Messages =
             [
                 new()
                 {
                     Role = Role.User,
-                    Content = AiPrompts.For(task) + "\n\n---\n" + text,
+                    Content = _prompts.For(task) + "\n\n---\n" + text,
                 },
             ],
         }, cancellationToken: ct).ConfigureAwait(false);

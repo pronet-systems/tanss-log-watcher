@@ -103,7 +103,7 @@ public static class RuntimeFailure
                 "TANSS hat mit einem Fehler geantwortet. Meldung: "
                 + Redaction.Scrub(tanss.Message),
                 "Startet die Instanz gerade neu, hilft ein zweiter Versuch in ein paar Minuten; "
-                + "bleibt es dabei, ist die TANSS-Fassung gegen die benutzten Routen "
+                + "bleibt es dabei, ist die TANSS-Version gegen die benutzten Routen "
                 + "abzugleichen. " + QueueKeeps),
 
             _ => new RuntimeFailureReport(DegradedCause.Unknown,

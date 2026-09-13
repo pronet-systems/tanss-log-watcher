@@ -4,6 +4,7 @@ using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using TanssLogWatcher.App.Runtime;
+using TanssLogWatcher.App.Services;
 using TanssLogWatcher.Storage.Queue;
 
 namespace TanssLogWatcher.App.ViewModels;
@@ -100,7 +101,7 @@ public sealed partial class QueueViewModel : RuntimeViewModel
     {
         if (!IsConfigured)
         {
-            LastRun = "Ohne Einrichtung geht nichts hinaus. Die Einrichtung steht unter „Verbindung“.";
+            LastRun = "Ohne Einrichtung geht nichts hinaus. Die Einrichtung steht unter „Einstellungen“.";
             return;
         }
 
@@ -112,6 +113,53 @@ public sealed partial class QueueViewModel : RuntimeViewModel
     /// <summary>Liest den Stand der Warteschlange neu.</summary>
     [RelayCommand]
     private void Refresh() => Apply(Host.Uploads.RefreshQueue());
+
+    /// <summary>
+    /// Legt den Abschlussdialog zu einer wartenden Zeile noch einmal vor.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum es das gibt.</b> Ein Eintrag, der wartet, ist noch nicht in TANSS — der
+    /// Bericht lässt sich also noch ändern. Bisher ging das nur beim nächsten Programmstart,
+    /// wenn der Dialog von selbst wieder kam; wer vorher einen Tippfehler bemerkte, konnte ihn
+    /// nur stehen lassen oder den Eintrag verwerfen.</para>
+    ///
+    /// <para><b>Derselbe Dialog wie beim Neustart</b> und kein zweiter Weg daneben: Gerufen
+    /// wird <c>Reoffer</c>, und das ist genau der Aufruf, den die Wiederherstellung beim Start
+    /// benutzt — samt Riegel gegen zwei gleichzeitige Dialoge und samt Eintrag im Protokoll.</para>
+    ///
+    /// <para><b>Kein stiller Ausgang.</b> Geht es nicht, steht der Grund in der Meldezeile.
+    /// Ein Doppelklick, der nichts tut, sieht aus wie ein Fehler des Werkzeugs.</para>
+    /// </remarks>
+    /// <param name="row">Die angeklickte Zeile.</param>
+    [RelayCommand]
+    private void Edit(QueueRow? row)
+    {
+        if (row is null)
+        {
+            return;
+        }
+
+        ReofferResult result = Host.Sessions.Reoffer(row.RemoteMaintenanceId);
+
+        // Bei Erfolg bleibt die Zeile leer: Der Dialog steht dann vor dem Techniker, und ein
+        // Satz dahinter, der dasselbe noch einmal sagt, ist nur Rauschen.
+        Notice = result.Opened ? string.Empty : result.Reason;
+    }
+
+    /// <summary>
+    /// Warum der Doppelklick auf eine Zeile nichts geöffnet hat.
+    /// </summary>
+    /// <remarks>
+    /// Getrennt von <see cref="LastRun"/>: Das dort ist der letzte <b>Sendelauf</b>, und die
+    /// beiden Sachverhalte in einer Zeile zusammenzuziehen hiesse, den einen mit dem anderen zu
+    /// überschreiben.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNotice))]
+    private string _notice = string.Empty;
+
+    /// <summary>Gibt es etwas zu melden?</summary>
+    public bool HasNotice => !string.IsNullOrEmpty(Notice);
 
     /// <inheritdoc />
     protected override void OnStatusUpdated(AppStatus status) => _ = InitializeAsync();

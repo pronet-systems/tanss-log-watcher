@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Runtime.Versioning;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using TanssLogWatcher.Api.Contract;
 using TanssLogWatcher.Api.Diagnostics;
 using TanssLogWatcher.Api.Model;
 using TanssLogWatcher.App.Runtime;
@@ -27,20 +28,37 @@ namespace TanssLogWatcher.App.ViewModels;
 /// <para><b>Gebucht ist gebucht.</b> Eine Leistung lässt sich von hier aus nicht zurücknehmen;
 /// das geht nur in TANSS. Deshalb steht die Schaltfläche allein rechts und heißt, was sie
 /// tut.</para>
+///
+/// <para><b>Ein Ticket entsteht hier, wenn keines da ist.</b> Sagt die Prüfung unter dem
+/// Ticketfeld „gibt es nicht“, oder gab es nie eines, legt <see cref="NewTicket"/> eines an —
+/// samt Firmenauswahl. Die Nummer wandert danach von selbst ins Ticketfeld. Ohne diesen Weg
+/// endete der Dialog an dieser Stelle: Ticket in TANSS von Hand anlegen, Nummer abschreiben,
+/// Dialog neu öffnen.</para>
 /// </remarks>
 [SupportedOSPlatform("windows")]
-public sealed partial class CreateSupportViewModel : ObservableObject
+public sealed partial class CreateSupportViewModel : ObservableObject, IDisposable
 {
     private readonly AppHost _host;
     private readonly TimerRow _timer;
 
     private SupportDraft? _draft;
+    private bool _disposed;
 
     /// <summary>Baut den Dialog zu einem Timer und holt die Vorbereitung.</summary>
     /// <param name="host">Die Laufzeit.</param>
     /// <param name="timer">Der Timer, der zur Leistung werden soll.</param>
     /// <param name="tickets">Die offenen Tickets zur Auswahl.</param>
-    public CreateSupportViewModel(AppHost host, TimerRow timer, IReadOnlyList<TicketRow> tickets)
+    /// <param name="verification">
+    /// Die Prüfstelle für Ticketnummern. Bleibt sie offen, wird die der Laufzeit genommen —
+    /// der Übergabewert ist dafür da, den Dialog ohne Netz prüfbar zu halten.
+    /// </param>
+    /// <param name="newTicket">
+    /// Der Anleger für ein neues Ticket. Bleibt er offen, wird einer aus der Laufzeit gebaut —
+    /// mit deren Firmensuche und dem angemeldeten Mitarbeiter als Zuweisung.
+    /// </param>
+    public CreateSupportViewModel(AppHost host, TimerRow timer, IReadOnlyList<TicketRow> tickets,
+                                  ITicketVerification? verification = null,
+                                  NewTicketViewModel? newTicket = null)
     {
         ArgumentNullException.ThrowIfNull(host);
         ArgumentNullException.ThrowIfNull(timer);
@@ -48,6 +66,19 @@ public sealed partial class CreateSupportViewModel : ObservableObject
 
         _host = host;
         _timer = timer;
+
+        TicketCheck = verification is not null
+            ? new TicketCheckPanel(verification)
+            : TicketCheckPanel.For(host.Composition?.Tickets);
+
+        // Ohne Einrichtung bekommt der Anleger zweimal null und sagt das selbst; er wird
+        // trotzdem gebaut, damit die Bindungen im Fenster nicht ins Leere zeigen.
+        NewTicket = newTicket ?? new NewTicketViewModel(
+            host.Composition?.NewTickets,
+            host.Composition?.Companies,
+            host.Composition?.Config.Tanss.EmployeeId ?? 0);
+
+        NewTicket.Created += OnTicketCreated;
 
         foreach (TicketRow ticket in tickets)
         {
@@ -77,9 +108,174 @@ public sealed partial class CreateSupportViewModel : ObservableObject
     /// <summary>Die offenen Tickets zur Auswahl.</summary>
     public ObservableCollection<TicketRow> Tickets { get; } = [];
 
-    /// <summary>Das gewählte Ticket; <c>null</c> heisst „ohne Ticket“.</summary>
+    /// <summary>Das gewählte Ticket aus der Liste; <c>null</c> heisst „nichts gewählt“.</summary>
+    /// <remarks>
+    /// <b>Allein sagt das nichts über die Buchung.</b> Das Auswahlfeld im Fenster ist
+    /// bearbeitbar; wer eine Nummer tippt, die in der Liste nicht steht, lässt diese
+    /// Eigenschaft auf <c>null</c> stehen. Was gebucht wird, sagt <see cref="TicketId"/>.
+    /// </remarks>
     [ObservableProperty]
     private TicketRow? _selectedTicket;
+
+    /// <summary>
+    /// Was im Textteil des Auswahlfeldes steht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Der Grund, warum es diese Eigenschaft gibt.</b> Das Auswahlfeld ist
+    /// <c>IsEditable=True</c>. Gebunden war nur <c>SelectedItem</c>, und eine getippte Nummer
+    /// fiel damit lautlos auf 0 — die Leistung wurde ohne Ticket gebucht, und niemand erfuhr
+    /// davon. Getippter Text und Auswahl werden jetzt beide gelesen.</para>
+    /// <para>Die Bindung steht auf <c>LostFocus</c>: Dann wird aufgelöst und geprüft. Ein
+    /// Anschlag je Zeichen führe TANSS jede Zwischenstufe einer Nummer vor.</para>
+    /// </remarks>
+    [ObservableProperty]
+    private string _ticketText = string.Empty;
+
+    /// <summary>
+    /// Die Ticketnummer, die tatsächlich gebucht wird; 0 heisst „ohne Ticket“.
+    /// </summary>
+    /// <remarks>
+    /// Aus Auswahl und getipptem Text aufgelöst, siehe <see cref="ResolveTicket"/>. Steht im
+    /// Feld etwas, das keine Nummer ist, bleibt sie 0 — <see cref="TicketIsUnreadable"/> ist
+    /// dann gesetzt und das Buchen wartet, statt still ohne Ticket zu buchen.
+    /// </remarks>
+    public int TicketId { get; private set; }
+
+    /// <summary>
+    /// Steht im Ticketfeld etwas, das keine Nummer ist?
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Das ist kein Ergebnis der Prüfung, sondern eine Feststellung des Werkzeugs</b>
+    /// — und nur deshalb darf es das Buchen anhalten. Was TANSS über eine Nummer sagt, hält
+    /// hier nichts an; auch „gibt es nicht“ steht nur da.</para>
+    /// <para>Anhalten ist an dieser Stelle gefahrlos: Dieser Dialog hat keine wartende Zeile, es
+    /// geht nichts verloren, und der Satz unter dem Feld sagt, was zu tun ist.</para>
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CanBook))]
+    private bool _ticketIsUnreadable;
+
+    /// <summary>Was aus der Ticketeingabe geworden ist.</summary>
+    public TicketCheckPanel TicketCheck { get; }
+
+    /// <summary>
+    /// Der Anleger für ein neues Ticket — mit eigener Firmenauswahl.
+    /// </summary>
+    /// <remarks>
+    /// Er hängt ausdrücklich an diesem Dialog und nicht an einem eigenen Fenster: Gebraucht wird
+    /// er in dem Augenblick, in dem die Prüfung unter dem Ticketfeld sagt, dass es die Nummer
+    /// nicht gibt. Was er anlegt, landet über <see cref="OnTicketCreated"/> im Ticketfeld.
+    /// </remarks>
+    public NewTicketViewModel NewTicket { get; }
+
+    /// <summary>
+    /// Die laufende Ticketprüfung, oder eine bereits abgeschlossene.
+    /// </summary>
+    /// <remarks>
+    /// Öffentlich, damit sich die Prüfung ohne Oberfläche abwarten lässt. Das Fenster braucht
+    /// sie nicht.
+    /// </remarks>
+    public Task TicketCheckPending { get; private set; } = Task.CompletedTask;
+
+    /// <summary>Löst auf und prüft, sobald das Auswahlfeld den Fokus verliert.</summary>
+    /// <param name="value">Der neue Inhalt des Textteils.</param>
+    partial void OnTicketTextChanged(string value) => ResolveTicket();
+
+    /// <summary>
+    /// Übernimmt ein eben angelegtes Ticket in das Ticketfeld.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ohne diesen Schritt müsste der Techniker die Nummer aus der Meldung abschreiben —
+    /// genau die Handarbeit, derentwegen der Anleger hier sitzt.</para>
+    /// <para><b>Ohne Nummer wird nichts übernommen.</b> TANSS kann den Aufruf angenommen haben,
+    /// ohne eine zu nennen; dann steht im Ticketfeld weiterhin, was vorher darin stand, und die
+    /// Meldung des Anlegers sagt, was zu tun ist. Eine geratene Nummer stünde sonst gleich in
+    /// einer gebuchten Leistung (Hausregel 2).</para>
+    /// <para>Ein angelegtes Ticket steht anschliessend auch in der Auswahlliste: Wer das Feld
+    /// leert und es sich anders überlegt, findet es dort wieder.</para>
+    /// </remarks>
+    /// <param name="sender">Der Anleger.</param>
+    /// <param name="result">Was TANSS geantwortet hat.</param>
+    private void OnTicketCreated(object? sender, TicketCreateResult result)
+    {
+        if (!result.HasTicketId)
+        {
+            return;
+        }
+
+        if (result.Ticket is { } created && Tickets.All(row => row.Id != created.Id))
+        {
+            Tickets.Add(new TicketRow(created));
+        }
+
+        TicketRow? row = Tickets.FirstOrDefault(entry => entry.Id == result.TicketId);
+        SelectedTicket = row;
+
+        // Der Textteil ist der massgebliche Weg: Ueber ihn laeuft ResolveTicket, und erst das
+        // setzt TicketId - dieselbe Aufloesung, die auch eine getippte Nummer nimmt.
+        TicketText = row?.Display
+            ?? string.Create(CultureInfo.CurrentCulture, $"#{result.TicketId}");
+    }
+
+    /// <summary>
+    /// Macht aus Auswahl und getipptem Text eine Ticketnummer — oder sagt, dass es keine gibt.
+    /// </summary>
+    /// <remarks>
+    /// <para>Die Reihenfolge ist die des Zutrauens: eine Zeile der Liste, dann eine gelesene
+    /// Nummer, dann der Befund „das ist keine“. Ein leeres Feld heisst „ohne Ticket“ und ist
+    /// erlaubt — ausser die Auswahl trägt noch eine Zeile, dann gilt die.</para>
+    /// <para>Der Vergleich läuft über <c>TicketRow.Display</c>, weil genau dieser Text im
+    /// Auswahlfeld steht, sobald jemand eine Zeile anklickt.</para>
+    /// </remarks>
+    private void ResolveTicket()
+    {
+        string text = TicketText.Trim();
+
+        if (text.Length == 0)
+        {
+            // Leeres Feld. Eine noch stehende Auswahl gilt weiter - sie kann gesetzt worden
+            // sein, ohne dass das Feld je den Fokus hatte (siehe LoadAsync).
+            TicketId = SelectedTicket?.Id ?? 0;
+            TicketIsUnreadable = false;
+
+            if (TicketId > 0)
+            {
+                TicketCheckPending = TicketCheck.CheckAsync(TicketId);
+            }
+            else
+            {
+                TicketCheck.Clear();
+            }
+
+            return;
+        }
+
+        TicketRow? chosen = Tickets.FirstOrDefault(
+            row => string.Equals(text, row.Display, StringComparison.Ordinal));
+
+        if (chosen is not null)
+        {
+            TicketId = chosen.Id;
+            TicketIsUnreadable = false;
+            TicketCheckPending = TicketCheck.CheckAsync(TicketId);
+            return;
+        }
+
+        if (TicketCheckPanel.TryReadNumber(text, out int typed))
+        {
+            TicketId = typed;
+            TicketIsUnreadable = false;
+            TicketCheckPending = TicketCheck.CheckAsync(typed);
+            return;
+        }
+
+        // HIER fiel die Eingabe bisher lautlos auf 0. Jetzt steht sie da, und gebucht wird
+        // nicht, bis der Techniker sie berichtigt oder das Feld leert.
+        TicketId = 0;
+        TicketIsUnreadable = true;
+        TicketCheck.ShowProblem($"„{text}“ ist keine Ticketnummer. Erwartet wird eine Zahl oder "
+            + "eine Zeile aus der Auswahl; für eine Leistung ohne Ticket bleibt das Feld leer.");
+    }
 
     /// <summary>Der Text der Leistung — das, was auf der Rechnung steht.</summary>
     [ObservableProperty]
@@ -108,14 +304,22 @@ public sealed partial class CreateSupportViewModel : ObservableObject
     public bool HasMessage => !string.IsNullOrEmpty(Message);
 
     /// <summary>Darf jetzt gebucht werden?</summary>
-    public bool CanBook => IsReady && !IsBusy;
+    /// <remarks>
+    /// <see cref="TicketIsUnreadable"/> hält an, das Ergebnis der Ticketprüfung nicht. Was TANSS
+    /// über eine Nummer sagt, steht unter dem Feld; ob damit gebucht wird, entscheidet der
+    /// Techniker.
+    /// </remarks>
+    public bool CanBook => IsReady && !IsBusy && !TicketIsUnreadable;
 
     /// <summary>
     /// Bucht die Leistung in TANSS.
     /// </summary>
     /// <remarks>
-    /// Der einzige Schritt in diesem Dialog, der etwas verändert — und er ist nicht
-    /// zurückzunehmen.
+    /// <para>Der einzige Schritt in diesem Dialog, der etwas verändert — und er ist nicht
+    /// zurückzunehmen.</para>
+    /// <para><b>Gebucht wird <see cref="TicketId"/> und nicht <c>SelectedTicket?.Id ?? 0</c>.</b>
+    /// Das Auswahlfeld ist bearbeitbar: Eine getippte Nummer steht im Text und nicht in der
+    /// Auswahl, und die alte Zeile liess sie lautlos auf 0 fallen.</para>
     /// </remarks>
     [RelayCommand]
     private async Task BookAsync()
@@ -125,8 +329,17 @@ public sealed partial class CreateSupportViewModel : ObservableObject
             return;
         }
 
+        if (TicketIsUnreadable)
+        {
+            // Derselbe Riegel wie in CanBook, und er steht hier noch einmal: Eine Bindung, die
+            // den Knopf versehentlich freigibt, darf die Eingabe nicht doch verschwinden lassen.
+            Message = "Im Ticketfeld steht keine Nummer. Bitte berichtigen oder das Feld leeren "
+                + "— dann wird ohne Ticket gebucht.";
+            return;
+        }
+
         draft.Text = Text.Trim();
-        draft.TicketId = SelectedTicket?.Id ?? 0;
+        draft.TicketId = TicketId;
 
         foreach (SegmentRow row in Segments)
         {
@@ -160,6 +373,26 @@ public sealed partial class CreateSupportViewModel : ObservableObject
     /// <summary>Schliesst den Dialog, ohne etwas zu buchen.</summary>
     [RelayCommand]
     private void Cancel() => Finished?.Invoke(this, EventArgs.Empty);
+
+    /// <summary>
+    /// Gibt frei, was mit dem Fenster zugeht.
+    /// </summary>
+    /// <remarks>
+    /// Der Anleger führt eine Firmenauswahl, und die hält einen <c>DispatcherTimer</c> für die
+    /// Entprellung. Ein Takt, der nach dem Schliessen weiterliefe, hinge am Strang der
+    /// Oberfläche und hielte den ganzen Dialog im Speicher.
+    /// </remarks>
+    public void Dispose()
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _disposed = true;
+        NewTicket.Created -= OnTicketCreated;
+        NewTicket.Dispose();
+    }
 
     /// <summary>
     /// Lässt TANSS die Leistung vorbereiten.
@@ -199,6 +432,16 @@ public sealed partial class CreateSupportViewModel : ObservableObject
             SelectedTicket = draft.TicketId > 0
                 ? Tickets.FirstOrDefault(ticket => ticket.Id == draft.TicketId)
                 : null;
+
+            // Der Textteil wird mitgesetzt, und das faengt einen zweiten stillen Verlust:
+            // Traegt der Timer ein Ticket, das nicht unter den offenen steht - erledigt, fremd
+            // oder gar nicht geladen -, blieb das Auswahlfeld leer, und die Nummer war beim
+            // Buchen fort. Jetzt steht sie als "#4711" im Feld und geht mit hinaus.
+            TicketText = SelectedTicket is { } row
+                ? row.Display
+                : draft.TicketId > 0
+                    ? string.Create(CultureInfo.CurrentCulture, $"#{draft.TicketId}")
+                    : string.Empty;
 
             Summary = string.Create(CultureInfo.CurrentCulture,
                 $"{Texts.Count(draft.Segments.Count, "Zeitabschnitt", "Zeitabschnitte")}, "

@@ -42,7 +42,7 @@ public partial class MainWindow
         {
             // Erst hier und nicht im Konstruktor: Die Laufzeit entsteht in App.OnStartup nach
             // dem Fenster. Ein Zugriff davor liefe in die Ausnahme, die AppHost dafuer vorsieht.
-            ViewModel ??= new ShellViewModel(App.Runtime);
+            ViewModel ??= new ShellViewModel(App.Runtime, App.Updates);
             DataContext = ViewModel;
 
             ShowStartPage(page);
@@ -57,7 +57,7 @@ public partial class MainWindow
     /// Die Navigationsleiste löst das Ziel über ihre Einträge auf; sind die beim Auslösen von
     /// <see cref="FrameworkElement.Loaded"/> noch nicht aufgebaut, findet sie nichts, meldet
     /// <see langword="false"/> — und wählt anschliessend von sich aus den letzten Eintrag.
-    /// Das Werkzeug startete dann auf „Verbindung“ statt auf den Sitzungen, und weil der
+    /// Das Werkzeug startete dann auf dem letzten Eintrag statt auf den Sitzungen, und weil der
     /// Rückgabewert weggeworfen wurde, sah es aus wie eine Design-Entscheidung.</para>
     ///
     /// <para><b>Warum es lange gutging.</b> Ob die Einträge rechtzeitig stehen, hängt davon ab,
@@ -108,10 +108,12 @@ public partial class MainWindow
     {
         "queue" => typeof(QueuePage),
         "timers" => typeof(TimersPage),
+        "history" => typeof(HistoryPage),
         "monitoring" => typeof(MonitoringPage),
         "recording" => typeof(RecordingPage),
         "diagnostics" => typeof(DiagnosticsPage),
         "connection" => typeof(ConnectionPage),
+        "about" => typeof(AboutPage),
         _ => typeof(SessionsPage),
     };
 
@@ -133,6 +135,23 @@ public partial class MainWindow
         }
 
         base.OnClosing(e);
+    }
+
+    /// <summary>Führt vom Hinweis auf die neue Fassung dorthin, wo sie sich holen lässt.</summary>
+    /// <remarks>
+    /// Die Seite „Verbindung“ trägt den ganzen Vorgang: holen, gegen die Prüfsumme halten,
+    /// einspielen. Ein Hinweis, der nur hinweist, zwänge den Techniker, den Weg selbst zu
+    /// suchen.
+    /// </remarks>
+    /// <param name="sender">Die Schaltfläche in der Fußzeile.</param>
+    /// <param name="e">Das Ereignis.</param>
+    private void OnUpdateHintClick(object sender, RoutedEventArgs e)
+    {
+        if (!Navigation.Navigate(typeof(ConnectionPage)))
+        {
+            Debug.WriteLine("Die Seite „Verbindung“ liess sich vom Aktualisierungshinweis aus "
+                            + "nicht öffnen.");
+        }
     }
 
     private void OnTrayOpen(object sender, RoutedEventArgs e)

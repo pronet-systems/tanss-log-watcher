@@ -43,7 +43,28 @@ public sealed record QueuedUpload
     public DateTimeOffset CreatedAt { get; init; }
 
     /// <summary>Ab wann er wieder versucht werden darf.</summary>
+    /// <remarks>
+    /// Ohne Bedeutung, solange <see cref="AwaitingDecision"/> steht: Dann teilt
+    /// <see cref="IUploadQueue.Lease"/> die Zeile ohnehin nicht zu, gleich welcher Zeitpunkt
+    /// hier steht.
+    /// </remarks>
     public DateTimeOffset NextAttemptAt { get; init; }
+
+    /// <summary>
+    /// Die Zeile wartet auf die Entscheidung des Technikers im Abschlussdialog.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Kein Zeitablauf hebt das auf.</b> Eine Zeile mit diesem Kennzeichen trägt eine
+    /// Sitzung, die <b>niemand</b> beantwortet hat: Das Werkzeug wurde beendet, während sie
+    /// noch offen war, oder ein früherer Lauf ist abgestürzt. Gebucht wird sie erst, wenn
+    /// jemand sagt, worauf. Die Vorgängerfassung hielt sie statt dessen fünf Minuten zurück und
+    /// schickte sie danach ungefragt mit der automatischen Beschreibung hinaus.</para>
+    /// <para>Aufgehoben wird das Kennzeichen allein durch eine Entscheidung:
+    /// <see cref="IUploadQueue.Release"/>, <see cref="IUploadQueue.LeaseOne"/> oder
+    /// <see cref="IUploadQueue.Remove"/>. Bleibt sie aus, steht die Zeile beim nächsten Start
+    /// noch da und der Dialog wird erneut angeboten.</para>
+    /// </remarks>
+    public bool AwaitingDecision { get; init; }
 
     /// <summary>Wann er zuletzt einem Arbeiter zugeteilt wurde.</summary>
     public DateTimeOffset? LeasedAt { get; init; }
@@ -168,6 +189,35 @@ public sealed record OpenSession
 
     /// <summary>Die Gegenstelle, wie sie erkannt wurde — Rechnername, Adresse oder Kennung.</summary>
     public string? Target { get; init; }
+
+    /// <summary>
+    /// Der identifizierende Anteil des Ziels — der <b>Bezeichner</b>, aus dem die
+    /// Gerätekennung für TANSS entsteht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum überhaupt.</b> Über <c>deviceId</c> setzt TANSS die Firma selbst ein.
+    /// Ohne diese Spalte trug eine nach einem Neustart wiederhergestellte Sitzung keine
+    /// Kennung mehr — genau diese eine Fernwartung buchte dann ohne Firmenzuordnung, während
+    /// jede ununterbrochene daneben zugeordnet wurde.</para>
+    ///
+    /// <para><b>Warum der Bezeichner und nicht die fertige Kennung.</b> Die Wiederherstellung
+    /// kennt den Profilschlüssel (<see cref="MonitorKey"/>) und kann die Kennung damit über
+    /// <c>DeviceIdentity.From</c> neu bilden. Das ist der Punkt: Der Riegel — trägt das
+    /// Profil überhaupt eine wiedererkennbare Kennung, ist der Platzhalter ausgeschlossen,
+    /// hält die Länge — wird dann beim Lesen mit dem <i>heutigen</i> Profilkatalog gestellt.
+    /// Eine fertig gespeicherte Kennung ginge daran vorbei: Sie käme auch dann noch an TANSS,
+    /// wenn das Profil inzwischen aus dem Katalog entfernt wurde oder seine Zusicherung
+    /// verloren hat — und würde damit einer Firma eine Fernwartung zuschreiben, für die das
+    /// Werkzeug nicht mehr geradesteht. Der Bezeichner ist Beobachtung, die Kennung ist
+    /// Urteil; auf die Platte gehört die Beobachtung.
+    /// </para>
+    ///
+    /// <para><see langword="null"/> oder leer, wenn kein Ziel aufgelöst werden konnte. Der
+    /// Wert wird <b>nicht</b> gekürzt — was auf 120 Zeichen gestutzt wurde, träfe keine
+    /// Zuordnung mehr; das Aussortieren zu langer Werte ist Sache von <c>DeviceIdentity</c>.
+    /// </para>
+    /// </remarks>
+    public string? IdentityKey { get; init; }
 
     /// <summary>Gerätename für TANSS.</summary>
     public string? DeviceName { get; init; }

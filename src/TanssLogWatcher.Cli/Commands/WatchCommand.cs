@@ -298,6 +298,13 @@ public static class WatchCommand
                 DeviceName = session.DeviceName ?? string.Empty,
                 UserName = session.UserName ?? string.Empty,
                 TicketId = session.TicketId,
+
+                // Aus dem gespeicherten Bezeichner neu gebildet, nicht aus device_name: Der
+                // ist auf 120 Zeichen gestutzt und traefe keine Zuordnung mehr. Der Riegel
+                // des Profilkatalogs greift hier ein zweites Mal, und zwar mit dem HEUTIGEN
+                // Katalog - ein Profil, das seine Zusicherung verloren hat oder gar nicht
+                // mehr steht, ergibt keine Kennung.
+                DeviceId = DeviceIdentity.From(session.MonitorKey, session.IdentityKey),
             };
 
             bool added = inputs.Queue.Enqueue(payload);
@@ -414,6 +421,10 @@ public static class WatchCommand
             RemoteMaintenanceId = session.SessionId.ToString(),
             Comment = Describe(session),
             DeviceName = Report.Ellipsis(session.Destination, 120),
+
+            // Wie im Fensterprogramm: der Bezeichner, nicht die gekuerzte Gegenstelle.
+            // Ueber ihn setzt TANSS die Firma selbst ein.
+            DeviceId = DeviceIdentity.From(session.ProfileKey, session.IdentityKey),
         };
 
     /// <summary>Die laufende Sitzung, so wie sie auf der Platte liegt.</summary>
@@ -431,6 +442,11 @@ public static class WatchCommand
             LastSeenAt = now,
             ProcessId = session.ProcessId,
             Target = session.Destination,
+
+            // Der Bezeichner wandert UNGEKUERZT mit, damit die Wiederherstellung nach einem
+            // Neustart dieselbe Geraetekennung bilden kann wie ToPayload. Ohne ihn buchte
+            // genau die unterbrochene Fernwartung ohne Firmenzuordnung.
+            IdentityKey = session.IdentityKey,
             DeviceName = Report.Ellipsis(session.Destination, 120),
             Comment = Describe(session),
         };

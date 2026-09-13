@@ -3,6 +3,7 @@
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                 xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+                xmlns:views="clr-namespace:TanssLogWatcher.App.Views"
                 Title="Leistung aus Timer"
                 Width="700" Height="760"
                 MinWidth="520" MinHeight="480"
@@ -51,14 +52,108 @@
                         <ui:TextBlock Grid.Column="0" Text="Ticket" VerticalAlignment="Center"
                                       Margin="0,0,8,0" MinWidth="60"
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <!-- Text UND SelectedItem sind gebunden, und das ist der Kern der
+                             Berichtigung: Das Feld ist bearbeitbar, und wer eine Nummer tippt,
+                             die nicht in der Liste steht, lässt SelectedItem auf null stehen.
+                             Gebunden war nur SelectedItem - die getippte Nummer fiel lautlos
+                             auf 0, und die Leistung wurde ohne Ticket gebucht. Der Text steht
+                             auf LostFocus: dann wird aufgelöst und geprüft. -->
                         <ComboBox Grid.Column="1" HorizontalAlignment="Left" MinWidth="240"
                                   VerticalAlignment="Center"
                                   IsEditable="True" IsTextSearchEnabled="True"
                                   TextSearch.TextPath="Display" DisplayMemberPath="Display"
                                   ItemsSource="{Binding Tickets}"
                                   SelectedItem="{Binding SelectedTicket, Mode=TwoWay}"
-                                  ToolTip="Leer lassen für eine Leistung ohne Ticket." />
+                                  Text="{Binding TicketText, Mode=TwoWay, UpdateSourceTrigger=LostFocus}"
+                                  ToolTip="Nummer tippen oder aus der Liste wählen. Leer lassen für eine Leistung ohne Ticket." />
                     </Grid>
+
+                    <!-- Das Ergebnis der Prüfung. Zwei Zeilen statt einer mit wechselnder
+                         Farbe: Eine Bedingungsformatierung bräuchte einen Stil, und BasedOn auf
+                         einen ui:-Typ liess hier schon einmal die Navigation STILL scheitern.
+                         Die 68 links sind die Beschriftungsspalte darüber (MinWidth 60 plus 8
+                         Abstand): So beginnt der Satz unter dem Feld und nicht unter dem Wort
+                         „Ticket“. -->
+                    <StackPanel Margin="68,6,0,0">
+                        <ui:TextBlock Text="{Binding TicketCheck.Note}" FontSize="12"
+                                      TextWrapping="Wrap" HorizontalAlignment="Left"
+                                      Visibility="{Binding TicketCheck.ShowNote, Converter={StaticResource BoolToVis}}"
+                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                        <ui:TextBlock Text="{Binding TicketCheck.Note}" FontSize="12"
+                                      TextWrapping="Wrap" HorizontalAlignment="Left"
+                                      Visibility="{Binding TicketCheck.ShowWarning, Converter={StaticResource BoolToVis}}"
+                                      Foreground="{DynamicResource StateFailedBrush}" />
+                    </StackPanel>
+
+                    <!-- Der Ausweg, wenn es die Nummer nicht gibt oder es nie eine gab. Er
+                         steht unmittelbar unter dem Ticketfeld, weil er genau dort gebraucht
+                         wird: Die Zeile darüber sagt gerade "gibt es nicht". Ohne ihn war das
+                         Ticket in TANSS von Hand anzulegen, die Nummer abzuschreiben und dieser
+                         Dialog neu zu öffnen. -->
+                    <ui:Button Margin="68,10,0,0" Appearance="Secondary"
+                               Content="Neues Ticket anlegen"
+                               Icon="{ui:SymbolIcon TicketDiagonal24}"
+                               IsEnabled="{Binding NewTicket.IsAvailable}"
+                               Command="{Binding NewTicket.ToggleCommand}" />
+
+                    <!-- Eigener Rollbereich mit Deckel: Betreff, Beschreibung, Meldung und die
+                         Firmenauswahl stehen hier untereinander. Ohne Deckel schöbe der
+                         aufgeklappte Bereich die Zeitabschnitte aus dem Fenster - die Zeile
+                         darüber ist "Auto", die Abschnitte darunter sind der dehnbare Teil.
+
+                         Die Trefferliste der Firmenauswahl braucht hier keinen Platz mehr: Sie
+                         steht in der Aufklappliste des Auswahlfeldes, und die ist ein eigenes
+                         Fenster über der Oberfläche - dieser Rollbereich schneidet sie nicht
+                         ab. -->
+                    <ScrollViewer MaxHeight="300" Margin="0,10,0,0"
+                                  VerticalScrollBarVisibility="Auto"
+                                  Visibility="{Binding NewTicket.IsOpen, Converter={StaticResource BoolToVis}}">
+                        <Border Style="{StaticResource CardBorder}">
+                            <StackPanel>
+                                <ui:TextBlock Text="NEUES TICKET" FontSize="11" Margin="0,0,0,6"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                <!-- Die Firmenauswahl als eingesetztes Stück, nicht als
+                                     Abschrift: Sie wird auch anderswo gebraucht, und zwei
+                                     Abschriften liefen nach der ersten Änderung auseinander.
+
+                                     Sie bringt ihre Beschriftung "Firma" selbst mit und steht
+                                     damit in einer Zeile - genauso wie das Ticketfeld darüber,
+                                     und mit derselben Spaltenbreite. -->
+                                <views:CompanyPicker DataContext="{Binding NewTicket.Company}" />
+
+                                <ui:TextBox Margin="0,10,0,0"
+                                            PlaceholderText="Betreff — daran ist das Ticket in jeder Liste zu erkennen"
+                                            Text="{Binding NewTicket.Title, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <ui:TextBox Margin="0,8,0,0"
+                                            PlaceholderText="Beschreibung (darf leer bleiben)"
+                                            TextWrapping="Wrap" AcceptsReturn="True" MinHeight="52"
+                                            Text="{Binding NewTicket.Content, UpdateSourceTrigger=PropertyChanged}" />
+
+                                <!-- Zwei Zeilen statt einer mit wechselnder Farbe, aus demselben
+                                     Grund wie oben beim Prüfergebnis. -->
+                                <ui:TextBlock Text="{Binding NewTicket.Message}" FontSize="12"
+                                              TextWrapping="Wrap" Margin="0,8,0,0"
+                                              Visibility="{Binding NewTicket.IsWarning, Converter={StaticResource InverseBoolToVis}}"
+                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                <ui:TextBlock Text="{Binding NewTicket.Message}" FontSize="12"
+                                              TextWrapping="Wrap" Margin="0,8,0,0"
+                                              Visibility="{Binding NewTicket.IsWarning, Converter={StaticResource BoolToVis}}"
+                                              Foreground="{DynamicResource StateFailedBrush}" />
+
+                                <!-- IsEnabled fällt nach dem ersten angenommenen Aufruf weg und
+                                     kommt nicht wieder: Ein zweiter Aufruf legt ein zweites
+                                     Ticket an, und es gibt keine Kennung, an der die Dublette
+                                     später zu erkennen wäre. -->
+                                <ui:Button Margin="0,10,0,0" HorizontalAlignment="Right"
+                                           Appearance="Primary" Content="Ticket anlegen"
+                                           Icon="{ui:SymbolIcon Add24}"
+                                           IsEnabled="{Binding NewTicket.CanCreate}"
+                                           Command="{Binding NewTicket.CreateCommand}" />
+                            </StackPanel>
+                        </Border>
+                    </ScrollViewer>
                 </StackPanel>
             </Border>
 

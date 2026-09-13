@@ -55,6 +55,13 @@
                         IsOpen="{Binding HasLastRun}"
                         Title="Letzter Sendelauf"
                         Message="{Binding LastRun}" />
+
+            <!-- Warum ein Doppelklick nichts geoeffnet hat. Eigene Zeile und nicht dieselbe wie
+                 der Sendelauf: Sonst ueberschriebe der eine Sachverhalt den anderen. -->
+            <ui:InfoBar Margin="0,0,0,16" Severity="Warning" IsClosable="False"
+                        IsOpen="{Binding HasNotice}"
+                        Title="Ändern nicht möglich"
+                        Message="{Binding Notice}" />
         </StackPanel>
 
         <!-- Keine waagerechte Rollfläche: Eine Spalte mit Width="*" wird darin mit
@@ -97,6 +104,7 @@
                                         <ColumnDefinition Width="130" />
                                         <ColumnDefinition Width="90" />
                                         <ColumnDefinition Width="150" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
                                     <StackPanel Grid.Column="0" VerticalAlignment="Center">
@@ -124,6 +132,31 @@
                                     <Border Grid.Column="3" Style="{StaticResource StatePill}">
                                         <ui:TextBlock Text="{Binding StateText}" FontSize="11" />
                                     </Border>
+
+                                    <!-- AENDERN. Solange ein Eintrag wartet, ist er nicht in
+                                         TANSS - der Bericht laesst sich also noch aendern.
+                                         Bisher ging das nur beim naechsten Programmstart, wenn
+                                         der Dialog von selbst wieder kam.
+
+                                         Eine Schaltflaeche und kein Doppelklick: Sie ist zu
+                                         sehen, mit der Tastatur zu erreichen und traegt das
+                                         Invoke-Muster - damit laesst sich der Klick nachmessen,
+                                         statt ihn zu glauben.
+
+                                         Sie steht bei JEDER Zeile und nicht nur bei den
+                                         wartenden: Ob geaendert werden darf, entscheidet
+                                         SessionWatcherService.Reoffer, und es sagt auch, warum
+                                         nicht. Eine ausgegraute Schaltflaeche sagte nur, dass
+                                         es nicht geht. -->
+                                    <ui:Button Grid.Column="4" Margin="8,0,0,0"
+                                               VerticalAlignment="Center"
+                                               Appearance="Transparent"
+                                               Icon="{ui:SymbolIcon Edit24}"
+                                               AutomationProperties.AutomationId="WarteschlangeAendern"
+                                               ToolTip="Den Bericht dieser Sitzung noch einmal ändern. Möglich, solange der Eintrag wartet — danach steht die Fernwartung in TANSS."
+                                               Command="{Binding DataContext.EditCommand,
+                                                         RelativeSource={RelativeSource AncestorType=Page}}"
+                                               CommandParameter="{Binding}" />
                                 </Grid>
                             </Border>
                         </DataTemplate>

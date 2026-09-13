@@ -17,6 +17,23 @@ public sealed class SerializationTests
         RemoteMaintenanceId = "6f1b0e4a-0000-4000-8000-000000000001",
     };
 
+    /// <summary>
+    /// Gesetzt geht die Gerätekennung mit — sonst wäre die Auslassung oben wertlos.
+    /// </summary>
+    /// <remarks>
+    /// Über dieses Feld setzt TANSS die Firma selbst ein; nachgemessen am 13.09.2026 gegen eine
+    /// Instanz der Fassung 10.10.0.
+    /// </remarks>
+    [Fact]
+    public void Fernwartung_Traegt_Die_Geraetekennung_Wenn_Es_Eine_Gibt()
+    {
+        using JsonDocument document = JsonDocument.Parse(
+            TanssJson.Serialize(Minimal with { DeviceId = "srv-kunde01" }));
+
+        Assert.Equal("srv-kunde01",
+                     document.RootElement.GetProperty("deviceId").GetString());
+    }
+
     [Fact]
     public void Fernwartung_Serialisiert_Auch_Felder_Mit_Standardwert()
     {
@@ -25,10 +42,16 @@ public sealed class SerializationTests
         using JsonDocument document = JsonDocument.Parse(TanssJson.Serialize(Minimal));
         JsonElement root = document.RootElement;
 
+        // deviceId steht NICHT in dieser Liste, und das ist die eine Ausnahme von der Regel
+        // darueber: Der Grund fuer "auch Standardwerte mitschicken" ist, dass TANSS bei ZAHLEN
+        // zwischen "fehlt" und "ist 0" unterscheidet. Bei deviceId gibt es diesen Unterschied
+        // nicht - eine leere Zeichenkette ist keine Geraetekennung, sondern deren Abwesenheit.
+        // Mitgeschickt wuerde sie ausserdem zu einer Zuordnung auf die leere Zeichenkette
+        // einladen. Siehe RemoteSupportWrite.DeviceId.
         string[] expected =
         [
             "typeId", "employeeId", "startTime", "endTime", "remoteMaintenanceId", "comment",
-            "ticketId", "userId", "userName", "deviceId", "deviceName",
+            "ticketId", "userId", "userName", "deviceName",
         ];
 
         foreach (string name in expected)
@@ -37,6 +60,8 @@ public sealed class SerializationTests
         }
 
         Assert.Equal(expected.Length, root.EnumerateObject().Count());
+        Assert.False(root.TryGetProperty("deviceId", out _),
+            "Ohne Gerätekennung gehört das Feld gar nicht in den Rumpf.");
         Assert.Equal(0L, root.GetProperty("endTime").GetInt64());
         Assert.Equal(0, root.GetProperty("ticketId").GetInt32());
         Assert.Equal(string.Empty, root.GetProperty("comment").GetString());

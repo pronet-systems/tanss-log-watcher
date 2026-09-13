@@ -202,22 +202,36 @@ public sealed class FingerprintTests
         Assert.Equal("(leer)", one.Of(string.Empty));
     }
 
+    /// <summary>
+    /// Der Schalter steht in der Konfiguration und wirkt im Protokoll — in beide Richtungen.
+    /// </summary>
+    /// <remarks>
+    /// Die Verdrahtung ist der Punkt, nicht die Vorgabe: Eine Einstellung, die geschrieben und
+    /// gelesen, aber nirgends ausgewertet wird, ist die gefährlichste Sorte.
+    /// </remarks>
     [Fact]
     public void Die_Einstellung_kommt_ueber_die_Fabrikmethode_herein()
     {
-        // Genau die Verdrahtung, die dem Zusammenbau bisher fehlte: Der Schalter steht in
-        // der Konfiguration und wirkt im Protokoll.
         using TempDirectory temp = new();
         using StateDatabase database = new(temp.File("state.db"));
 
-        AppConfig redacting = Sample.Config();
-        AppConfig plain = redacting with { Logging = new LoggingSection { RedactWindowTitles = false } };
+        // Beide Seiten ausdruecklich gesetzt und keine aus der Vorgabe geholt: Sonst prueft
+        // dieser Fall nach einem Wechsel der Vorgabe nur noch eine Richtung - und zwar
+        // stillschweigend.
+        AppConfig redacting = Sample.Config() with
+        {
+            Logging = new LoggingSection { RedactWindowTitles = true },
+        };
+        AppConfig plain = redacting with
+        {
+            Logging = new LoggingSection { RedactWindowTitles = false },
+        };
 
-        using SessionLog quiet = SessionLog.FromConfig(redacting, database);
         using SessionLog loud = SessionLog.FromConfig(plain, database);
+        using SessionLog quiet = SessionLog.FromConfig(redacting, database);
 
-        Assert.True(quiet.RedactsWindowTitles);
         Assert.False(loud.RedactsWindowTitles);
+        Assert.True(quiet.RedactsWindowTitles);
         Assert.Equal(TimeSpan.FromDays(redacting.Logging.RetentionDays),
                      SessionLog.RetentionOf(redacting));
     }

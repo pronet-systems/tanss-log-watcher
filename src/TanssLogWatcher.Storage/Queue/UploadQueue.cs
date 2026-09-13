@@ -71,22 +71,19 @@ public sealed class UploadQueue : IUploadQueue
     public StateDatabase Database => _database;
 
     /// <inheritdoc/>
-    public bool Enqueue(RemoteSupportWrite item, TimeSpan? hold = null)
+    public bool Enqueue(RemoteSupportWrite item, bool awaitDecision = false)
     {
         ArgumentNullException.ThrowIfNull(item);
         ArgumentException.ThrowIfNullOrWhiteSpace(item.RemoteMaintenanceId);
 
-        DateTimeOffset utcNow = _time.GetUtcNow();
-        long now = TanssTime.ToUnixSeconds(utcNow);
+        long now = TanssTime.ToUnixSeconds(_time.GetUtcNow());
 
-        // Die Schonfrist steht in next_attempt_at und nicht in einem Merker daneben: Lease()
-        // liest ohnehin genau diese Spalte, und damit ueberlebt die Frist jeden Neustart. Ein
-        // Merker im Arbeitsspeicher waere nach einem Absturz weg - und der Eintrag ginge
-        // ausgerechnet dann sofort hinaus, wenn der Bericht verloren ist.
-        long due = hold is { } grace && grace > TimeSpan.Zero
-            ? TanssTime.ToUnixSeconds(utcNow + grace)
-            : now;
-
+        // Das Warten auf die Entscheidung steht in einer eigenen Spalte und NICHT in einer
+        // in die Zukunft geschobenen Faelligkeit. Der Unterschied ist der ganze Sinn dieses
+        // Umbaus: Eine Faelligkeit laeuft ab, und was ablaeuft, geht danach ungefragt hinaus.
+        // Ein Kennzeichen laeuft nicht ab - es wird aufgehoben, wenn jemand entscheidet.
+        // Die Spalte steht dabei in der Datenbank und nicht im Arbeitsspeicher, damit ein
+        // Absturz mitten im Tippen die Zeile nicht ausgerechnet dann freigibt.
         string payload = JsonSerializer.Serialize(item, PayloadJson);
 
         return _database.Execute(connection =>
@@ -94,14 +91,14 @@ public sealed class UploadQueue : IUploadQueue
             using SqliteCommand command = connection.CreateCommand();
             command.CommandText = """
                 INSERT INTO queue (remote_maintenance_id, payload, created_at, attempts,
-                                   next_attempt_at, state)
-                VALUES ($id, $payload, $now, 0, $due, 'pending')
+                                   next_attempt_at, state, awaiting_decision)
+                VALUES ($id, $payload, $now, 0, $now, 'pending', $await)
                 ON CONFLICT(remote_maintenance_id) DO NOTHING;
                 """;
             _ = command.Parameters.AddWithValue("$id", item.RemoteMaintenanceId);
             _ = command.Parameters.AddWithValue("$payload", payload);
             _ = command.Parameters.AddWithValue("$now", now);
-            _ = command.Parameters.AddWithValue("$due", due);
+            _ = command.Parameters.AddWithValue("$await", awaitDecision ? 1 : 0);
             return command.ExecuteNonQuery() > 0;
         });
     }
@@ -116,14 +113,39 @@ public sealed class UploadQueue : IUploadQueue
         return _database.Execute(connection =>
         {
             using SqliteCommand command = connection.CreateCommand();
+            // Beides in einem Schritt: Das Kennzeichen faellt, weil entschieden wurde, und
+            // die Faelligkeit geht auf jetzt, weil "spaeter" nicht "irgendwann" heisst.
             command.CommandText = """
                 UPDATE queue
-                   SET next_attempt_at = $now
+                   SET next_attempt_at = $now, awaiting_decision = 0
                  WHERE remote_maintenance_id = $id
                    AND state = 'pending';
                 """;
             _ = command.Parameters.AddWithValue("$id", remoteMaintenanceId);
             _ = command.Parameters.AddWithValue("$now", now);
+            return command.ExecuteNonQuery() > 0;
+        });
+    }
+
+    /// <inheritdoc/>
+    public bool Hold(string remoteMaintenanceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteMaintenanceId);
+
+        return _database.Execute(connection =>
+        {
+            using SqliteCommand command = connection.CreateCommand();
+
+            // Das genaue Spiegelbild von Release - und ausdruecklich OHNE next_attempt_at
+            // anzufassen: Eine zurueckgehaltene Zeile hat keine Faelligkeit, auf die es ankaeme.
+            // Wird sie spaeter freigegeben, setzt Release sie ohnehin auf jetzt.
+            command.CommandText = """
+                UPDATE queue
+                   SET awaiting_decision = 1
+                 WHERE remote_maintenance_id = $id
+                   AND state = 'pending';
+                """;
+            _ = command.Parameters.AddWithValue("$id", remoteMaintenanceId);
             return command.ExecuteNonQuery() > 0;
         });
     }
@@ -200,7 +222,8 @@ public sealed class UploadQueue : IUploadQueue
                      WHERE remote_maintenance_id IN (
                            SELECT remote_maintenance_id
                              FROM queue
-                            WHERE state = 'pending' AND next_attempt_at <= $now
+                            WHERE state = 'pending' AND awaiting_decision = 0
+                              AND next_attempt_at <= $now
                             ORDER BY next_attempt_at, created_at
                             LIMIT $max)
                     RETURNING {Columns};
@@ -241,6 +264,75 @@ public sealed class UploadQueue : IUploadQueue
             });
 
             return leased;
+        });
+    }
+
+    /// <inheritdoc/>
+    public QueuedUpload? LeaseOne(string remoteMaintenanceId)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(remoteMaintenanceId);
+
+        long now = TanssTime.ToUnixSeconds(_time.GetUtcNow());
+
+        return _database.Execute<QueuedUpload?>(connection =>
+        {
+            // Dieselbe Schreibsperre wie in Lease, und aus demselben Grund: Zuteilung und
+            // Zustandswechsel muessen ein Schritt sein. Waere dazwischen Platz, koennten der
+            // Klick im Dialog und der Sendelauf dieselbe Zeile bekommen - und TANSS
+            // dedupliziert nicht.
+            using SqliteTransaction transaction = connection.BeginTransaction(deferred: false);
+
+            QueuedUpload? item;
+            string? cause;
+
+            using (SqliteCommand command = connection.CreateCommand())
+            {
+                command.Transaction = transaction;
+
+                // awaiting_decision wird hier mit aufgehoben: Der Klick IST die Entscheidung.
+                // Misslingt das Senden gleich darauf, faellt die Zeile ueber MarkFailed in
+                // den gewoehnlichen Wiederholungsweg - und darf dann nicht wieder auf einen
+                // Dialog warten, den niemand mehr oeffnet.
+                //
+                // Die Faelligkeit bleibt unberuehrt: Sie sagt bei einer wartenden Zeile
+                // nichts mehr aus, und das Schreiben eines Wertes, den niemand liest, waere
+                // genau die Art von Nebenwirkung, die spaeter niemand mehr erklaeren kann.
+                command.CommandText = $"""
+                    UPDATE queue
+                       SET state = 'sending', leased_at = $now, awaiting_decision = 0
+                     WHERE remote_maintenance_id = $id
+                       AND state = 'pending'
+                    RETURNING {Columns};
+                    """;
+                _ = command.Parameters.AddWithValue("$id", remoteMaintenanceId);
+                _ = command.Parameters.AddWithValue("$now", now);
+
+                using SqliteDataReader reader = command.ExecuteReader();
+                if (!reader.Read())
+                {
+                    // Die Zeile gibt es nicht (mehr), oder sie ist gerade unterwegs, gesendet
+                    // oder aufgegeben. Der Aufrufer sagt das seinem Techniker; hier ist nichts
+                    // zu entscheiden.
+                    transaction.Commit();
+                    return null;
+                }
+
+                _ = TryMap(reader, out item, out cause);
+            }
+
+            if (item is null)
+            {
+                // Wie in Lease: Die unlesbare Zeile geht mit Begruendung auf "failed" und
+                // bleibt stehen. Anders als dort wartet hier ein Mensch auf eine Antwort -
+                // deshalb wird geworfen statt uebergangen.
+                Fail(connection, transaction, remoteMaintenanceId,
+                     cause + " " + ManualRecovery, nextAttempt: null);
+                transaction.Commit();
+                throw new StateDatabaseException(cause + " " + ManualRecovery);
+            }
+
+            transaction.Commit();
+            return item;
         });
     }
 
@@ -424,15 +516,19 @@ public sealed class UploadQueue : IUploadQueue
             command.CommandText = """
                 INSERT INTO open_sessions (remote_maintenance_id, monitor_key,
                     remote_support_type_id, started_at, last_seen_at, process_id, target,
-                    device_name, user_name, comment, ticket_id)
-                VALUES ($id, $key, $type, $started, $seen, $pid, $target, $device, $user,
-                        $comment, $ticket)
+                    identity_key, device_name, user_name, comment, ticket_id)
+                VALUES ($id, $key, $type, $started, $seen, $pid, $target, $identity, $device,
+                        $user, $comment, $ticket)
                 ON CONFLICT(remote_maintenance_id) DO UPDATE SET
                     monitor_key = excluded.monitor_key,
                     remote_support_type_id = excluded.remote_support_type_id,
                     last_seen_at = excluded.last_seen_at,
                     process_id = excluded.process_id,
                     target = excluded.target,
+                    -- Muss mitgeschrieben werden: Der Rueckwaertsaufloeser liefert den
+                    -- Namen oft erst Takte nach dem Beginn nach. Bliebe die Spalte beim
+                    -- Fortschreiben stehen, ueberlebte der Neustart einen Platzhalter.
+                    identity_key = excluded.identity_key,
                     device_name = excluded.device_name,
                     user_name = excluded.user_name,
                     comment = excluded.comment,
@@ -445,6 +541,8 @@ public sealed class UploadQueue : IUploadQueue
             _ = command.Parameters.AddWithValue("$seen", TanssTime.ToUnixSeconds(session.LastSeenAt));
             _ = command.Parameters.AddWithValue("$pid", session.ProcessId);
             _ = command.Parameters.AddWithValue("$target", (object?)session.Target ?? DBNull.Value);
+            _ = command.Parameters.AddWithValue("$identity",
+                (object?)session.IdentityKey ?? DBNull.Value);
             _ = command.Parameters.AddWithValue("$device", (object?)session.DeviceName ?? DBNull.Value);
             _ = command.Parameters.AddWithValue("$user", (object?)session.UserName ?? DBNull.Value);
             _ = command.Parameters.AddWithValue("$comment", session.Comment);
@@ -475,7 +573,7 @@ public sealed class UploadQueue : IUploadQueue
             command.CommandText = """
                 SELECT remote_maintenance_id, monitor_key, remote_support_type_id, started_at,
                        last_seen_at, process_id, target, device_name, user_name, comment,
-                       ticket_id
+                       ticket_id, identity_key
                   FROM open_sessions
                  ORDER BY started_at;
                 """;
@@ -517,7 +615,7 @@ public sealed class UploadQueue : IUploadQueue
 
     private const string Columns =
         "remote_maintenance_id, payload, created_at, attempts, next_attempt_at, last_error, "
-        + "leased_at, completed_at, state, outcome_unknown";
+        + "leased_at, completed_at, state, outcome_unknown, awaiting_decision";
 
     /// <summary>Was der Techniker mit einer unlesbaren Zeile zu tun hat.</summary>
     /// <remarks>
@@ -612,6 +710,7 @@ public sealed class UploadQueue : IUploadQueue
                 CompletedAt = MomentOrNull(reader, 7),
                 State = state,
                 OutcomeUnknown = reader.GetInt64(9) != 0,
+                AwaitingDecision = reader.GetInt64(10) != 0,
             };
         }
         catch (ArgumentOutOfRangeException exception)
@@ -646,6 +745,11 @@ public sealed class UploadQueue : IUploadQueue
                 UserName = reader.IsDBNull(8) ? null : reader.GetString(8),
                 Comment = reader.GetString(9),
                 TicketId = reader.GetInt32(10),
+
+                // Hinten angehaengt und nicht an die Stelle der Spalte gesetzt: Die Ordinale
+                // stehen hier als Zahlen, und eine eingeschobene Spalte verschoebe stumm
+                // jedes Feld dahinter.
+                IdentityKey = reader.IsDBNull(11) ? null : reader.GetString(11),
             };
             return true;
         }

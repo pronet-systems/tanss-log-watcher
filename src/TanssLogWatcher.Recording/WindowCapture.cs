@@ -90,8 +90,36 @@ internal sealed class WindowCapture : IDisposable
                 + "der Sitzung und dem Beginn der Aufzeichnung geschlossen worden.");
         }
 
-        GraphicsCaptureItem item = CaptureItemFactory.ForWindow(handle);
+        return Start(device, handle, CaptureItemFactory.ForWindow(handle), showBorder);
+    }
 
+    /// <summary>
+    /// Beginnt die Aufnahme eines ganzen Bildschirms.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Ein Unterschied, der im Direktor zählt:</b> Eine Bildschirmaufnahme hört
+    /// gemessen <b>nie</b> auf zu liefern — zwölf von zwölf Abfragen an einem ruhenden
+    /// Bildschirm brachten ein Bild. Die Pause bei minimiertem Fenster entsteht in dieser
+    /// Betriebsart also nicht von selbst; sie hängt daran, dass der Direktor die Sichtbarkeit
+    /// der Sitzungsfenster prüft. Das ist keine Feinheit, sondern der Grund, warum im
+    /// Bildschirmbetrieb nicht der private Bildschirm des Technikers mitläuft, während die
+    /// Fernwartung minimiert ist.</para>
+    /// </remarks>
+    /// <param name="device">Das gemeinsame Grafikgerät.</param>
+    /// <param name="monitor">Das Bildschirmhandle.</param>
+    /// <param name="showBorder">Soll der Aufnahmerahmen sichtbar sein?</param>
+    /// <exception cref="RecordingException">Der Bildschirm lässt sich nicht aufnehmen.</exception>
+    public static WindowCapture StartScreen(CaptureDevice device, nint monitor,
+                                            bool showBorder = true)
+    {
+        ArgumentNullException.ThrowIfNull(device);
+
+        return Start(device, monitor, CaptureItemFactory.ForMonitor(monitor), showBorder);
+    }
+
+    private static WindowCapture Start(CaptureDevice device, nint handle,
+                                       GraphicsCaptureItem item, bool showBorder)
+    {
         Direct3D11CaptureFramePool pool = Direct3D11CaptureFramePool.CreateFreeThreaded(
             device.WinRtDevice, DirectXPixelFormat.B8G8R8A8UIntNormalized, 2, item.Size);
 

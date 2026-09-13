@@ -80,6 +80,23 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
     [NotifyPropertyChangedFor(nameof(NeedsAcknowledgement))]
     private bool _enabled;
 
+    /// <summary>
+    /// Wird der ganze Bildschirm aufgezeichnet?
+    /// </summary>
+    /// <remarks>
+    /// Zwei Eigenschaften statt einer, weil zwei Auswahlknöpfe zwei Bindungen brauchen und ein
+    /// Umkehrwandler im Zweifel an der falschen Stelle steht. Sie halten sich gegenseitig
+    /// richtig.
+    /// </remarks>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(NeedsAcknowledgement))]
+    [NotifyPropertyChangedFor(nameof(ScopeText))]
+    private bool _scopeIsScreen;
+
+    /// <summary>Werden nur die Fenster der Sitzung aufgezeichnet?</summary>
+    [ObservableProperty]
+    private bool _scopeIsWindows = true;
+
     /// <summary>Wohin die Aufzeichnungen gehen; leer heisst: der vorgesehene Ort im Profil.</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(EffectiveDirectory))]
@@ -97,10 +114,6 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
     /// <summary>Nach welcher Ruhe trotzdem ein Bild geschrieben wird.</summary>
     [ObservableProperty]
     private int _heartbeatSeconds = 2;
-
-    /// <summary>Nach wie vielen Minuten eine neue Datei begonnen wird.</summary>
-    [ObservableProperty]
-    private int _segmentMinutes = 10;
 
     /// <summary>Unterhalb wie vieler freier Megabyte nicht mehr aufgezeichnet wird.</summary>
     [ObservableProperty]
@@ -195,6 +208,15 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
         }
     }
 
+    /// <summary>Der Satz unter der Wahl des Aufnahmebereichs.</summary>
+    public string ScopeText => ScopeIsScreen
+        ? "Im Bild ist der ganze Bildschirm, auf dem die Fernwartung läuft — einschliesslich "
+          + "allem, was der Techniker daneben offen hat. Wandert die Sitzung auf einen anderen "
+          + "Bildschirm, folgt das Bild ihr dorthin."
+        : "Im Bild sind ausschliesslich die Fenster der Sitzung, an ihrer Stelle auf dem "
+          + "Bildschirm; alles andere bleibt schwarz. Ein fremdes Fenster darüber landet "
+          + "nachweislich nicht im Bild.";
+
     /// <summary>Der Satz zur Kenntnisnahme.</summary>
     public string AcknowledgementText =>
         !Acknowledged || AcknowledgedAt.Length == 0
@@ -203,6 +225,12 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
               + (AcknowledgedBy.Length > 0 ? $" von {AcknowledgedBy}" : string.Empty)
               + ".";
 
+    /// <remarks>
+    /// Der Bereich gehört dazu: Eine für die Fensteraufnahme erteilte Kenntnisnahme deckt die
+    /// Aufnahme des ganzen Bildschirms nicht. Die Seite setzt den Haken beim Wechsel deshalb
+    /// zurück, und diese Prüfung sagt dasselbe noch einmal — dieselbe Antwort wie in
+    /// <see cref="RecordingSection.UnusableReason"/>.
+    /// </remarks>
     private bool IsAcknowledgementComplete =>
         Acknowledged
         && !string.IsNullOrWhiteSpace(LegalBasis)
@@ -218,6 +246,41 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
     /// <summary>Merkt sich, dass etwas geändert wurde.</summary>
     partial void OnEnabledChanged(bool value) => Touch();
 
+    /// <summary>
+    /// Hält die zweite Auswahl richtig — und nimmt die Kenntnisnahme zurück.
+    /// </summary>
+    /// <remarks>
+    /// Wer bestätigt hat, dass die Fenster der Sitzung aufgezeichnet werden, hat nicht
+    /// bestätigt, dass sein ganzer Bildschirm aufgezeichnet wird. Der Haken geht deshalb beim
+    /// Wechsel des Bereichs weg und muss neu gesetzt werden; bis dahin wird nicht
+    /// aufgezeichnet.
+    /// </remarks>
+    partial void OnScopeIsScreenChanged(bool value)
+    {
+        if (_loading)
+        {
+            return;
+        }
+
+        ScopeIsWindows = !value;
+
+        if (Acknowledged)
+        {
+            Acknowledged = false;
+        }
+
+        Touch();
+    }
+
+    /// <summary>Hält die erste Auswahl richtig.</summary>
+    partial void OnScopeIsWindowsChanged(bool value)
+    {
+        if (!_loading && ScopeIsScreen == value)
+        {
+            ScopeIsScreen = !value;
+        }
+    }
+
     /// <summary>Merkt sich, dass etwas geändert wurde.</summary>
     partial void OnDirectoryChanged(string value) => Touch();
 
@@ -229,9 +292,6 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
 
     /// <summary>Merkt sich, dass etwas geändert wurde.</summary>
     partial void OnHeartbeatSecondsChanged(int value) => Touch();
-
-    /// <summary>Merkt sich, dass etwas geändert wurde.</summary>
-    partial void OnSegmentMinutesChanged(int value) => Touch();
 
     /// <summary>Merkt sich, dass etwas geändert wurde.</summary>
     partial void OnMinimumFreeMegabytesChanged(int value) => Touch();
@@ -359,7 +419,7 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
         if (Host.Config is not { } current)
         {
             Fail("Ohne Einrichtung gibt es nichts zu speichern. Das Zahnrad unter "
-                 + "„Verbindung“ öffnet den Assistenten.");
+                 + "„Einstellungen“ öffnet den Assistenten.");
             return;
         }
 
@@ -374,14 +434,17 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
         RecordingSection section = new()
         {
             Enabled = Enabled,
+            Scope = ScopeIsScreen ? "screen" : RecordingSection.DefaultScope,
             Directory = Directory.Trim(),
             RetentionDays = RetentionDays,
             FramesPerSecond = FramesPerSecond,
             HeartbeatSeconds = HeartbeatSeconds,
-            SegmentMinutes = SegmentMinutes,
             MinimumFreeMegabytes = MinimumFreeMegabytes,
             AcknowledgedAt = Empty(AcknowledgedAt),
             AcknowledgedBy = Empty(AcknowledgedBy),
+            AcknowledgedScope = Acknowledged
+                ? (ScopeIsScreen ? "screen" : RecordingSection.DefaultScope)
+                : null,
             LegalBasis = Empty(LegalBasis),
             LegalReference = Empty(LegalReference),
         };
@@ -413,7 +476,7 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
         Message = Host.Reload()
             ? Describe(section)
             : "Gespeichert, aber das Neuladen ist fehlgeschlagen. Die Meldung steht unter "
-              + "„Verbindung“.";
+              + "„Einstellungen“.";
 
         Refresh();
     }
@@ -460,11 +523,12 @@ public sealed partial class RecordingViewModel : RuntimeViewModel
             RecordingSection section = Host.Config?.Recording ?? new RecordingSection();
 
             Enabled = section.Enabled;
+            ScopeIsScreen = section.CapturesScreen;
+            ScopeIsWindows = !section.CapturesScreen;
             Directory = section.Directory;
             RetentionDays = section.RetentionDays;
             FramesPerSecond = section.FramesPerSecond;
             HeartbeatSeconds = section.HeartbeatSeconds;
-            SegmentMinutes = section.SegmentMinutes;
             MinimumFreeMegabytes = section.MinimumFreeMegabytes;
             LegalBasis = section.LegalBasis ?? string.Empty;
             LegalReference = section.LegalReference ?? string.Empty;

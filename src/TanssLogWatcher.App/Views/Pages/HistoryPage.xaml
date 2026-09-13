@@ -1,0 +1,361 @@
+<Page x:Class="TanssLogWatcher.App.Views.Pages.HistoryPage"
+      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+      xmlns:design="clr-namespace:TanssLogWatcher.App.Design"
+      Title="Verlauf"
+      Style="{StaticResource PageSurface}"
+      ScrollViewer.CanContentScroll="False">
+
+    <Page.Resources>
+        <!--
+            Zeichen und Farbe der Aufzeichnung. Beides steht hier und nicht acht Mal in der
+            Zeilenvorlage: Es sind acht Zustände, und eine zweite Fassung derselben Zuordnung
+            liefe beim ersten neuen Zustand auseinander.
+
+            Die Regel hinter den Farben: grün heisst „läuft noch“, gelb „die Frist greift bald
+            oder jetzt“, rot „es gibt kein Video mehr“, grau „dazu lässt sich nichts sagen“.
+            Der Vorgabewert ist grau mit Fragezeichen — der Zustand „nicht nachgesehen“, den
+            ein nicht verbundenes Netzlaufwerk erzeugt. Er sieht ausdrücklich nicht aus wie
+            „gelöscht“: Ein Laufwerk, das schläft, hat nichts gelöscht.
+
+            Durchweg DynamicResource, weil die Bedeutungsfarben beim Wechsel zwischen heller
+            und dunkler Darstellung getauscht werden. Und ohne BasedOn auf einen ui:-Typ:
+            Gemessen liess ein BasedOn="{StaticResource {x:Type ui:InfoBar}}" die Navigation
+            still scheitern — kein Fehler, die Seite blieb leer.
+        -->
+        <Style x:Key="RecordingGlyph" TargetType="ui:SymbolIcon">
+            <Setter Property="Symbol" Value="QuestionCircle24" />
+            <Setter Property="Foreground" Value="{DynamicResource StateIdleBrush}" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,0,8,0" />
+            <Style.Triggers>
+                <!-- Nie aufgezeichnet: kein Zeichen. Ein durchgestrichenes Kamerasymbol wäre
+                     hier das falsche — es sieht aus wie „gelöscht“, und genau diese beiden
+                     Fälle dürfen sich nicht ähneln. -->
+                <DataTrigger Binding="{Binding Badge}" Value="None">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Running">
+                    <Setter Property="Symbol" Value="Record24" />
+                    <Setter Property="Foreground" Value="{DynamicResource StateRunningBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Available">
+                    <Setter Property="Symbol" Value="Video24" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                </DataTrigger>
+                <!-- Die beiden Fristzustände: dasselbe Videosymbol, aber in Warnfarbe. Das ist
+                     das „farblich angezeigt, wenn die Löschfrist greift“ aus dem Auftrag. -->
+                <DataTrigger Binding="{Binding Badge}" Value="Expiring">
+                    <Setter Property="Symbol" Value="Video24" />
+                    <Setter Property="Foreground" Value="{DynamicResource StatePendingBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Overdue">
+                    <Setter Property="Symbol" Value="Video24" />
+                    <Setter Property="Foreground" Value="{DynamicResource StatePendingBrush}" />
+                </DataTrigger>
+                <!-- Das rote X: Hier verschwindet das Videosymbol, wie verlangt. Es ist
+                     dasselbe Zeichen, das die Verbindungsprüfung für „nicht in Ordnung“
+                     benutzt — ein zweites Zeichen für dieselbe Aussage wäre eine zweite
+                     Sprache. -->
+                <DataTrigger Binding="{Binding Badge}" Value="Purged">
+                    <Setter Property="Symbol" Value="DismissCircle24" />
+                    <Setter Property="Foreground" Value="{DynamicResource StateFailedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Missing">
+                    <Setter Property="Symbol" Value="Warning24" />
+                    <Setter Property="Foreground" Value="{DynamicResource StateFailedBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Dieselbe Zuordnung für die Schrift daneben. Die Farbe allein am Zeichen wäre bei
+             16 DIP Kantenlänge zu wenig, um den Zustand über die Liste hinweg zu sehen. -->
+        <Style x:Key="RecordingText" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource StateIdleBrush}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Badge}" Value="None">
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Running">
+                    <Setter Property="Foreground" Value="{DynamicResource StateRunningBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Available">
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Expiring">
+                    <Setter Property="Foreground" Value="{DynamicResource StatePendingBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Overdue">
+                    <Setter Property="Foreground" Value="{DynamicResource StatePendingBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Purged">
+                    <Setter Property="Foreground" Value="{DynamicResource StateFailedBrush}" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding Badge}" Value="Missing">
+                    <Setter Property="Foreground" Value="{DynamicResource StateFailedBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Die Gegenstelle. „Gegenstelle geschwärzt“ und „Gegenstelle nicht ermittelt“ sind
+             Auskünfte über das Feld und keine Rechnernamen; sie deshalb genauso fett zu setzen
+             wie einen echten Namen, gäbe den Ersatztext als Namen aus. Ein Abdruck steht hier
+             ohnehin nie — die Zeile bekommt ihn gar nicht erst. -->
+        <Style x:Key="DestinationText" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Normal" />
+            <Setter Property="FontStyle" Value="Italic" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding DestinationIsPlain}" Value="True">
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                    <Setter Property="FontStyle" Value="Normal" />
+                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Page.Resources>
+
+    <Grid Margin="{StaticResource PagePadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Kopf -->
+        <Grid Grid.Row="0" Margin="0,0,0,16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0" HorizontalAlignment="Left" Margin="0,0,16,0">
+                <ui:TextBlock Text="Verlauf" FontTypography="Title" />
+                <ui:TextBlock TextWrapping="Wrap" HorizontalAlignment="Left" Margin="0,4,0,0"
+                              Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                              Text="Abgeschlossene Sitzungen, jüngste zuerst: was gelaufen ist, ob es in TANSS steht und was von der Aufzeichnung übrig ist. Was die Warteschlange nach ihrer Frist vergisst, steht hier weiter — bis die Frist des Verlaufs greift." />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" HorizontalAlignment="Right"
+                        VerticalAlignment="Top" design:Gap.Size="8">
+                <ui:ToggleSwitch Content="Nur mit Aufzeichnung" VerticalAlignment="Center"
+                                 IsChecked="{Binding OnlyWithRecording}" />
+                <ui:Button Content="Neu laden" Icon="{ui:SymbolIcon ArrowSync24}"
+                           Appearance="Secondary"
+                           IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBool}}"
+                           Command="{Binding RefreshCommand}" />
+            </StackPanel>
+        </Grid>
+
+        <StackPanel Grid.Row="1">
+            <ui:InfoBar Margin="0,0,0,16" Severity="Warning" IsClosable="False"
+                        IsOpen="{Binding NeedsSetup}"
+                        Title="Noch nicht eingerichtet"
+                        Message="{Binding Status.Advice}" />
+
+            <!-- Abgeschaltet ist ein anderer Zustand als leer. Eine Tabelle, die beides gleich
+                 zeigt, behauptet, es sei nichts gelaufen. -->
+            <ui:InfoBar Margin="0,0,0,16" Severity="Warning" IsClosable="False"
+                        IsOpen="{Binding IsDisabled}"
+                        Title="Der Verlauf ist abgeschaltet"
+                        Message="In der Konfiguration steht history.enabled auf false. Abgeschlossene Sitzungen werden deshalb nicht festgehalten — diese Liste bleibt leer, auch wenn Sitzungen laufen." />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Error" IsClosable="False"
+                        IsOpen="{Binding HasMessage}"
+                        Title="Das ging nicht"
+                        Message="{Binding Message}" />
+
+            <!-- Eine leere Tabelle sieht aus wie „nichts passiert“. Bei einem Verlauf, der erst
+                 mit dieser Fassung zu laufen beginnt, ist sie aber der Normalfall des ersten
+                 Tages — und das gehört dazugesagt, sonst sucht jemand den Fehler. -->
+            <ui:InfoBar Margin="0,0,0,16" Severity="Informational" IsClosable="False"
+                        IsOpen="{Binding IsEmpty}"
+                        Title="Noch nichts im Verlauf"
+                        Message="Hier steht jede Sitzung, sobald sie abgeschlossen ist. Sitzungen von vor der Aktualisierung fehlen: Sie wurden nie dauerhaft festgehalten." />
+
+            <ui:InfoBar Margin="0,0,0,16" Severity="Informational" IsClosable="False"
+                        IsOpen="{Binding HasPending}"
+                        Title="Es ist etwas dazugekommen"
+                        Message="{Binding PendingText}" />
+
+            <!-- Der Satz gegen das stillschweigende Abschneiden. Er steht über der Tabelle und
+                 nicht unter ihr: Wer die gesuchte Sitzung nicht findet, hört oben auf zu lesen. -->
+            <ui:TextBlock Text="{Binding CountsText}" Margin="0,0,0,12" FontSize="12"
+                          TextWrapping="Wrap" HorizontalAlignment="Left"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+
+        <!--
+            Keine waagerechte Rollfläche: Eine Spalte mit Width="*" wird darin mit unbegrenzter
+            Breite gemessen und nimmt sich, was ihr Inhalt wünscht - die Tabelle rollte dann bei
+            JEDER Fenstergröße. Die Breite regelt statt dessen MainWindow.MinWidth.
+
+            Die festen Spalten sind zusammen 539 DIP: 95 für den Beginn (12 Zeichen Consolas),
+            95 für die Dauer („1 Std. 12 Min."), 120 für die Plakette, 185 für die Aufzeichnung
+            (Zeichen 16 + Abstand 8 + drei Zeilen, deren breiteste „Abschnitt 1 von 3, 1 nicht
+            auffindbar" ist) und 44 für den Abspielknopf. Bei MinWidth=1100 bleiben der ersten
+            Spalte rund 245 DIP, bei der Startbreite 1200 rund 345 - genug für einen
+            Rechnernamen; was darüber hinausgeht, kürzt und steht vollständig im Hinweistext.
+        -->
+        <Border Grid.Row="2" Style="{StaticResource CardBorder}" Padding="0">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <Grid Grid.Row="0" Margin="16,10">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="95" />
+                        <ColumnDefinition Width="95" />
+                        <ColumnDefinition Width="120" />
+                        <ColumnDefinition Width="185" />
+                        <ColumnDefinition Width="44" />
+                    </Grid.ColumnDefinitions>
+                    <ui:TextBlock Grid.Column="0" Text="ZIEL UND ANWENDUNG" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="1" Text="BEGINN" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="2" Text="DAUER" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="3" Text="TANSS" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                    <ui:TextBlock Grid.Column="4" Text="AUFZEICHNUNG" FontSize="11"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </Grid>
+
+                <!-- Die eigene Rollfläche gehört zur Karte und nicht zur Seite: Die
+                     Spaltenköpfe müssen stehenbleiben, sonst weiss nach dreissig Zeilen
+                     niemand mehr, was in der vierten Spalte steht. Dasselbe Muster wie in
+                     MonitoringPage und DiagnosticsPage. -->
+                <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                    <ItemsControl ItemsSource="{Binding Entries}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                        BorderThickness="0,1,0,0" Padding="16,12">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="95" />
+                                            <ColumnDefinition Width="95" />
+                                            <ColumnDefinition Width="120" />
+                                            <ColumnDefinition Width="185" />
+                                            <ColumnDefinition Width="44" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- Der Abstand nach rechts ist Pflicht, nicht Geschmack:
+                                             ohne ihn kleben die Auslassungspunkte des gekürzten
+                                             Namens am Text der nächsten Spalte. -->
+                                        <StackPanel Grid.Column="0" Orientation="Horizontal"
+                                                    VerticalAlignment="Center"
+                                                    Margin="0,0,16,0" ToolTip="{Binding Tip}">
+                                            <Border Style="{StaticResource SystemSwatch}"
+                                                    Background="{Binding Color, Converter={StaticResource HexToBrush}}" />
+                                            <StackPanel>
+                                                <ui:TextBlock Text="{Binding Destination}"
+                                                              Style="{StaticResource DestinationText}" />
+                                                <ui:TextBlock Text="{Binding Subline}" FontSize="12"
+                                                              TextTrimming="CharacterEllipsis"
+                                                              Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <ui:TextBlock Grid.Column="1" VerticalAlignment="Center"
+                                                      Text="{Binding StartText}"
+                                                      Style="{StaticResource TabularText}" FontSize="12" />
+
+                                        <!-- Ohne Ziffernschrift: „1 Std. 12 Min." ist keine Zahl,
+                                             und in Consolas bräuchte der Satz 14 Zeichen Platz.
+                                             Der Vorbehalt steht darunter, nicht davor: In 95
+                                             Bildpunkten ist für beides in einer Zeile kein
+                                             Platz, und abgeschnitten sagt ein Vorbehalt nichts
+                                             mehr. -->
+                                        <StackPanel Grid.Column="2" VerticalAlignment="Center"
+                                                    ToolTip="{Binding DurationTip}">
+                                            <ui:TextBlock Text="{Binding DurationText}" FontSize="12"
+                                                          TextTrimming="CharacterEllipsis" />
+                                            <ui:TextBlock Text="{Binding DurationNote}" FontSize="11"
+                                                          FontStyle="Italic"
+                                                          Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                          Visibility="{Binding HasDurationNote,
+                                                                       Converter={StaticResource BoolToVis}}" />
+                                        </StackPanel>
+
+                                        <Border Grid.Column="3" ToolTip="{Binding TanssTip}">
+                                            <Border.Style>
+                                                <!-- Neutral, ausser bei dem einen Ausgang, der
+                                                     Geld kostet: eine Sitzung, die nirgends
+                                                     angekommen ist. -->
+                                                <Style TargetType="Border" BasedOn="{StaticResource StatePill}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding TanssIsFailure}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource StateFailedBrush}" />
+                                                            <Setter Property="BorderThickness" Value="0" />
+                                                            <Setter Property="TextElement.Foreground" Value="{DynamicResource StateOnColorBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                            <ui:TextBlock Text="{Binding TanssText}" FontSize="11" />
+                                        </Border>
+
+                                        <StackPanel Grid.Column="4" Orientation="Horizontal"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip="{Binding BadgeTip}">
+                                            <ui:SymbolIcon Style="{StaticResource RecordingGlyph}" />
+                                            <StackPanel VerticalAlignment="Center">
+                                                <ui:TextBlock Text="{Binding BadgeText}" FontSize="12"
+                                                              Style="{StaticResource RecordingText}" />
+                                                <ui:TextBlock Text="{Binding RetentionText}" FontSize="11"
+                                                              Style="{StaticResource RecordingText}" />
+                                                <!-- „Abschnitt 1 von 3". Der Satz steht in der
+                                                     Zeile und nicht bloss im Hinweistext: Ein
+                                                     Knopf, der still den ersten von drei
+                                                     Abschnitten öffnet, spielt vier von fünfzehn
+                                                     Sekunden und gibt sich als die ganze
+                                                     Sitzung aus. -->
+                                                <ui:TextBlock Text="{Binding SegmentText}" FontSize="11"
+                                                              Style="{StaticResource RecordingText}"
+                                                              Visibility="{Binding HasSegmentNote, Converter={StaticResource BoolToVis}}" />
+                                            </StackPanel>
+                                        </StackPanel>
+
+                                        <!-- Der Knopf hat eine eigene Spalte, auch wo er fehlt:
+                                             Eine Schaltfläche, die je nach Zeile an einer
+                                             anderen Stelle steht, wird beim Überfliegen
+                                             danebengeklickt. -->
+                                        <ui:Button Grid.Column="5" Padding="8,4"
+                                                   VerticalAlignment="Center" HorizontalAlignment="Right"
+                                                   Appearance="Secondary"
+                                                   Icon="{ui:SymbolIcon PlayCircle24}"
+                                                   ToolTip="Aufzeichnung abspielen"
+                                                   Visibility="{Binding CanPlay, Converter={StaticResource BoolToVis}}"
+                                                   Command="{Binding DataContext.PlayCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                   CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,12,0,0" design:Gap.Size="12">
+            <ui:Button Content="{Binding MoreText}" Icon="{ui:SymbolIcon ArrowDown24}"
+                       Appearance="Secondary"
+                       Visibility="{Binding HasMore, Converter={StaticResource BoolToVis}}"
+                       IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBool}}"
+                       Command="{Binding LoadMoreCommand}" />
+            <ui:TextBlock Text="Wird gelesen…" VerticalAlignment="Center" FontSize="12"
+                          Visibility="{Binding IsLoading, Converter={StaticResource BoolToVis}}"
+                          Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+        </StackPanel>
+    </Grid>
+</Page>

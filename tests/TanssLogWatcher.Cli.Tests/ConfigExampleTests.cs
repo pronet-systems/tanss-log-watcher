@@ -45,14 +45,24 @@ public sealed class ConfigExampleTests
         }
     }
 
+    /// <summary>
+    /// Die Vorlage sagt dasselbe wie der Quelltext — sonst liefe eine daraus gebaute
+    /// Einrichtung anders als eine ohne Vorlage.
+    /// </summary>
+    /// <remarks>
+    /// Geprüft wird der Gleichlauf und nicht der Wert: Ob geschwärzt wird, entscheidet
+    /// <see cref="LoggingSection.RedactWindowTitles"/>, und die Vorlage darf dem nicht
+    /// widersprechen. Voreingestellt ist es aus — der Fenstertitel der benutzten Profile trägt
+    /// einen Rechnernamen und sonst nichts.
+    /// </remarks>
     [Fact]
-    public void Beispiel_schwaerzt_Fensterbeschriftungen()
+    public void Beispiel_sagt_dasselbe_wie_die_Vorgabe()
     {
-        // Die Vorlage ist der Ausgangszustand jeder Installation. Stuende hier false, liefe
-        // jede daraus gebaute Einrichtung mit Klartext in state.db an.
         AppConfig config = ConfigStore.Parse(File.ReadAllText(Locate(), Encoding.UTF8));
 
-        Assert.True(config.Logging.RedactWindowTitles);
+        Assert.Equal(new LoggingSection().RedactWindowTitles,
+                     config.Logging.RedactWindowTitles);
+        Assert.False(config.Logging.RedactWindowTitles);
     }
 
     /// <summary>

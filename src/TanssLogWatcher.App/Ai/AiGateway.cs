@@ -50,7 +50,7 @@ public static class AiGateway
         if (!ai.Enabled)
         {
             reason = "Die Sprachmodell-Unterstützung ist abgeschaltet. Einzuschalten ist sie "
-                + "unter „Verbindung“ — dort steht auch, was dabei übermittelt wird.";
+                + "unter „Einstellungen“ — dort steht auch, was dabei übermittelt wird.";
             return null;
         }
 
@@ -62,7 +62,7 @@ public static class AiGateway
 
         if (string.IsNullOrWhiteSpace(ai.Model))
         {
-            reason = "Es ist kein Modell gewählt. Die Liste lädt die Auswahl unter „Verbindung“.";
+            reason = "Es ist kein Modell gewählt. Die Liste lädt die Auswahl unter „Einstellungen“.";
             return null;
         }
 
@@ -77,7 +77,9 @@ public static class AiGateway
 
         reason = string.Empty;
 
-        return Create(ai.Provider, key);
+        // Die Anweisungen kommen aus derselben Konfiguration - was dort leer ist,
+        // bleibt der eingebaute Text.
+        return Create(ai.Provider, key, AiPromptSet.From(ai));
     }
 
     /// <summary>
@@ -91,11 +93,13 @@ public static class AiGateway
     /// </remarks>
     /// <param name="provider">Der Anbieter.</param>
     /// <param name="apiKey">Der Schlüssel.</param>
-    public static IAiAssistant Create(string provider, string apiKey) =>
+    /// <param name="prompts">Die Anweisungen; ohne Angabe die eingebauten.</param>
+    public static IAiAssistant Create(string provider, string apiKey,
+                                      AiPromptSet? prompts = null) =>
         provider?.Trim().ToLowerInvariant() switch
         {
-            ProviderOpenAi => new OpenAiAssistant(apiKey),
-            _ => new AnthropicAssistant(apiKey),
+            ProviderOpenAi => new OpenAiAssistant(apiKey, prompts: prompts),
+            _ => new AnthropicAssistant(apiKey, prompts),
         };
 
     /// <summary>

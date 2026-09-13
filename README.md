@@ -275,13 +275,30 @@ Dienste kontaktieren — Lizenzserver, Aktualisierungsabrufe, Telemetrie.
 | Feld | Vorgabe | Bedeutung |
 |---|---|---|
 | `level` | `info` | `debug`, `info`, `warning`, `error` |
-| `redact_window_titles` | `true` | Fensterbeschriftungen im lokalen Protokoll durch einen Abdruck ersetzen |
-| `retention_days` | `30` | Aufbewahrung der Betriebsprotokolle |
+| `redact_window_titles` | `false` | Fensterbeschriftungen im lokalen Protokoll durch einen Abdruck ersetzen |
+| `retention_days` | `30` | Aufbewahrung des Änderungsprotokolls und der erledigten Warteschlangeneinträge |
 
 `redact_window_titles` ersetzt die Beschriftung durch einen **gesalzenen** Abdruck (HMAC-SHA256
 unter einem je Installation erzeugten Schlüssel). Dieselbe Beschriftung bleibt damit über
 mehrere Einträge hinweg wiedererkennbar, ein Wörterbuchangriff von außen scheitert aber. Der
 Schlüssel liegt DPAPI-versiegelt neben der Zustandsdatenbank.
+
+**Voreingestellt ist die Schwärzung aus, und das ist eine Entscheidung.** Tragen die benutzten
+Profile im Titel nur einen Rechnernamen — Microsoft Remotedesktop, der Store-Client, PuTTY —,
+kostet der Abdruck jede Nachvollziehbarkeit und verhindert wenig: Derselbe Name steht ohnehin im
+Kommentar der Fernwartung, die nach TANSS geht. Seit es die Seite „Verlauf" gibt, entscheidet
+diese Einstellung zusätzlich, ob dort die Gegenstelle steht oder der Satz „Gegenstelle
+geschwärzt".
+
+**Einschalten, sobald ein Profil mehr als einen Rechnernamen in den Titel nimmt.** Zehn Profile
+des Katalogs nehmen den **ganzen** Fenstertitel als Ziel — darunter `cmd`, `powershell`,
+`RoyalTS` und `WindowsTerminal` —, und die beiden Outlook-Profile nehmen die
+**Nachrichtenbetreffzeile**. Ohne Schwärzung liegen Betreffe und Dokumentnamen im Klartext in
+`state.db` und stehen auf der Seite „Verlauf". Wer eines dieser Profile benutzt, setzt
+`redact_window_titles` auf `true`.
+
+Die Seite **Verlauf** richtet sich nach dieser Einstellung: Ist sie an, steht dort der Abdruck
+statt der Gegenstelle — der Verlauf zeigt nicht mehr, als das Protokoll hergibt.
 
 ### `recording`
 
@@ -296,7 +313,6 @@ Haken und kein Nachweis. Bequemer stellt sich das alles auf der Seite „Aufzeic
 | `retention_days` | `30` | Nach wie vielen Tagen eine Aufzeichnung gelöscht wird |
 | `frames_per_second` | `4` | Bilder je Sekunde |
 | `heartbeat_seconds` | `2` | Nach welcher Ruhe trotzdem ein Bild geschrieben wird |
-| `segment_minutes` | `10` | Nach wie vielen Minuten eine neue Datei beginnt |
 | `minimum_free_megabytes` | `2048` | Darunter wird nicht mehr aufgezeichnet |
 | `acknowledged_at` | `null` | Wann die Kenntnisnahme erteilt wurde |
 | `acknowledged_by` | `null` | Von wem |
@@ -319,21 +335,17 @@ Eine Sitzung liegt so:
 Aufzeichnungen
 └── 2026-09-13
     └── 1214-2da9294a
-        ├── teil-01.mp4
-        ├── teil-02.mp4
+        ├── sitzung.mp4
         └── sitzung.json
 ```
 
 Tag, Uhrzeit und acht Zeichen der Sitzungskennung — mehr steht nicht im Pfad. Die
 vollständige Kennung, die Gegenstelle und der Techniker stehen in der `sitzung.json`.
 
-> **Heute noch mehrere Dateien je Sitzung.** Aufgeteilt wird aus zwei Gründen: nach
-> `segment_minutes`, und immer dann, wenn die Fenster nicht mehr auf die Bildfläche passen,
-> mit der die Datei begonnen wurde — die Bildgröße liegt im Encoder fest. Im Betrieb
-> gemessen: Eine Fernwartung von 19 Sekunden ergab drei Dateien, weil ein
-> Remotedesktop-Fenster beim Verbindungsaufbau zweimal seine Größe ändert. Der Zeittakt
-> hatte damit gar nichts zu tun. **Eine Datei je Sitzung ist in Arbeit**, ebenso die Wahl
-> zwischen „nur die Fenster der Sitzung“ und „der ganze Bildschirm“.
+> **Eine Datei je Sitzung.** Die Datei wird bruchstückweise mit vorangestelltem Index
+> geschrieben und übersteht damit einen Absturz auch ohne Abschluss. Die frühere Einstellung
+> `segment_minutes` ist entfallen; steht sie noch in einer `config.json`, wird sie beim Laden
+> übergangen und beim nächsten Speichern entfernt.
 
 ### Wo was liegt
 
@@ -429,24 +441,29 @@ Eintrag wird zurückgestellt statt gesendet.
 
 ## Protokollierung
 
-Drei Ebenen mit unterschiedlicher Aufbewahrung:
+Ein Protokoll, eine Frist. Alles steht in `state.db`, Tabelle `session_log`: erkannte und
+beendete Sitzungen, Buchungen, Rückstellungen, Verworfenes, Tokenerneuerungen, Aufräumläufe.
 
-| Ebene | Inhalt | Aufbewahrung |
-|---|---|---|
-| Betrieb | Durchläufe, Fehler, Zustandswechsel | `retention_days`, Vorgabe 30 Tage |
-| Änderungen | jede gebuchte, zurückgestellte oder verworfene Sitzung mit Grund | 1 Jahr |
-| Token | Prägungen und Erneuerungen | 1 Jahr |
+Es hält fest **warum**, nicht nur dass: Anlass, Auslöser, HTTP-Status, Dauer und Ergebnis — auch
+bei einem Trockenlauf, damit ein Probelauf genau zeigt, was der echte Lauf täte.
 
-Das Änderungsprotokoll hält fest **warum**, nicht nur dass: Anlass, Auslöser, HTTP-Status, Dauer
-und Ergebnis — auch bei einem Trockenlauf, damit ein Probelauf genau zeigt, was der echte Lauf
-täte.
+**Die Frist läuft stündlich mit**, im Sendedienst, und räumt zweierlei fort: die Protokollzeilen
+und die **erledigten** Warteschlangeneinträge. Beide nach `logging.retention_days`, Vorgabe
+dreissig Tage. Dieselbe Frist für beides, weil der erledigte Eintrag die Nutzlast trägt, die
+nach TANSS ging — und darin die Gegenstelle im Klartext.
+
+Wartende, zurückgestellte und aufgegebene Einträge sind davon **ausgenommen**, gleich wie alt
+sie werden: Sie sind unerledigte Arbeitszeit. Steht TANSS eine Woche still, ist ein Eintrag
+irgendwann älter als die Frist — fortgeräumt wird er trotzdem nicht.
 
 **Tokens und Geheimnisse werden niemals protokolliert.** JWT-Muster und `Bearer`-Werte werden
-beim Schreiben geschwärzt. Fensterbeschriftungen werden, wenn `redact_window_titles` gesetzt ist,
-durch einen gesalzenen Abdruck ersetzt.
+beim Schreiben geschwärzt — das gilt immer und lässt sich nicht abschalten. Fensterbeschriftungen
+werden, wenn `redact_window_titles` gesetzt ist, durch einen gesalzenen Abdruck ersetzt.
 
-Auch das **Verwerfen** einer Sitzung wird protokolliert. Wer am Monatsende eine Lücke sucht,
-findet so wenigstens den Grund.
+Auch das **Verwerfen** einer Sitzung wird protokolliert (`queue.discard`), mit Anwendung,
+Beginn und Dauer. Wer am Monatsende eine Lücke sucht, findet so wenigstens den Grund — in TANSS
+ist bei einer verworfenen Sitzung nie etwas angekommen, es gibt also sonst nirgends einen
+Beleg.
 
 ---
 
@@ -481,11 +498,15 @@ von Mitarbeitern und überträgt Zeiträume mit Personenbezug. In Deutschland is
 Einführung gehört der Betriebsrat eingebunden.
 
 Fenstertitel enthalten regelmäßig personenbezogene Daten — Kundennamen, E-Mail-Betreffe,
-Hostnamen. Sie landen im Kommentar der Fernwartung. In den lokalen Protokollen werden sie
-standardmäßig durch einen Abdruck ersetzt.
+Hostnamen. Sie landen im Kommentar der Fernwartung. In den lokalen Protokollen stehen sie
+voreingestellt im Klartext; `logging.redact_window_titles` ersetzt sie auf Wunsch durch einen
+Abdruck.
 
-Die beiden Outlook-Profile, die Nachrichtenbetreffe als Ziel verwenden, sind aus gutem Grund
-voreingestellt inaktiv.
+**Wer ein Profil einschaltet, das den ganzen Fenstertitel oder eine Nachrichtenbetreffzeile als
+Ziel nimmt, schaltet die Schwärzung mit ein.** Das betrifft zehn Profile des Katalogs und
+ausdrücklich die beiden Outlook-Profile. Die mitgelieferte Beispielkonfiguration führt
+`OUTLOOK|Message` als aktive Zuordnung — wer sie unverändert übernimmt, schreibt
+Betreffzeilen im Klartext in `state.db`.
 
 Was das Werkzeug gegen verdeckten Betrieb vorsieht: sichtbares Symbol im Infobereich,
 einsehbare Sitzungsliste, abschaltbarer Autostart, Bestätigung vor jeder Buchung und die
@@ -589,22 +610,21 @@ Absturzberichte, keine Aktualisierungsabfrage bei einem Dritten.
 | Sitzungserkennung (Fenster, Prozesse, Verbindungen, Zustandsmaschine) | fertig, getestet |
 | Konfiguration, Token-Ablage, Warteschlange, Protokolle | fertig, getestet |
 | Kommandozeile (`doctor`, `watch`, `windows`, `queue`, `token`) | fertig |
-| Oberfläche (Tray, Sitzungen, Warteschlange, Timer, Überwachung, Diagnose, Verbindung) | verdrahtet, gegen eine Produktivinstanz geprüft |
+| Oberfläche (Tray, Sitzungen, Warteschlange, Timer, Überwachung, Diagnose, Einstellungen) | verdrahtet, gegen eine Produktivinstanz geprüft |
 | Einrichtungsassistent in der Oberfläche | fertig |
 | Abschlussdialog mit vorausgefülltem Bericht | fertig |
 | Einrichtungsassistent auf der Kommandozeile (`setup`) | offen |
 | Selbsttätige Aktualisierung über GitHub | fertig |
 | Sprachmodell-Unterstützung (abgeschaltet, einwilligungspflichtig) | fertig |
 | Bildschirmaufzeichnung (abgeschaltet, kenntnisnahmepflichtig) | läuft; im Betrieb an einer echten Fernwartung erprobt |
-| Eine einzige Datei je Sitzung statt mehrerer Abschnitte | in Arbeit |
+| Eine einzige Datei je Sitzung statt mehrerer Abschnitte | fertig |
 | Wahl zwischen Fenster- und Bildschirmaufnahme, Aufnahme folgt dem Monitor | in Arbeit |
 | Aufzeichnung mehrerer Bildschirme im RDP-Mehrschirmbetrieb | bewusst zurückgestellt |
 | Setup und Veröffentlichung | fertig |
 | Prüfung der 36 Titelmuster gegen aktuelle Anwendungsversionen | offen |
 
-**Vor einem Produktiveinsatz** stehen außerdem aus: ein Probelauf über mehrere Arbeitstage, die
-Einbindung der Mitbestimmung und eine Klärung der urheberrechtlichen Herkunft der
-Anwendungsprofile (siehe [Entwicklung](#entwicklung)).
+**Vor einem Produktiveinsatz** stehen außerdem aus: ein Probelauf über mehrere Arbeitstage und
+die Einbindung der Mitbestimmung.
 
 ---
 
@@ -643,24 +663,12 @@ deshalb ohne laufende TANSS-Instanz testbar.
 - Der Fehler eines einzelnen Vorgangs bricht nie einen ganzen Durchlauf ab.
 - Zeiten ausschließlich über `TanssTime`. Es gibt bewusst keinen Millisekunden-Umrechner.
 
-### Herkunft der Anwendungsprofile
-
-Die 36 Anwendungsprofile — Prozessnamen, Erkennungsmethoden und Titelmuster — wurden aus der
-Analyse eines bestehenden, proprietären Werkzeugs gewonnen. Sie beschreiben Tatsachen über
-fremde Anwendungen, nicht fremden Code; jeder Eintrag ist dennoch gegen die echte Anwendung neu
-zu verifizieren und neu zu formulieren, bevor dieses Projekt veröffentlicht wird. Das ist
-ohnehin nötig, weil die Muster ohne solche Prüfung nicht verlässlich sind.
-
-Aus dem analysierten Werkzeug wurde **kein Code, kein Symbol, keine Oberflächenbeschreibung und
-kein Text übernommen.**
-
 ---
 
 ## Die TANSS-Anbindung im Einzelnen
 
-Dieser Abschnitt richtet sich an Mitentwickler. Ein erheblicher Teil der benutzten Routen ist
-**nicht dokumentiert** und wurde aus der Server-Implementierung und aus Messungen gegen eine
-Produktivinstanz erschlossen. Wer daran etwas ändert, braucht eine Messung, keine Vermutung.
+Dieser Abschnitt richtet sich an Mitentwickler. Wer an der Anbindung etwas ändert, braucht eine
+Messung gegen eine echte Instanz, keine Vermutung.
 
 ### Transport
 
@@ -684,17 +692,21 @@ entscheidet es; der Client setzt den Parameter selbsttätig, der Aufrufer nie vo
 
 ### Die benutzten Routen
 
-| Zweck | Route | Dokumentiert |
-|---|---|---|
-| Fernwartung anlegen | `POST /api/tanss.x/v1/remoteSupports` | nein |
-| Fernwartungen lesen | `PUT /api/v1/remoteSupports` | nein |
-| Anbindungen auflisten | `GET /api/tanss.x/v1/remoteSupports/systems` | nein |
-| Techniker | `GET /api/tanss.x/v1/technicians` | nein |
-| Eigene Tickets | `GET /api/v1/tickets/own` | ja |
-| Timer | `GET/POST /api/v1/timers`, `PUT /api/v1/timers/{id}`, `DELETE /api/v1/timers` | teilweise |
-| Timer-Notizen | `GET/POST /api/v1/timers/notes/{id}`, `PUT /api/v1/timers/notes` | teilweise |
-| Anmeldung | `POST /api/v1/login` | ja |
-| Token prägen | `GET /api/v1/jwts/tanss_app` | nein |
+| Zweck | Route |
+|---|---|
+| Fernwartung anlegen | `POST /api/tanss.x/v1/remoteSupports` |
+| Fernwartungen lesen | `PUT /api/v1/remoteSupports` |
+| Anbindungen auflisten | `GET /api/tanss.x/v1/remoteSupports/systems` |
+| Techniker | `GET /api/tanss.x/v1/technicians` |
+| Firmensuche | `PUT /api/v1/search` |
+| Eigene Tickets | `GET /api/v1/tickets/own` |
+| Ticket anlegen | `POST /api/v1/tickets` |
+| Timer | `GET/POST /api/v1/timers`, `PUT /api/v1/timers/{id}`, `DELETE /api/v1/timers` |
+| Timer-Notizen | `GET/POST /api/v1/timers/notes/{id}`, `PUT /api/v1/timers/notes` |
+| Leistung vorbereiten | `POST /api/v1/supports/properties` |
+| Leistung anlegen | `POST /api/v1/supports` |
+| Anmeldung | `POST /api/v1/login` |
+| Token prägen | `GET /api/v1/jwts/tanss_app` |
 
 Zwei Eigenheiten, die Zeit kosten, wenn man sie nicht kennt:
 
@@ -712,7 +724,7 @@ Zwei Eigenheiten, die Zeit kosten, wenn man sie nicht kennt:
 | `startTime`, `endTime` | **Sekunden** | ja | `endTime` 0 bedeutet: läuft noch |
 | `remoteMaintenanceId` | — | empfohlen | unsere Sitzungskennung, Grundlage der Existenzprüfung |
 | `comment` | — | optional | beginnt mit der Beschreibung der Sitzung |
-| `ticketId` | — | optional | undokumentiert, aber voll wirksam |
+| `ticketId` | — | optional | erzeugt den Ticketbezug |
 | `id`, `fee`, `typeName` | — | **nie senden** | |
 
 `companyId`, `linkTypeId` und `linkId` bleiben auf 0. Sie sind der **Geräteplatz**, nicht der

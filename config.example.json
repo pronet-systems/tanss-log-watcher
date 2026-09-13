@@ -79,12 +79,50 @@
   "logging": {
     "level": "info",
 
-    // Standardmaessig an. Eine Fensterbeschriftung traegt regelmaessig Kundennamen,
-    // Rechnernamen und gelegentlich Benutzerkonten - sie gehoert in die Fernwartung bei
-    // TANSS, nicht im Klartext in state.db.
-    "redact_window_titles": true,
+    // Voreingestellt AUS. Bei mstsc, RdClient.Windows und putty traegt der Titel einen
+    // Rechnernamen und sonst nichts; ein Abdruck statt des Namens kostet dort jede
+    // Nachvollziehbarkeit - im Aenderungsprotokoll wie auf der Seite "Verlauf" - und
+    // verhindert wenig, weil derselbe Name ohnehin im Kommentar der Fernwartung steht.
+    //
+    // EINSCHALTEN, sobald ein Profil mehr als einen Rechnernamen in den Titel nimmt: Zehn
+    // Profile des Katalogs nehmen den GANZEN Fenstertitel (cmd, powershell, RoyalTS,
+    // WindowsTerminal und weitere), die beiden Outlook-Profile den NACHRICHTENBETREFF.
+    // Ohne Schwaerzung liegen Betreffzeilen und Dokumentnamen im Klartext in state.db.
+    "redact_window_titles": false,
 
+    // Gilt fuer das Aenderungsprotokoll UND fuer die erledigten Warteschlangeneintraege:
+    // Letztere tragen die Nutzlast, die nach TANSS ging, und darin die Gegenstelle im
+    // Klartext. Wartende und aufgegebene Eintraege sind ausgenommen - sie sind unerledigte
+    // Arbeitszeit, gleich wie alt sie werden.
     "retention_days": 30
+  },
+
+  // Der Verlauf abgeschlossener Sitzungen - die Seite "Verlauf" und ihre beiden Fristen.
+  // Fehlt dieser Abschnitt, gelten genau die Werte, die hier stehen.
+  "history": {
+    "enabled": true,
+
+    // FRUEHESTENS. Solange zu einer Sitzung noch eine Aufzeichnung auf der Platte liegt,
+    // bleibt ihre Verlaufszeile stehen - ein Video, zu dem kein Eintrag mehr sagt, wozu es
+    // gehoert, waere schlimmer als der Eintrag. Neunzig Tage, weil eine Fernwartung
+    // monatlich abgerechnet und bis zum Ende des Folgemonats beanstandet wird; das naechste
+    // volle Quartal darueber ist 90. Ueber recording.retention_days (30) liegt die Zahl
+    // ausserdem, damit der Hinweis "Aufzeichnung geloescht" ueberhaupt zu sehen ist.
+    "retention_days": 90,
+
+    // null heisst: es gilt logging.redact_window_titles von oben. Die Gegenstelle ist
+    // derselbe Text, den jene Einstellung verbirgt - bei zehn der 36 Profile der ganze
+    // Fenstertitel, bei den Outlook-Profilen der Nachrichtenbetreff. Eine eigene Vorgabe
+    // false schriebe im Klartext auf die Platte, was der Benutzer schwaerzen liess. Wer den
+    // Klartext im Verlauf ausdruecklich will, traegt hier false ein; wer umgekehrt nur den
+    // Verlauf schwaerzen will, true.
+    "redact_destination": null,
+
+    // Wie lange die Gegenstelle im Klartext steht; danach bleibt nur ihr Abdruck. Dieselbe
+    // Zahl wie logging.retention_days, damit zwei Fristen fuer denselben Namen nicht
+    // auseinanderlaufen. 0 schwaerzt beim naechsten Aufraeumtakt. Greift nur, wo ueberhaupt
+    // Klartext festgehalten wird - bei eingeschalteter Schwaerzung gibt es keinen.
+    "plain_text_days": 30
   },
 
   // Bildschirmaufzeichnung der Fernwartungssitzungen. Standardmaessig AUS, und das bleibt sie
@@ -115,9 +153,6 @@
     // Ein stehender Bildschirm liefert keine Bilder. Ohne diesen Herzschlag haette die Datei
     // dort eine Luecke, und der Abspieler spraenge ueber die Stille hinweg.
     "heartbeat_seconds": 2,
-
-    // Eine lange Fernwartung in einer einzigen Datei ist beim ersten Fehler ganz verloren.
-    "segment_minutes": 10,
 
     // Eine volle Platte nimmt auch der Warteschlange den Platz, und die traegt die
     // Arbeitszeit. Die Aufzeichnung tritt vorher zurueck.

@@ -50,7 +50,7 @@ public sealed partial class DiagnosticsViewModel : RuntimeViewModel
         if (Host.Composition is not { } composition)
         {
             Summary = "Ohne Einrichtung steht die Fensterquelle nicht bereit. "
-                + "Die Einrichtung öffnet das Zahnrad unter „Verbindung“.";
+                + "Die Einrichtung öffnet das Zahnrad unter „Einstellungen“.";
             OnPropertyChanged(nameof(IsEmpty));
             return;
         }

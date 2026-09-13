@@ -54,6 +54,7 @@ public sealed class RecordingService : PeriodicService
         new(StringComparer.Ordinal);
 
     private readonly IWindowGeometrySource _geometry = new Win32WindowGeometrySource();
+    private readonly IScreenSource _screens = new Win32ScreenSource();
 
     private DateTimeOffset? _lastCleanup;
     private string _lastCleanupSummary = string.Empty;
@@ -251,7 +252,7 @@ public sealed class RecordingService : PeriodicService
         string root = RecordingPaths.Root(settings);
 
         SessionRecording recording = new(session, settings, root, composition.Recordings,
-                                         _geometry, Context.Clock);
+                                         _geometry, _screens, Context.Clock);
 
         lock (_running)
         {

@@ -69,6 +69,35 @@
                 </StackPanel>
             </Border>
 
+            <!-- Aufnahmebereich. Eigene Karte und nicht im Ausklapper "Feinheiten": Dies ist
+                 die einzige Einstellung des Abschnitts, die nicht die Dateigrösse ändert,
+                 sondern den Kreis der Betroffenen. -->
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
+                <StackPanel>
+                    <ui:TextBlock Text="Was aufgenommen wird" FontTypography="BodyStrong"
+                                  Margin="0,0,0,4" HorizontalAlignment="Left" />
+                    <ui:TextBlock Margin="0,0,0,12" TextWrapping="Wrap" HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                  Text="Der Unterschied ist kein technischer, sondern einer im Kreis der Betroffenen. Ein Wechsel setzt die Kenntnisnahme zurück — eine für die Fensteraufnahme erteilte deckt die Aufnahme des ganzen Bildschirms nicht." />
+
+                    <RadioButton GroupName="Aufnahmebereich" Margin="0,0,0,8"
+                                 IsChecked="{Binding ScopeIsWindows, Mode=TwoWay}">
+                        <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                                   Text="Nur die Fenster der Sitzung" />
+                    </RadioButton>
+
+                    <RadioButton GroupName="Aufnahmebereich"
+                                 IsChecked="{Binding ScopeIsScreen, Mode=TwoWay}">
+                        <TextBlock TextWrapping="Wrap" MaxWidth="820"
+                                   Text="Der ganze Bildschirm, auf dem die Sitzung liegt" />
+                    </RadioButton>
+
+                    <ui:TextBlock Text="{Binding ScopeText}" TextWrapping="Wrap" Margin="0,12,0,0"
+                                  HorizontalAlignment="Left"
+                                  Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                </StackPanel>
+            </Border>
+
             <!-- Kenntnisnahme -->
             <Border Style="{StaticResource CardBorder}" Margin="0,0,0,12">
                 <StackPanel>
@@ -169,7 +198,7 @@
 
             <!-- Die Feinheiten. Eingeklappt, weil die Voreinstellungen tragen und jede
                  Änderung hier nur Dateigröße gegen Bildrate tauscht. -->
-            <Expander Header="Bildrate, Abschnitte, Platzbedarf" IsExpanded="False" Margin="0,0,0,12">
+            <Expander Header="Bildrate, Herzschlag, Platzbedarf" IsExpanded="False" Margin="0,0,0,12">
                 <StackPanel Margin="0,12,0,0">
                     <Grid>
                         <Grid.ColumnDefinitions>
@@ -178,7 +207,6 @@
                             <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
@@ -208,26 +236,14 @@
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                       Text="Auch ohne Bildänderung wird ein Bild geschrieben, damit die Zeitachse weiterläuft und der Abspieler nicht über die Stille hinwegspringt." />
 
-                        <ui:TextBlock Grid.Row="2" Grid.Column="0" Text="Abschnitt in Minuten"
-                                      VerticalAlignment="Center" Margin="0,0,12,8"
-                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        <ui:NumberBox Grid.Row="2" Grid.Column="1" Margin="0,0,12,8"
-                                      Minimum="1" Maximum="120" SpinButtonPlacementMode="Inline"
-                                      Value="{Binding SegmentMinutes, Mode=TwoWay}" />
-                        <ui:TextBlock Grid.Row="2" Grid.Column="2" TextWrapping="Wrap"
-                                      VerticalAlignment="Center" Margin="0,0,0,8"
-                                      HorizontalAlignment="Left"
-                                      Foreground="{DynamicResource TextFillColorSecondaryBrush}"
-                                      Text="Eine lange Aufzeichnung in einer einzigen Datei ist beim ersten Fehler ganz verloren. Abschnitte begrenzen den Schaden auf den letzten angefangenen." />
-
-                        <ui:TextBlock Grid.Row="3" Grid.Column="0" Text="Mindestens frei in MB"
+                        <ui:TextBlock Grid.Row="2" Grid.Column="0" Text="Mindestens frei in MB"
                                       VerticalAlignment="Center" Margin="0,0,12,0"
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                        <ui:NumberBox Grid.Row="3" Grid.Column="1" Margin="0,0,12,0"
+                        <ui:NumberBox Grid.Row="2" Grid.Column="1" Margin="0,0,12,0"
                                       Minimum="128" Maximum="1048576"
                                       SpinButtonPlacementMode="Inline"
                                       Value="{Binding MinimumFreeMegabytes, Mode=TwoWay}" />
-                        <ui:TextBlock Grid.Row="3" Grid.Column="2" TextWrapping="Wrap"
+                        <ui:TextBlock Grid.Row="2" Grid.Column="2" TextWrapping="Wrap"
                                       VerticalAlignment="Center" HorizontalAlignment="Left"
                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                       Text="Darunter wird nicht mehr aufgezeichnet. Eine volle Platte nimmt auch der Warteschlange den Platz, und die trägt die Arbeitszeit." />

@@ -9,7 +9,147 @@ Die Fassungsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
-## [Unveröffentlicht]
+## [0.3.0] — 2026-09-13
+
+### Geändert — „Später“ parkt, statt sofort zu senden
+
+**Der Befund.** Der Techniker klickte „Später“ und sah in der Warteschlange nichts. Die
+Protokollspur zeigte, warum: Die Zeile wurde freigegeben, war damit sofort fällig und ging
+**eine Sekunde später** hinaus — mit der automatischen Beschreibung. Eine Schaltfläche namens
+„Später“, die sofort sendet, sagt das Gegenteil dessen, was sie tut.
+
+- „Später“ reiht jetzt **wartend** ein. Die Sitzung bleibt in der Warteschlange, bis jemand
+  entscheidet — unbefristet, wie ein unbeantworteter Dialog.
+- Neu in der Warteschlange: `Hold` als genaues Gegenstück zu `Release`, mit derselben
+  Bedingung `state = 'pending'` in der Anweisung selbst.
+- **Der Preis steht dazu:** Eine geparkte Sitzung geht von selbst nie hinaus. Wer nie
+  zurückkehrt, hat unverbuchte Arbeitszeit liegen; sichtbar ist sie in der Warteschlange.
+
+### Hinzugefügt — wartende Einträge lassen sich nachträglich ändern
+
+Solange ein Eintrag wartet, ist er nicht in TANSS — der Bericht lässt sich also noch ändern.
+Bisher ging das nur beim nächsten Programmstart, wenn der Dialog von selbst wieder kam.
+
+- Ein Stift-Symbol je Zeile legt den Abschlussdialog erneut vor. Gerufen wird derselbe Weg wie
+  bei der Wiederherstellung nach einem Start — samt Riegel gegen zwei gleichzeitige Dialoge.
+- Geschrieben wird ausschliesslich auf wartende Zeilen. Was unterwegs, gesendet oder aufgegeben
+  ist, wird **mit Grund** abgelehnt statt stillschweigend zu nichts zu führen.
+
+### Hinzugefügt — die Zustandsplakette sagt jetzt, was sie meint
+
+Die Fußzeile meldete „verbunden, mit Warnung“, und nirgends stand, welche. Die Warnungen wurden
+erhoben, in den Betriebszustand gelegt und nie gezeigt.
+
+- Ein Klick auf die Plakette öffnet eine Auskunft mit Titel, Grund und Vorschlag je Warnung.
+  Gibt es keine, sagt sie das — ein Klick, der nichts tut, sieht aus wie ein Fehler.
+- Neu daneben: ein Hinweis auf eine verfügbare neue Fassung. Geprüft wurde schon immer täglich;
+  gesagt wurde es bisher nur auf einer Seite, die im Betrieb niemand öffnet. Der Hinweis führt
+  dorthin, wo sich die Fassung holen lässt.
+- Der Verbindungstest meldet Erfolg jetzt grün mit Häkchen statt blau mit „i“.
+
+### Entfernt — `recording.segment_minutes`
+
+Der Zeittakt für neue Videodateien ist entfallen, seit eine Sitzung genau eine Datei ergibt.
+Die Einstellung stand noch im Schema und erzeugte eine Dauerwarnung, zu der es nichts zu tun
+gab — eine Warnung, auf die keine Handlung folgt, stumpft alle übrigen ab.
+
+- Der Schlüssel ist aus dem Schema verschwunden. Eine bestehende `config.json` läuft trotzdem:
+  `ConfigStore` räumt stillgelegte Schlüssel aus dem Text, bevor er abgebildet wird, und beim
+  nächsten Speichern ist er fort.
+- **Die Strenge bleibt:** Geräumt wird genau die Liste der stillgelegten Schlüssel. Ein
+  vertippter fällt weiterhin auf.
+
+### Behoben — zwei Stunden Differenz in jedem Bericht
+
+In jedem Text, der zum Kunden geht, stand eine Zeitspanne, die rückwärts lief:
+
+```
+Zeitraum:     13.09.2026 15:52 – 13:52 (unter 1 Minute)
+```
+
+Beide Zeitpunkte waren richtig — sie trugen nur verschiedene Zonen. Der Beginn einer Sitzung ist
+die Startzeit ihres Prozesses und kommt in **Ortszeit** herein, das Ende setzt die
+Zustandsmaschine in **UTC**. Die Differenz rechnet `DateTimeOffset` richtig aus, deshalb stimmte
+die Dauer; `ToString("HH:mm")` zeigt aber jeden Wert in seiner eigenen Zone. Die Anzeige rechnet
+jetzt zuerst auf Ortszeit um — beim Datum wog es schwerer als bei der Uhrzeit: Eine Sitzung um
+00:30 stand in UTC noch am Vortag.
+
+### Behoben — der Abschlussdialog riss den Vordergrund an sich
+
+Das Fenster geht auf, während jemand arbeitet — eine Fernwartung endet mitten im Tippen. Es holte
+den Vordergrund, und der nächste Tastendruck traf einen seiner Knöpfe. `ShowActivated="False"`,
+kein `Activate()`: Das Fenster steht weiterhin über allem, nimmt aber die Tastatur nicht mit.
+
+- Nach einer geglückten Buchung schliesst es sich von selbst. Nicht beim Klick, sondern erst
+  wenn TANSS geantwortet hat — und **nicht**, wenn die Mitarbeiterzuordnung unbestätigt blieb:
+  Dieser eine Satz muss gelesen werden.
+- Das Berichtsfeld hat keine feste Höhe mehr; sein unterer Rand hängt am Fensterrahmen und
+  wächst beim Ziehen mit.
+
+### Behoben — ein Prüffall, der unter Last launisch war
+
+`VideoFileTests` schrieb 200 Bilder und hoffte, der Kodierer habe in dieser Zeit ein Bruchstück
+geschrieben — eine Wette, keine Zusage. Unter voller Last verlor sie gelegentlich. Der Prüffall
+wartet jetzt auf die Tatsache statt auf eine Dauer.
+
+
+### Geändert — gebucht wird aus dem Abschlussdialog heraus, und kein Zeitablauf bucht mehr
+
+**Der Befund.** Eine Fernwartung stand in TANSS, ohne dass jemand gefragt worden war — weder
+nach Ticket noch nach Kunde oder Gerät. Die Ursache war keine kaputte Mechanik, sondern die
+Mechanik selbst: Die Sitzung wurde beim Sitzungsende eingereiht und fünf Minuten
+zurückgehalten; lief die Frist ab, ging sie **von selbst** hinaus, mit der automatischen
+Beschreibung („Microsoft Remotedesktop: sap“) statt mit einem Bericht. In der
+Zustandsdatenbank dieses Arbeitsplatzes ist genau das nachweisbar: die eine Zeile, an der
+niemand den Dialog bestätigt hat, trug volle 300 Sekunden und ging exakt fünf Minuten später
+hinaus.
+
+- **Die Schonfrist ist ersatzlos fort.** An ihre Stelle tritt ein Kennzeichen in der
+  Warteschlange (`queue.awaiting_decision`, Datenbankstand 6): Die Zeile entsteht beim
+  Sitzungsende weiterhin sofort — sie ist die Absturzsicherung —, aber **keine Uhr gibt sie
+  frei**. Aufgehoben wird das Warten allein durch eine Entscheidung.
+- **„In TANSS buchen“ sendet jetzt sofort**, und zwar über denselben Weg wie der Sendedienst,
+  samt Existenzprüfung — TANSS dedupliziert nicht. Die von TANSS vergebene Kennung steht
+  danach im Fenster, und das Fenster bleibt offen, bis es geschlossen wird.
+- **Scheitert das Senden** — keine Verbindung, TANSS antwortet nicht —, bleibt die Zeile
+  stehen und wird vom Sendedienst wiederholt. Das ist ab jetzt der einzige Zweck der
+  Warteschlange: der Fehlerpfad. Der Dialog sagt das und behauptet keinen Erfolg.
+- **„Später“** parkt die Sitzung in der Warteschlange: Sie wartet dort auf eine Entscheidung
+  und geht von selbst nicht hinaus. **„Verwerfen“** entfernt sie wie bisher, mit
+  Protokolleintrag.
+- **Eine unbeantwortete Sitzung** — Absturz, Feierabend, weggeklicktes Fenster — bleibt liegen
+  und wird **beim nächsten Start erneut vorgelegt**. Dieser Weg verliert keine Arbeitszeit und
+  bucht nichts ungefragt. Der andere denkbare Weg, beim Beenden hinauszuschicken, was noch
+  wartet, hätte am Freitagabend jede Sitzung ohne Bericht gebucht — und den häufigsten Fall,
+  den Absturz, gar nicht erfasst.
+- In der Warteschlange heisst eine solche Zeile jetzt „wartet auf Entscheidung“ und sagt, dass
+  sie ohne Antwort nicht hinausgeht. „Jetzt senden“ schickt sie auf ausdrückliches Verlangen
+  mit der automatischen Beschreibung los.
+
+### Behoben — der Abschlussdialog konnte sich stillschweigend selbst aussperren
+
+- Der Riegel gegen zwei gleichzeitige Dialoge wurde gesetzt, **bevor** das Fenster gebaut war.
+  Wäre der Bau je gescheitert, bliebe er für die restliche Laufzeit stehen: kein
+  Abschlussdialog mehr, und jede weitere Sitzung verlöre still ihren Bericht. Der Riegel steht
+  jetzt in `DialogGate` — er wird erst gesetzt, wenn das Fenster steht, ein Fehlschlag geht
+  mit Grund ins Änderungsprotokoll (`dialog.failed`), und der nächste wartende Dialog kommt
+  trotzdem dran. *Ob dieser Fall je eingetreten ist, ist unbelegt: Der Weg dorthin schluckt
+  Ausnahmen ohne Protokollzeile.*
+- **Das Protokoll sagt jetzt, was mit dem Dialog geschah**: `dialog.shown`, `dialog.booked`
+  (samt TANSS-Kennung), `dialog.later`, `dialog.deferred`, `dialog.reoffer`, `dialog.failed`.
+  Bis heute liess sich die Frage „ging er überhaupt auf?“ nur über den Umweg des
+  Nutzlasttextes beantworten.
+- **`--show-save-dialog` tut endlich etwas.** Der Schalter stand seit jeher in der
+  Dokumentation und wurde nirgends ausgewertet. Gezeigt wird eine erkennbar **erfundene**
+  Sitzung, die in keiner Warteschlange steht: zum Begutachten der Darstellung, nicht zum
+  Buchen.
+- **Das Fenster passt wieder auf den Bildschirm.** Die feste Höhe von 700 war auf dem
+  Arbeitsplatz des Technikers gemessen zu viel — das Fenster ragte 32 Bildpunkte unter den
+  Bildschirmrand, und seine Fussleiste mit „Verwerfen / Später / In TANSS buchen“ lag im
+  Streifen der Taskleiste. Ein Klick auf die Taskleiste traf damit einen Knopf dieses
+  Fensters. Jetzt: Höhe aus dem Inhalt, Obergrenze die Arbeitsfläche, Inhalt in einem
+  Rollbereich, und das Fenster lässt sich wieder in der Grösse ziehen.
+
 
 ### Hinzugefügt — Bildschirmaufzeichnung, zweiter Teil: die Kette steht
 
@@ -124,6 +264,156 @@ Neues Testprojekt `TanssLogWatcher.App.Tests`: Aus einem echten Fenster wird ein
 ein Eintrag in einer echten Datenbank und eine Begleitdatei — und der Aufräumer holt nach Ablauf
 der Frist alles wieder ab. Was die Umgebung nicht hergibt, wird benannt und nicht umgangen: Auf
 einem Rechner ohne Bildschirmaufnahme werden diese Fälle ausdrücklich übersprungen.
+
+### Hinzugefügt — TANSS ordnet die Firma jetzt selbst zu
+
+Das Werkzeug schickt bei jeder Fernwartung eine **Gerätekennung** mit. Ist zu ihr in TANSS eine
+Zuordnung hinterlegt, setzt TANSS die Firma selbst ein — ohne dass das Werkzeug eine
+Firmenliste führen müsste.
+
+**Gemessen am 13.09.2026 gegen eine Produktivinstanz der Fassung 10.10.0**, über genau die
+Route, die das Werkzeug benutzt: mit hinterlegter Zuordnung kam die Firma zurück, ohne
+Zuordnung eine 0. Die Gegenprobe schliesst aus, dass die Firma anderswoher stammte. Beide
+angelegten Datensätze wurden im selben Durchlauf wieder entfernt.
+
+- **Das Feld war die ganze Zeit da.** `RemoteSupportWrite.DeviceId` steht seit der ersten
+  Fassung im Modell und wurde nie gefüllt; bei jeder Fernwartung ging ein leeres
+  `"deviceId": ""` hinaus. Allein deshalb hat die Übersetzung nie gegriffen.
+- **Gebildet wird die Kennung an einer Stelle**, `DeviceIdentity` — und dort steht der Riegel.
+  Gesperrt ist der Platzhalter „kein Titel ermittelt“: Eine Zuordnung auf ihn träfe künftig
+  **jede** unaufgelöste Sitzung, quer über alle Kunden.
+- **Ob ein Profil eine Kennung liefert, entscheidet der Profilkatalog**, nicht eine Namensliste
+  daneben: `MonitoringProfile.YieldsDeviceIdentity`, voreingestellt `false`. 21 der 36 Profile
+  tragen es. Nicht dabei sind die zehn, deren Ziel der ganze Fenstertitel ist, die beiden
+  Outlook-Profile (Nachrichtenbetreff), `devenv` und `Code` (Projektmappe oder Datei) und
+  `Zoom` (eine Besprechung ist kein Gerät).
+- **Unverändert oder gar nicht.** Wie TANSS vergleicht, ist nicht gemessen; die Kennung wird
+  deshalb nicht kleingeschrieben, nicht von Domänensuffixen befreit und nicht gekürzt. Was zu
+  lang ist, ergibt **keine** Kennung statt einer abgeschnittenen, die auf nichts passt.
+- Ohne Kennung geht das Feld gar nicht mehr mit. Zwei Tests hielten das leere `deviceId`
+  fest — sie prüfen jetzt beide Richtungen.
+
+**Noch offen:** Nach einem Neustart mitten in einer Sitzung geht die Kennung verloren — sie
+steht nicht in `open_sessions`. Diese eine Sitzung bucht dann ohne Übersetzung.
+
+### Behoben — der Wiederholungsriegel hing an einer einzigen Route
+
+`TanssRoutes.HasSideEffectOnGet` prüfte auf `/api/v1/jwts/tanss_app`. Jede weitere Tokenart
+unter `/jwts` wäre damit ungeschützt in die Wiederholung gelaufen — und TANSS 10.10.0 kann ein
+ausgestelltes Token **nicht widerrufen**. Eine Zeitüberschreitung hätte mehrere, bis zu ein Jahr
+gültige Token hinterlassen, von denen niemand erfährt.
+
+Geprüft wird jetzt gegen das Präfix. Neun Testfälle halten das fest, darunter ausdrücklich eine
+Tokenart, die es heute noch gar nicht gibt: Ein Riegel, der erst nachgetragen werden muss, ist
+beim ersten Aufruf offen.
+
+### Hinzugefügt — die Seite „Verlauf“
+
+Abgeschlossene Sitzungen, jüngste zuerst: was gelaufen ist, ob es in TANSS steht und was von
+der Aufzeichnung übrig ist. Vierter Eintrag der Navigation, direkt unter „Timer“.
+
+**Sie brauchte eine eigene Tabelle, und das ist nachgemessen.** Aus dem Vorhandenen war ein
+Verlauf nicht abzuleiten: Die Warteschlange verliert ihre Zeile beim Verwerfen und seit
+heute auch nach der Frist, das Änderungsprotokoll kennt weder Ende noch Dauer noch
+Fernwartungstyp, und `recordings` kennt nur, was aufgezeichnet wurde. Neu ist deshalb
+`session_history` auf Schemastand 4.
+
+- **Der Altbestand wurde einmalig nachgetragen** — aus Warteschlange und Änderungsprotokoll.
+  Auf diesem Arbeitsplatz: alle fünfzehn Sitzungen, davon drei ohne feststellbaren Ausgang.
+  Die stehen als „unbekannt“ da und nicht als geratener Ausgang.
+- **Ein Abdruck ist keine Gegenstelle.** Der ursprüngliche Entwurf wollte bei unbekanntem Ziel
+  den Abdruck zeigen. Nachgerechnet ist das der Abdruck des Platzhalters „kein Titel
+  ermittelt“ — acht Hexziffern, die wie eine Kundenkennung aussehen und nichts bedeuten. Die
+  Seite schreibt jetzt „Gegenstelle nicht ermittelt“.
+- **Eine Sitzung hat nicht ein Video.** In dieser Datenbank liegt eine mit drei Abschnitten und
+  drei verschiedenen Löschfristen. Der Abspielknopf hätte vier von fünfzehn Sekunden
+  gespielt und nach einem Teil-Löschlauf auf eine gelöschte Datei gezeigt, während das
+  Videosymbol noch stand. Die Zeile sagt jetzt „Abschnitt 1 von 3“.
+- **Ein geschätztes Ende sagt, dass es geschätzt ist.** Stammt das Ende aus einem
+  Protokolleintrag statt aus der Messung, steht „geschätzt“ unter der Dauer — gemessen liegt
+  ein solcher Eintrag bis zu fünf Minuten nach dem tatsächlichen Ende.
+- Die Frist des Verlaufs läuft im selben stündlichen Takt wie die übrigen, im `StatePruner`.
+  Ein Verkürzen wirkt auf Bestehendes: `delete_after <= jetzt ODER started_at <= Grenze`.
+
+### Geändert — Fensterbeschriftungen werden voreingestellt nicht mehr geschwärzt
+
+`logging.redact_window_titles` steht jetzt auf `false`. Bei den Profilen, die im Betrieb
+benutzt werden — Microsoft Remotedesktop, der Store-Client, PuTTY — trägt der Titel einen
+Rechnernamen und sonst nichts; ein Abdruck kostet dort jede Nachvollziehbarkeit, im
+Änderungsprotokoll wie auf der neuen Seite „Verlauf“, und verhindert wenig: Derselbe Name
+steht ohnehin im Kommentar der Fernwartung bei TANSS.
+
+- **Wer ein Profil benutzt, das mehr als einen Rechnernamen in den Titel nimmt, schaltet die
+  Schwärzung ein.** Zehn Profile des Katalogs nehmen den ganzen Fenstertitel als Ziel
+  (`cmd`, `powershell`, `RoyalTS`, `WindowsTerminal` und weitere), die beiden Outlook-Profile
+  die Nachrichtenbetreffzeile.
+- **Dabei berichtigt:** Die Anleitung behauptete, die Outlook-Profile seien „voreingestellt
+  inaktiv“. Die mitgelieferte Beispielkonfiguration führt `OUTLOOK|Message` als erste aktive
+  Zuordnung. Die Anleitung sagt das jetzt.
+- Zwei Tests standen auf der alten Vorgabe statt auf ihrer eigenen Aussage und sind
+  richtiggestellt: Sie setzen die Einstellung jetzt ausdrücklich, statt sie aus der Vorgabe zu
+  holen — sonst prüften sie nach diesem Wechsel stillschweigend nur noch eine Richtung.
+
+### Geändert — der Menüpunkt heißt jetzt „Einstellungen“
+
+Die Seite hieß „Verbindung“, trägt aber Instanz, Zugangstoken, Sprachmodell-Unterstützung,
+Aktualisierung und die Fernwartungsanbindungen. Von acht Blöcken haben drei mit der Verbindung
+zu tun; zwei — Sprachmodell und Aktualisierung — haben mit TANSS überhaupt nichts zu tun. Der
+Name war schon vorher zu eng.
+
+- Der Menüpunkt heißt **„Einstellungen“**. Ebenso die Überschrift der Seite: Jede andere Seite
+  trägt als Kopf genau ihre Navigationsbeschriftung, und wer „Einstellungen“ anklickt, soll
+  nicht „Verbindung zu TANSS“ lesen.
+- Das Zahnrad oben rechts, das den Einrichtungsassistenten öffnet, heißt jetzt
+  **„Verbindung“** statt „Einstellungen“. Sonst hieße eine Schaltfläche genauso wie die Seite,
+  auf der sie steht — und führte woanders hin. Der Satz „Verbindung zu TANSS“ steht damit nur
+  noch dort, wo er wörtlich zutrifft: über Schritt 1 des Assistenten.
+- **Elf sichtbare Sätze zeigten auf den alten Namen** — „Das Zahnrad unter ‚Verbindung‘ öffnet
+  den Assistenten“, „Die Einrichtung steht unter ‚Verbindung‘“. Sie sind mitgezogen. Ein
+  Wegweiser, der auf einen Namen zeigt, den es nicht mehr gibt, ist schlimmer als keiner.
+- **Nicht angefasst**, obwohl das Wort darin steht: alles, was die Netzverbindung meint —
+  „Verbindung prüfen“, „Beim Senden brach die Verbindung ab“, „offene Verbindungen“, der
+  Verbindungstest der Kommandozeile. Geprüft wurden dazu alle 236 Fundstellen des Wortstamms
+  im Baum, jede einzeln eingeordnet.
+- Der Schalterwert `--page=connection` und die Klassennamen bleiben, wie sie sind: Eine
+  Verknüpfung aus einem früheren Stand soll weiter treffen. Die Dokumentation sagt jetzt
+  dazu, welche Seite damit gemeint ist.
+- Berichtigt, dabei aufgefallen: Der Untertitel der Seite versprach „keine Daten außerhalb
+  eures Hauses“ — zwei Karten tiefer steht, dass die Sprachmodell-Unterstützung genau das tut.
+  Die Zusage steht jetzt da, wo sie gilt, und bezieht sich auf TANSS.
+
+### Behoben — zwei Zusagen, die nur auf dem Papier standen
+
+**Die Aufbewahrungsfristen liefen gar nicht.** `logging.retention_days` sagt seit der ersten
+Fassung dreissig Tage zu. Die beiden Löschschritte waren gebaut und geprüft — im gesamten
+Produktionscode rief sie aber niemand auf. Tatsächlich blieb alles liegen: jede Protokollzeile
+und jeder erledigte Warteschlangeneintrag. Letzterer trägt die Nutzlast, die nach TANSS ging,
+und darin die Gegenstelle im Klartext.
+
+- Neu `StatePruner`: eine Klasse statt einer verborgenen Stelle im Dienst, damit sich die Frist
+  prüfen lässt, ohne einen Dienst laufen zu lassen. Genau daran ist sie vorher gescheitert.
+- Sie läuft stündlich im Sendedienst mit, am Ende des Takts — was seit Stunden fällig ist, darf
+  keinen Sendeversuch aufhalten.
+- **Eine Frist für beides.** Der erledigte Warteschlangeneintrag ist der Teil, der die
+  Gegenstelle im Klartext trägt; ihn länger zu behalten als das Protokoll hiesse, die Zusage an
+  der unangenehmsten Stelle nicht einzuhalten.
+- **Wartende, zurückgestellte und aufgegebene Einträge sind ausgenommen**, gleich wie alt sie
+  werden. Steht TANSS lange still, ist ein Eintrag irgendwann älter als die Frist — ihn dann
+  fortzuräumen hiesse, genau die Arbeitszeit zu löschen, für deren Aufbewahrung die
+  Warteschlange da ist. Ein Test hält das fest.
+- Aufgeräumt wird nur vermerkt, wenn etwas geschah (`state.prune`). Ein stündliches
+  „nichts zu tun“ wäre genau das Rauschen, das es gerade fortgeräumt hat.
+
+**Das Verwerfen einer Sitzung hinterliess keine Spur.** Die Anleitung sagt wörtlich zu, auch das
+Verwerfen werde protokolliert, und verweist Verzweifelte am Monatsende ausdrücklich darauf. Der
+Abschlussdialog entfernte die Zeile aus der Warteschlange und schrieb nichts.
+
+- `queue.discard` hält jetzt fest: Sitzung, Anwendung, Beginn und Dauer, ausgelöst von Hand.
+  Es ist der einzige Ausgang dieses Fensters, der Arbeitszeit verschwinden lässt — und in TANSS
+  ist dabei nie etwas angekommen, es gibt also sonst nirgends einen Beleg.
+- Die Gegenstelle geht in das Feld für Fensterbeschriftungen und nicht in den Begründungstext:
+  Nur dort greift `redact_window_titles`. Im Freitext stünde sie im Klartext in `state.db`, ganz
+  gleich was eingestellt ist.
 
 ## [0.2.0] — 2026-09-13
 
@@ -454,11 +744,11 @@ mehrere Arbeitstage und die Beteiligung der Mitbestimmung.
 - Der Befehl `tanss-logwatch setup` fehlt weiterhin. Eingerichtet wird über die Oberfläche;
   mehrere Fehlermeldungen der Kommandozeile verweisen noch auf diesen Befehl.
 - Die 36 Titelmuster sind gegen aktuelle Anwendungsversionen noch nicht nachgeprüft.
-- Die urheberrechtliche Herkunft der Anwendungsprofile ist ungeklärt (siehe README).
 - Ein Token ohne `exp`-Anspruch lässt sich nicht erneuern — auch nicht erzwungen.
 - Der Rechte-Vorabtest für das Prägen wird nicht selbsttätig ausgeführt: Er erzeugt in TANSS
   ein echtes, nicht widerrufbares Token. Fehlt das Recht, meldet es der Versuch selbst.
 
+[0.3.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.0
 [0.2.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.2.0
 [0.1.1]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.1.1
 [0.1.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.1.0

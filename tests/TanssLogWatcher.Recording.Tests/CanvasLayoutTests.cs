@@ -25,7 +25,7 @@ public sealed class CanvasLayoutTests
         Assert.Equal(100, layout.OriginLeft);
         Assert.Equal(100, layout.OriginTop);
 
-        Assert.Collection(layout.Placements,
+        Assert.Collection(layout.PlaceAll([main, dialog]),
             first =>
             {
                 Assert.Equal(1, first.Handle);
@@ -88,8 +88,8 @@ public sealed class CanvasLayoutTests
 
         Assert.Equal(3840, layout.Width);
         Assert.Equal(-1920, layout.OriginLeft);
-        Assert.Equal(0, layout.Placements[0].X);
-        Assert.Equal(1920, layout.Placements[1].X);
+        Assert.Equal(0, layout.PlaceAll([left, right])[0].X);
+        Assert.Equal(1920, layout.PlaceAll([left, right])[1].X);
     }
 
     [Fact]
@@ -146,6 +146,157 @@ public sealed class CanvasLayoutTests
         Assert.True(layout.Fits([new WindowBox(2, 100, 100, 0, 0)]));
     }
 
+    /// <summary>
+    /// Die Leinwand ist der Bildschirm, nicht die Hüllfläche — der Kern der Änderung. Ein
+    /// Fenster von 1400×900 auf einem Bildschirm von 2880×1800 ergibt eine Leinwand von
+    /// 2880×1800, und das Fenster steht an seiner echten Stelle darin.
+    /// </summary>
+    [Fact]
+    public void Die_Leinwand_ist_der_Bildschirm()
+    {
+        ScreenBox screen = new(0, 0, 2880, 1800);
+        WindowBox window = new(1, 500, 300, 1400, 900);
+
+        CanvasLayout layout = CanvasLayout.ForScreens([window], [screen])!;
+
+        Assert.Equal(2880, layout.Width);
+        Assert.Equal(1800, layout.Height);
+        Assert.Equal(0, layout.OriginLeft);
+        Assert.Equal(0, layout.OriginTop);
+
+        WindowPlacement placed = Assert.Single(layout.PlaceAll([window]));
+
+        Assert.Equal(500, placed.X);
+        Assert.Equal(300, placed.Y);
+    }
+
+    /// <summary>
+    /// Der Fall, der früher eine neue Datei kostete: Das Fenster wird verschoben und
+    /// vergrössert. Die Leinwand bleibt dieselbe, nur der Platz ändert sich.
+    /// </summary>
+    [Fact]
+    public void Verschieben_und_Vergroessern_kostet_keine_neue_Leinwand()
+    {
+        ScreenBox screen = new(0, 0, 2880, 1800);
+
+        CanvasLayout layout = CanvasLayout.ForScreens(
+            [new WindowBox(1, 500, 300, 1400, 900)], [screen])!;
+
+        WindowPlacement placed = Assert.Single(
+            layout.PlaceAll([new WindowBox(1, 40, 20, 2600, 1600)]));
+
+        Assert.Equal(40, placed.X);
+        Assert.Equal(20, placed.Y);
+        Assert.Equal(2880, layout.Width);
+    }
+
+    /// <summary>
+    /// Ein maximiertes Fenster ragt gemessen um dreizehn Bildpunkte über jeden Bildschirmrand
+    /// hinaus — das ist sein unsichtbarer Anfassrahmen. Die Leinwand wächst deshalb NICHT:
+    /// Was ausserhalb des Bildschirms liegt, ist auch auf dem Bildschirm nicht zu sehen.
+    /// </summary>
+    [Fact]
+    public void Ein_maximiertes_Fenster_vergroessert_die_Leinwand_nicht()
+    {
+        ScreenBox screen = new(0, 0, 2880, 1800);
+        WindowBox maximised = new(1, -13, -13, 2906, 1730);
+
+        CanvasLayout layout = CanvasLayout.ForScreens([maximised], [screen])!;
+
+        Assert.Equal(2880, layout.Width);
+        Assert.Equal(1800, layout.Height);
+
+        // Der Platz ist negativ, und das ist richtig so - beschnitten wird beim Zeichnen.
+        WindowPlacement placed = Assert.Single(layout.PlaceAll([maximised]));
+
+        Assert.Equal(-13, placed.X);
+        Assert.Equal(-13, placed.Y);
+        Assert.False(layout.Fits([maximised]));
+    }
+
+    /// <summary>
+    /// Der Monitorwechsel: gleiche Bildgrösse, anderer Ursprung. Genau deshalb kostet er keine
+    /// neue Datei.
+    /// </summary>
+    [Fact]
+    public void Ein_Bildschirmwechsel_verschiebt_nur_den_Ursprung()
+    {
+        CanvasLayout first = CanvasLayout.ForScreens(
+            [new WindowBox(1, 100, 100, 800, 600)], [new ScreenBox(0, 0, 1920, 1080)])!;
+
+        CanvasLayout moved = first.MovedTo(1920, 0);
+
+        Assert.Equal(first.Width, moved.Width);
+        Assert.Equal(first.Height, moved.Height);
+        Assert.Equal(1920, moved.OriginLeft);
+
+        // Dasselbe Fenster, jetzt auf dem zweiten Bildschirm: derselbe Platz im Bild.
+        Assert.Equal(100, Assert.Single(moved.PlaceAll(
+            [new WindowBox(1, 2020, 100, 800, 600)])).X);
+    }
+
+    /// <summary>
+    /// Zwei Bildschirme, und die Sitzung liegt auf beiden: Die Leinwand umfasst beide, damit
+    /// kein Fenster verlorengeht.
+    /// </summary>
+    [Fact]
+    public void Liegt_die_Sitzung_auf_zwei_Bildschirmen_umfasst_die_Leinwand_beide()
+    {
+        CanvasLayout layout = CanvasLayout.ForScreens(
+            [new WindowBox(1, 100, 100, 800, 600), new WindowBox(2, 2000, 100, 400, 300)],
+            [new ScreenBox(0, 0, 1920, 1080), new ScreenBox(1920, 0, 1920, 1080)])!;
+
+        Assert.Equal(3840, layout.Width);
+        Assert.Equal(1080, layout.Height);
+    }
+
+    /// <summary>
+    /// Ein Bildschirm, den kein Fenster berührt, zählt nicht mit. Sonst wäre das Bild bei zwei
+    /// Bildschirmen immer doppelt so breit wie nötig und zur Hälfte dauerhaft schwarz.
+    /// </summary>
+    [Fact]
+    public void Ein_unbenutzter_Bildschirm_vergroessert_die_Leinwand_nicht()
+    {
+        CanvasLayout layout = CanvasLayout.ForScreens(
+            [new WindowBox(1, 100, 100, 800, 600)],
+            [new ScreenBox(0, 0, 1920, 1080), new ScreenBox(1920, 0, 3840, 2160)])!;
+
+        Assert.Equal(1920, layout.Width);
+        Assert.Equal(1080, layout.Height);
+    }
+
+    /// <summary>
+    /// Ohne bekannte Bildschirme bleibt die Hüllfläche der Fenster — eine Aufzeichnung, die
+    /// klein beginnt, ist besser als keine.
+    /// </summary>
+    [Fact]
+    public void Ohne_Bildschirme_gilt_die_Huellflaeche()
+    {
+        CanvasLayout layout = CanvasLayout.ForScreens(
+            [new WindowBox(1, 100, 100, 800, 600)], [])!;
+
+        Assert.Equal(800, layout.Width);
+        Assert.Equal(100, layout.OriginLeft);
+    }
+
+    /// <summary>
+    /// Drei 4K-Bildschirme nebeneinander lehnt der Encoder gemessen ab (0xC00D36B4). Dann gilt
+    /// der Bildschirm, auf dem am meisten von der Sitzung liegt.
+    /// </summary>
+    [Fact]
+    public void Was_der_Encoder_nicht_annimmt_faellt_auf_einen_Bildschirm_zurueck()
+    {
+        CanvasLayout layout = CanvasLayout.ForScreens(
+            [new WindowBox(1, 100, 100, 3000, 2000), new WindowBox(2, 8000, 100, 400, 300)],
+            [new ScreenBox(0, 0, 3840, 2160),
+             new ScreenBox(3840, 0, 3840, 2160),
+             new ScreenBox(7680, 0, 3840, 2160)])!;
+
+        Assert.Equal(3840, layout.Width);
+        Assert.Equal(2160, layout.Height);
+        Assert.Equal(0, layout.OriginLeft);
+    }
+
     [Fact]
     public void Die_Anordnung_ist_stabil_sortiert()
     {
@@ -157,6 +308,9 @@ public sealed class CanvasLayoutTests
         // Von oben nach unten, bei gleicher Hoehe von links nach rechts: Die Reihenfolge
         // bestimmt, was bei Ueberschneidung obenauf liegt, und sie darf nicht vom Zufall der
         // Fensteraufzaehlung abhaengen.
-        Assert.Equal([1, 2, 3], layout.Placements.Select(p => (int)p.Handle));
+        Assert.Equal([1, 2, 3], layout.PlaceAll(
+            [new WindowBox(3, 500, 500, 100, 100),
+             new WindowBox(1, 0, 0, 100, 100),
+             new WindowBox(2, 200, 0, 100, 100)]).Select(p => (int)p.Handle));
     }
 }

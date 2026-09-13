@@ -9,14 +9,19 @@ namespace TanssLogWatcher.Storage.Queue;
 /// <remarks>
 /// <para>Der Teil, an dem das Original am deutlichsten scheitert: Es hatte gar keine
 /// Warteschlange. Ein Netzfehler kostete die Sitzung ersatzlos — kein Hinweis, kein zweiter
-/// Versuch, die Arbeit war fort. Hier liegt jede abgeschlossene Sitzung zuerst auf der Platte
-/// und erst danach im Netz.</para>
+/// Versuch, die Arbeit war fort.</para>
 ///
-/// <para><b>Der Ablauf ist immer derselbe:</b> <see cref="Enqueue"/> beim Abschluss der
-/// Sitzung, <see cref="Lease"/> holt fällige Einträge, dann entweder
-/// <see cref="MarkDone"/> oder <see cref="MarkFailed"/>. Ein Eintrag, der zwischen Lease und
-/// Rückmeldung verlorengeht — Absturz, Stromausfall —, kommt über
-/// <see cref="RequeueStuck"/> zurück.</para>
+/// <para><b>Sie ist der Fehlerpfad und nicht der Regelweg.</b> Das Fensterprogramm bucht eine
+/// beendete Sitzung unmittelbar aus dem Abschlussdialog heraus; hier landet sie erst, wenn das
+/// misslingt, wenn der Techniker „Später“ wählt oder wenn niemand antwortet und das Werkzeug
+/// zugeht. Die Kommandozeile, die niemanden fragen kann, reiht dagegen weiterhin jede
+/// abgeschlossene Sitzung ein. Eine Warteschlange mit Einträgen heisst deshalb im
+/// Fensterprogramm: Da hängt etwas.</para>
+///
+/// <para><b>Der Ablauf ist immer derselbe:</b> <see cref="Enqueue"/>, <see cref="Lease"/> holt
+/// fällige Einträge, dann entweder <see cref="MarkDone"/> oder <see cref="MarkFailed"/>. Ein
+/// Eintrag, der zwischen Lease und Rückmeldung verlorengeht — Absturz, Stromausfall —, kommt
+/// über <see cref="RequeueStuck"/> zurück.</para>
 ///
 /// <para><b>Wiederholung nur nach Existenzprüfung.</b> TANSS dedupliziert nicht: Ein zweiter
 /// POST mit derselben <c>remoteMaintenanceId</c> erzeugt nachweislich einen zweiten Datensatz.
@@ -40,16 +45,30 @@ public interface IUploadQueue : IDisposable
     /// Fernwartung bei TANSS steht.
     /// </remarks>
     /// <param name="item">Die Nutzlast.</param>
-    /// <param name="hold">
-    /// Eine Schonfrist, vor deren Ablauf der Sendedienst den Eintrag nicht anfasst.
-    /// <para><b>Wozu.</b> Nach dem Ende einer Sitzung fragt die Oberfläche nach Kommentar und
-    /// Ticket. Ohne diese Frist kann der Sendedienst den Eintrag verschicken, während der
-    /// Techniker noch tippt — der Bericht wäre dann geschrieben und nicht angekommen. Die Frist
-    /// steht in der Datenbank und überlebt deshalb auch einen Absturz mitten im Tippen.</para>
+    /// <param name="awaitDecision">
+    /// Die Zeile wartet auf die Entscheidung des Technikers und wird von <see cref="Lease"/>
+    /// <b>nie</b> zugeteilt, gleich wie viel Zeit vergeht.
+    /// <para><b>Wozu — und wer es heute noch setzt.</b> Beim Ende einer Sitzung entsteht keine
+    /// Zeile mehr; der Abschlussdialog hält sie und bucht sie selbst. Übrig bleiben drei
+    /// Aufrufer, und alle drei haben denselben Grund: Die Sitzung muss gesichert werden,
+    /// <b>obwohl</b> niemand entschieden hat. Das geordnete Beenden (der Dialog hätte kein
+    /// Fenster mehr), die Wiederherstellung nach einem Neustart (die Sitzung wird gleich erneut
+    /// vorgelegt) und der Dialog selbst, wenn er ohne Antwort geschlossen wird. Ohne dieses
+    /// Kennzeichen ginge in allen drei Fällen die automatische Beschreibung nach TANSS, ohne
+    /// Firma, ohne Ticket, ohne Bericht — genau der Befund, der diesen Umbau ausgelöst
+    /// hat.</para>
+    /// <para><b>Ausdrücklich keine Frist.</b> Die Vorgängerfassung hielt den Eintrag fünf
+    /// Minuten zurück und schickte ihn danach ungefragt mit der automatischen Beschreibung
+    /// hinaus. Gemessen an der Zustandsdatenbank dieses Arbeitsplatzes ist das auch geschehen.
+    /// Wer einen Zeitablauf einführt, führt genau das wieder ein.</para>
+    /// <para>Aufgehoben wird das Warten allein durch eine Entscheidung: <see cref="Release"/>
+    /// („Später“, „Jetzt senden“), <see cref="LeaseOne"/> („In TANSS buchen“) oder
+    /// <see cref="Remove"/> („Verwerfen“). Bleibt sie aus — Absturz, Feierabend —, steht die
+    /// Zeile am nächsten Tag noch da und der Dialog wird erneut angeboten.</para>
     /// <para>Ohne Angabe ist der Eintrag sofort fällig — so verhält sich die Kommandozeile,
-    /// die niemanden fragt.</para>
+    /// die niemanden fragt, und so verhält sich jede Zeile aus einer älteren Fassung.</para>
     /// </param>
-    bool Enqueue(RemoteSupportWrite item, TimeSpan? hold = null);
+    bool Enqueue(RemoteSupportWrite item, bool awaitDecision = false);
 
     /// <summary>
     /// Holt bis zu <paramref name="max"/> fällige Einträge und setzt sie auf
@@ -66,8 +85,41 @@ public interface IUploadQueue : IDisposable
     /// ausgeliefert. Andernfalls hielte eine einzige zerstörte Nutzlast die ganze
     /// Warteschlange an — und damit den Baustein, der verhindern soll, dass eine Sitzung
     /// verlorengeht.</para>
+    /// <para><b>Eine Zeile mit <see cref="QueuedUpload.AwaitingDecision"/> wird nie
+    /// zugeteilt.</b> Sie wartet auf den Abschlussdialog, und kein Zeitablauf hebt das auf —
+    /// sonst ginge sie hinaus, während der Techniker noch entscheidet, worauf sie gebucht
+    /// werden soll.</para>
     /// </remarks>
     IReadOnlyList<QueuedUpload> Lease(int max);
+
+    /// <summary>
+    /// Teilt genau einen wartenden Eintrag zu — der Weg, auf dem der Abschlussdialog
+    /// unmittelbar bucht.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Warum es das gibt.</b> Gebucht wird aus dem Dialog heraus und nicht über einen
+    /// späteren Sendelauf; der Techniker soll die TANSS-Kennung sehen, solange er noch davor
+    /// sitzt. Der Aufrufer benutzt danach denselben Sendeweg wie der Sendedienst, damit die
+    /// Existenzprüfung gegen Dubletten nicht umgangen wird.</para>
+    ///
+    /// <para><b>Anders als <see cref="Lease"/> fragt diese Zuteilung nicht nach Fälligkeit
+    /// und nicht nach <see cref="QueuedUpload.AwaitingDecision"/></b> — der Klick ist die
+    /// Entscheidung und hebt das Warten auf. Am Zustand ändert das nichts: Die Zeile geht auf
+    /// <see cref="QueueState.Sending"/> und muss mit <see cref="MarkDone"/> oder
+    /// <see cref="MarkFailed"/> quittiert werden. Bleibt die Quittung aus, holt
+    /// <see cref="RequeueStuck"/> sie zurück — mit ungeklärtem Ausgang und damit mit
+    /// Existenzprüfung.</para>
+    /// </remarks>
+    /// <param name="remoteMaintenanceId">Der Eintrag.</param>
+    /// <returns>
+    /// Der zugeteilte Eintrag, oder <see langword="null"/>, wenn es ihn nicht gibt oder er
+    /// nicht mehr wartet — dann ist er unterwegs, gesendet oder aufgegeben.
+    /// </returns>
+    /// <exception cref="StateDatabaseException">
+    /// Die Nutzlast ist unlesbar. Die Zeile steht dann auf <see cref="QueueState.Failed"/>
+    /// und wird nicht mehr von selbst versucht.
+    /// </exception>
+    QueuedUpload? LeaseOne(string remoteMaintenanceId);
 
     /// <summary>Vermerkt den geglückten Upload.</summary>
     void MarkDone(string remoteMaintenanceId);
@@ -107,12 +159,15 @@ public interface IUploadQueue : IDisposable
     int RequeueStuck(TimeSpan olderThan);
 
     /// <summary>
-    /// Gibt einen zurückgehaltenen Eintrag sofort frei.
+    /// Gibt einen wartenden Eintrag für den Sendedienst frei.
     /// </summary>
     /// <remarks>
-    /// Das Gegenstück zur Schonfrist beim Einreihen: Hat der Techniker seinen Bericht
-    /// geschrieben, soll der Eintrag nicht noch die restliche Frist danebenliegen. Wirkt nur
-    /// auf <c>pending</c>.
+    /// <para>Die Entscheidung „Später“: Die Zeile geht mit dem Kommentar hinaus, der gerade in
+    /// ihrer Nutzlast steht — üblicherweise die automatische Beschreibung. Ebenso die
+    /// Schaltfläche „Jetzt senden“, die den Rückstau eines Fehlversuchs mit vorzieht.</para>
+    /// <para>Hebt <see cref="QueuedUpload.AwaitingDecision"/> auf und setzt die Fälligkeit auf
+    /// jetzt. Wirkt nur auf <c>pending</c> — was unterwegs ist, braucht keine Freigabe
+    /// mehr.</para>
     /// </remarks>
     /// <param name="remoteMaintenanceId">Der Eintrag.</param>
     /// <returns><c>false</c>, wenn es ihn nicht gibt oder er nicht mehr wartet.</returns>
@@ -122,12 +177,31 @@ public interface IUploadQueue : IDisposable
     QueuedUpload? Find(string remoteMaintenanceId);
 
     /// <summary>
+    /// Hält einen wartenden Eintrag zurück: Er geht erst hinaus, wenn jemand entschieden hat.
+    /// </summary>
+    /// <remarks>
+    /// <para>Das Gegenstück zu <see cref="Release"/>. Gebraucht wird es von „Später“ im
+    /// Abschlussdialog: Der Klick heisst „nicht jetzt“ und soll die Sitzung <b>parken</b>, nicht
+    /// hinausschicken.</para>
+    /// <para><b>Das war einmal anders, und es hat verwirrt.</b> „Später“ gab die Zeile frei; sie
+    /// war damit sofort fällig und ging im nächsten Takt hinaus — gemessen eine Sekunde nach
+    /// dem Klick. In der Warteschlange war nichts zu sehen, weil nichts liegenblieb, und der
+    /// Name der Schaltfläche behauptete das Gegenteil dessen, was geschah.</para>
+    /// <para><b>Nur auf wartende Zeilen.</b> Was unterwegs, gesendet oder aufgegeben ist, lässt
+    /// sich nicht mehr zurückhalten; die Bedingung steht in der Anweisung selbst.</para>
+    /// </remarks>
+    /// <param name="remoteMaintenanceId">Die Kennung.</param>
+    /// <returns><see langword="true"/>, wenn eine wartende Zeile zurückgehalten wurde.</returns>
+    bool Hold(string remoteMaintenanceId);
+
+    /// <summary>
     /// Ersetzt die Nutzlast eines noch nicht gesendeten Eintrags.
     /// </summary>
     /// <remarks>
-    /// <para>Der Weg für den Abschlussdialog: Die Sitzung wird beim Ende <b>sofort</b>
-    /// eingereiht — sonst verlöre ein Absturz während des Tippens genau die Sitzung, die der
-    /// Dialog gerade festhalten soll. Kommentar und Ticket kommen danach hier hinein.</para>
+    /// <para>Der Weg für den Abschlussdialog, wenn er eine Sitzung aus einem früheren Lauf
+    /// vorlegt: Deren Zeile steht schon, und Bericht, Ticket und Firma kommen hier hinein,
+    /// <b>bevor</b> gesendet wird — bricht das Senden ab, steht der Text bereits auf der Platte.
+    /// Für eine frisch beendete Sitzung gibt es nichts zu ändern; sie hat keine Zeile.</para>
     ///
     /// <para><b>Wirkt ausschliesslich auf <c>pending</c>.</b> Ein Eintrag, der bereits
     /// unterwegs ist, darf nicht mehr verändert werden: Was TANSS gerade entgegennimmt, stünde
