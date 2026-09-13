@@ -9,6 +9,58 @@ Die Fassungsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
+## [Unveröffentlicht]
+
+### Hinzugefügt — Bildschirmaufzeichnung, zweiter Teil: die Kette steht
+
+Aus einem echten Fenster wird eine abspielbare Datei. Geprüft wird das nicht gegen Attrappen,
+sondern gegen echte Fenster, die der Testlauf selbst öffnet, und gegen die Datei, die danach auf
+der Platte liegt.
+
+**Der Bildfang**
+
+- `WindowCapture` nimmt genau ein Fenster auf. Gemessen und hier festgehalten: Ein fremdes
+  Fenster darüber landet **nicht** im Bild — das ist der Grund, warum Fenster und nicht
+  Bildschirme aufgezeichnet werden. Sonst stünde das Mailfenster des Technikers in der
+  Dokumentation des Kunden.
+- Ein minimiertes Fenster liefert keine Bilder mehr, ohne dass die Aufnahme endet. **Die Pause
+  entsteht daraus von selbst** — es braucht dafür keine eigene Mechanik.
+- Zwei Umwege, beide durch einen Laufzeitfehler erzwungen und beide belegt: Weder die
+  Aktivierungsfabrik noch die aufgenommene Oberfläche lassen sich in .NET auf eine klassische
+  COM-Schnittstelle umwandeln — die Umwandlung wirft. Gegangen wird deshalb über die
+  Funktionstabelle. Und die Kennung der Laufzeitklasse ist **nicht** die der Schnittstelle: mit
+  der falschen antwortet Windows mit `E_NOINTERFACE`, und die Meldung klingt dann nach einem
+  gesperrten Fenster.
+
+**Die Kodierung**
+
+- `VideoFile` schreibt H.264 über Media Foundation. Die Kodiereinstellungen gehen über
+  `SetInputMediaType` und nirgendwo sonst — der naheliegende Weg über `ICodecAPI` meldet Erfolg
+  und tut nachweislich nichts.
+- `Complete` ist ausdrücklich nicht `Dispose`: Ohne Abschluss schreibt Media Foundation keinen
+  Index, und heraus kommt eine Datei, die kein Abspieler öffnet. Ein Test vergleicht beide
+  Fälle.
+- **Die Dauer wird aus der Datei gelesen, nicht aus unserer Buchführung.** Vierzig Bilder bei
+  vier je Sekunde ergeben zehn Sekunden im `mvhd`-Block; zwanzig ergeben fünf. Prüfte man gegen
+  die eigene Uhr, prüfte man die Rechnung gegen sich selbst.
+
+**Das Zusammensetzen**
+
+- `SessionRecorder` führt aus, was der Direktor beschliesst — hier steht kein `if` über Beginn,
+  Pause oder Abschnittswechsel. Jedes Fenster wird für sich aufgenommen und an seinen Platz auf
+  einer gemeinsamen Leinwand kopiert, nie skaliert.
+- Ein Fenster ohne neues Bild hinterlässt **Schwarz** und nicht sein letztes. Ein
+  stehengebliebenes Bild behauptete, dort sei noch etwas zu sehen.
+- Ein Fenster, das sich der Aufnahme entzieht — ein Programm mit erhöhten Rechten —, kostet
+  seinen Platz auf der Leinwand und nicht die ganze Aufzeichnung.
+- Behoben, gefunden vom eigenen Test: Eine Pause, die bis zum Ende offen blieb, tauchte in der
+  Aufstellung nicht auf. Sie wird erst beim Fortsetzen eingetragen — und ausgerechnet die
+  letzte ist häufig die längste.
+
+**Noch nicht gebaut:** Ablage samt Begleitdatei, Löschdienst, die Anbindung an die
+Sitzungsbeobachtung und die Oberfläche. Die Aufzeichnung läuft, wenn ein Test sie antreibt —
+noch nicht, wenn eine Fernwartung beginnt.
+
 ## [0.2.0] — 2026-09-13
 
 ### Hinzugefügt — Bildschirmaufzeichnung, erster Teil

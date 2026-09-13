@@ -1,0 +1,332 @@
+using System.Runtime.InteropServices;
+using System.Runtime.Versioning;
+using Windows.Win32;
+using Windows.Win32.Media.MediaFoundation;
+
+namespace TanssLogWatcher.Recording;
+
+/// <summary>
+/// Eine einzelne Videodatei, geschrieben über Media Foundation.
+/// </summary>
+/// <remarks>
+/// <para><b>Sie entscheidet nichts.</b> Wann eine Datei beginnt, wann eine neue fällig ist und
+/// welcher Zeitstempel an welches Bild gehört, bestimmen <see cref="RecordingDirector"/> und
+/// <see cref="RecordingClock"/>. Hier wird nur geschrieben.</para>
+///
+/// <para><b>H.264 ist die einzige gebaute Betriebsart.</b> Gemessen auf einem gewöhnlichen
+/// Arbeitsplatz: H.264 hat Windows ab Werk, HEVC nur, weil das Store-Paket
+/// „HEVC Video Extensions“ installiert ist. Ein Werkzeug, das ohne dieses Paket nicht
+/// aufzeichnet, fiele beim zweiten Techniker aus — und ein Store-Paket lässt sich vom Setup
+/// nicht still nachinstallieren.</para>
+///
+/// <para><b>Die Kodiereinstellungen gehen über <c>SetInputMediaType</c> und nirgendwo sonst.</b>
+/// Der naheliegende Weg über <c>GetServiceForStream(ICodecAPI)</c> meldet Erfolg und tut
+/// nachweislich nichts: Bei gleichem Inhalt kamen einmal 2380 KiB und einmal 932 KiB heraus, je
+/// nachdem, welcher Weg benutzt wurde. Ein Fehler, der erst auffällt, wenn die Platte voll ist.
+/// </para>
+///
+/// <para><b><see cref="Complete"/> ist nicht <see cref="Dispose()"/>.</b> Ohne den Abschluss
+/// schreibt Media Foundation den Index nicht, und heraus kommt eine Datei, die kein Abspieler
+/// öffnet. Deshalb sind es zwei Wege: Der eine schliesst ab, der andere räumt auf — auch dann,
+/// wenn der Abschluss misslungen ist.</para>
+/// </remarks>
+[SupportedOSPlatform("windows6.1")]
+public sealed class VideoFile : IDisposable
+{
+    // Die Bezeichner der Kodiereinstellungen. CsWin32 erzeugt sie nicht, weil sie in codecapi.h
+    // stehen und nicht in den Metadaten der Schnittstelle. Werte aus dem Windows SDK.
+    private static readonly Guid RateControlMode =
+        new("1c0608e9-370c-4710-8a58-cb6181c42423");
+
+    private static readonly Guid Quality =
+        new("fcbf57a3-7ea5-4b0c-9644-69b40c39c391");
+
+    private static readonly Guid GopSize =
+        new("95f31b26-95a4-41aa-9303-246a7fc6eef1");
+
+    private static readonly Guid BPictureCount =
+        new("8d390aac-dc5c-4200-b57f-814d04bab53b");
+
+    /// <summary>Qualitätsgeführte Ratensteuerung.</summary>
+    /// <remarks>
+    /// Nicht feste Bitrate: Ein stehender Bildschirm braucht fast nichts, eine gescrollte
+    /// Protokolldatei viel. Eine feste Rate verschwendete im ersten Fall Platz und liesse im
+    /// zweiten die Schrift verschwimmen — und Schrift ist das Einzige, worauf es hier ankommt.
+    /// </remarks>
+    private const uint QualityMode = 3;
+
+    private readonly uint _streamIndex;
+    private readonly int _width;
+    private readonly int _height;
+    private readonly int _stride;
+
+    private IMFSinkWriter? _writer;
+    private bool _completed;
+
+    private VideoFile(IMFSinkWriter writer, uint streamIndex, int width, int height)
+    {
+        _writer = writer;
+        _streamIndex = streamIndex;
+        _width = width;
+        _height = height;
+        _stride = width * 4;
+    }
+
+    /// <summary>Die Breite der Datei in Bildpunkten.</summary>
+    public int Width => _width;
+
+    /// <summary>Die Höhe der Datei in Bildpunkten.</summary>
+    public int Height => _height;
+
+    /// <summary>Wie viele Bilder geschrieben wurden.</summary>
+    public long WrittenFrames { get; private set; }
+
+    /// <summary>
+    /// Legt eine Datei an und bereitet den Kodierer vor.
+    /// </summary>
+    /// <param name="path">Der vollständige Pfad; die Endung bestimmt den Behälter (.mp4).</param>
+    /// <param name="width">Die Breite; muss gerade sein.</param>
+    /// <param name="height">Die Höhe; muss gerade sein.</param>
+    /// <param name="framesPerSecond">Die Bildrate der Zeitachse.</param>
+    /// <param name="quality">Die Qualitätsstufe von 1 bis 100.</param>
+    /// <exception cref="ArgumentException">Eine Kantenlänge ist ungerade oder zu klein.</exception>
+    /// <exception cref="RecordingException">Media Foundation hat abgelehnt.</exception>
+    public static unsafe VideoFile Create(string path, int width, int height,
+                                          int framesPerSecond, int quality = 70)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentOutOfRangeException.ThrowIfLessThan(framesPerSecond, 1);
+        ArgumentOutOfRangeException.ThrowIfLessThan(quality, 1);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(quality, 100);
+
+        if (width <= 0 || height <= 0 || width % 2 != 0 || height % 2 != 0)
+        {
+            throw new ArgumentException(
+                $"Die Leinwand {width}×{height} taugt nicht: H.264 mit 4:2:0 legt die "
+                + "Farbanteile auf halbe Auflösung und verlangt deshalb gerade Kantenlängen. "
+                + $"{nameof(CanvasLayout)} rundet von sich aus auf — ein ungerader Wert kommt "
+                + "also nicht von dort.",
+                nameof(width));
+        }
+
+        MediaFoundation.Start();
+
+        IMFSinkWriter writer;
+
+        try
+        {
+            PInvoke.MFCreateSinkWriterFromURL(path, null, null, out writer);
+        }
+        catch (Exception ex)
+        {
+            MediaFoundation.Stop();
+            throw new RecordingException(
+                $"Media Foundation konnte „{path}“ nicht zum Schreiben anlegen. Üblichste "
+                + "Ursache: Der Ordner gibt es nicht oder er ist schreibgeschützt.", ex);
+        }
+
+        try
+        {
+            uint stream = AddStream(writer, width, height, framesPerSecond, quality);
+            writer.BeginWriting();
+            return new VideoFile(writer, stream, width, height);
+        }
+        catch
+        {
+            _ = Marshal.ReleaseComObject(writer);
+            MediaFoundation.Stop();
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Schreibt ein Bild.
+    /// </summary>
+    /// <remarks>
+    /// Der Zeitstempel kommt von aussen und wird hier nicht gerechnet — er stammt aus der
+    /// <see cref="RecordingClock"/>, die während einer Pause steht. Würde er hier aus der
+    /// Wanduhr genommen, trüge die Datei die Pausen als Standbild und behauptete eine Dauer,
+    /// die es nicht gab.
+    /// </remarks>
+    /// <param name="bgra">Die Bildpunkte, 4 Byte je Punkt, von oben nach unten.</param>
+    /// <param name="timestamp">Der Zeitstempel des Bildes ab Beginn der Aufzeichnung.</param>
+    /// <param name="duration">Wie lange das Bild steht.</param>
+    /// <exception cref="ArgumentException">Der Puffer passt nicht zur Leinwand.</exception>
+    /// <exception cref="ObjectDisposedException">Die Datei ist schon abgeschlossen.</exception>
+    public unsafe void Write(ReadOnlySpan<byte> bgra, TimeSpan timestamp, TimeSpan duration)
+    {
+        ObjectDisposedException.ThrowIf(_writer is null, this);
+
+        int expected = _stride * _height;
+
+        if (bgra.Length != expected)
+        {
+            throw new ArgumentException(
+                $"Der Puffer trägt {bgra.Length} Byte, die Leinwand {_width}×{_height} "
+                + $"verlangt {expected}. Ein halbes Bild zu schreiben ergäbe ein halbes Bild.",
+                nameof(bgra));
+        }
+
+        PInvoke.MFCreateMemoryBuffer((uint)expected, out IMFMediaBuffer buffer);
+
+        try
+        {
+            byte* target = null;
+            buffer.Lock(&target, null, null);
+
+            try
+            {
+                bgra.CopyTo(new Span<byte>(target, expected));
+            }
+            finally
+            {
+                buffer.Unlock();
+            }
+
+            buffer.SetCurrentLength((uint)expected);
+
+            PInvoke.MFCreateSample(out IMFSample sample);
+
+            try
+            {
+                sample.AddBuffer(buffer);
+                sample.SetSampleTime(timestamp.Ticks);
+                sample.SetSampleDuration(duration.Ticks);
+
+                _writer!.WriteSample(_streamIndex, sample);
+                WrittenFrames++;
+            }
+            finally
+            {
+                _ = Marshal.ReleaseComObject(sample);
+            }
+        }
+        finally
+        {
+            _ = Marshal.ReleaseComObject(buffer);
+        }
+    }
+
+    /// <summary>
+    /// Schliesst die Datei ab.
+    /// </summary>
+    /// <remarks>
+    /// <b>Ohne diesen Aufruf gibt es keinen Index und damit keine abspielbare Datei.</b> Genau
+    /// deshalb ist er getrennt von <see cref="Dispose()"/>: Aufräumen muss auch dann gehen,
+    /// wenn der Abschluss misslungen ist — sonst bliebe die Datei gesperrt.
+    /// </remarks>
+    public void Complete()
+    {
+        if (_writer is null || _completed)
+        {
+            return;
+        }
+
+        _writer.Finalize();
+        _completed = true;
+    }
+
+    /// <summary>Gibt den Kodierer frei.</summary>
+    public void Dispose()
+    {
+        if (_writer is null)
+        {
+            return;
+        }
+
+        _ = Marshal.ReleaseComObject(_writer);
+        _writer = null;
+
+        MediaFoundation.Stop();
+    }
+
+    private static unsafe uint AddStream(IMFSinkWriter writer, int width, int height,
+                                         int framesPerSecond, int quality)
+    {
+        // Die Ausgabe: H.264, High Profile. Die Bitrate ist eine Vorgabe und keine Zusage -
+        // die Ratensteuerung unten fuehrt ueber die Qualitaet, nicht ueber die Rate.
+        PInvoke.MFCreateMediaType(out IMFMediaType output);
+
+        try
+        {
+            output.SetGUID(PInvoke.MF_MT_MAJOR_TYPE, PInvoke.MFMediaType_Video);
+            output.SetGUID(PInvoke.MF_MT_SUBTYPE, PInvoke.MFVideoFormat_H264);
+            output.SetUINT32(PInvoke.MF_MT_MPEG2_PROFILE, 100);
+            output.SetUINT32(PInvoke.MF_MT_AVG_BITRATE, Bitrate(width, height, framesPerSecond));
+            output.SetUINT32(PInvoke.MF_MT_INTERLACE_MODE,
+                             (uint)MFVideoInterlaceMode.MFVideoInterlace_Progressive);
+            SetSize(output, PInvoke.MF_MT_FRAME_SIZE, (uint)width, (uint)height);
+            SetSize(output, PInvoke.MF_MT_FRAME_RATE, (uint)framesPerSecond, 1);
+            SetSize(output, PInvoke.MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+
+            writer.AddStream(output, out uint stream);
+
+            // Die Eingabe: BGRA, von oben nach unten. Der positive Streifenabstand ist noetig -
+            // ohne ihn nimmt Media Foundation die Zeilen von unten nach oben und das Bild
+            // steht auf dem Kopf.
+            PInvoke.MFCreateMediaType(out IMFMediaType input);
+
+            try
+            {
+                input.SetGUID(PInvoke.MF_MT_MAJOR_TYPE, PInvoke.MFMediaType_Video);
+                input.SetGUID(PInvoke.MF_MT_SUBTYPE, PInvoke.MFVideoFormat_RGB32);
+                input.SetUINT32(PInvoke.MF_MT_INTERLACE_MODE,
+                                (uint)MFVideoInterlaceMode.MFVideoInterlace_Progressive);
+                input.SetUINT32(PInvoke.MF_MT_DEFAULT_STRIDE, (uint)(width * 4));
+                input.SetUINT32(PInvoke.MF_MT_ALL_SAMPLES_INDEPENDENT, 1);
+                SetSize(input, PInvoke.MF_MT_FRAME_SIZE, (uint)width, (uint)height);
+                SetSize(input, PInvoke.MF_MT_FRAME_RATE, (uint)framesPerSecond, 1);
+                SetSize(input, PInvoke.MF_MT_PIXEL_ASPECT_RATIO, 1, 1);
+
+                // HIER, und nur hier, wirken die Kodiereinstellungen. Ueber
+                // GetServiceForStream(ICodecAPI) melden dieselben Werte Erfolg und tun nichts -
+                // nachgemessen an identischem Inhalt, 2380 KiB gegen 932 KiB.
+                PInvoke.MFCreateMediaType(out IMFMediaType parameters);
+
+                try
+                {
+                    parameters.SetUINT32(RateControlMode, QualityMode);
+                    parameters.SetUINT32(Quality, (uint)quality);
+                    parameters.SetUINT32(GopSize, (uint)(framesPerSecond * 4));
+                    parameters.SetUINT32(BPictureCount, 0);
+
+                    writer.SetInputMediaType(stream, input, parameters);
+                }
+                finally
+                {
+                    _ = Marshal.ReleaseComObject(parameters);
+                }
+            }
+            finally
+            {
+                _ = Marshal.ReleaseComObject(input);
+            }
+
+            return stream;
+        }
+        finally
+        {
+            _ = Marshal.ReleaseComObject(output);
+        }
+    }
+
+    /// <summary>
+    /// Eine Vorgabe für die Bitrate, aus Fläche und Bildrate.
+    /// </summary>
+    /// <remarks>
+    /// Sie ist eine Vorgabe und keine Zusage: Geführt wird über die Qualität. Ganz weglassen
+    /// lässt sich der Wert trotzdem nicht — ohne ihn lehnen manche Kodierer den Ausgabetyp ab.
+    /// Die Formel ist grob und soll es sein: 0,1 Bit je Bildpunkt und Bild, mit Untergrenze,
+    /// damit ein kleines Fenster nicht auf eine unbrauchbare Rate fällt.
+    /// </remarks>
+    private static uint Bitrate(int width, int height, int framesPerSecond)
+    {
+        double bits = (double)width * height * framesPerSecond * 0.1;
+        return (uint)Math.Clamp(bits, 1_000_000, 60_000_000);
+    }
+
+    // Zwei 32-Bit-Werte in einem 64-Bit-Attribut, oberer Wert zuerst. So legt Media Foundation
+    // Groesse, Bildrate und Seitenverhaeltnis ab; die Hilfsfunktion des SDK tut nichts anderes.
+    private static void SetSize(IMFMediaType type, Guid key, uint high, uint low) =>
+        type.SetUINT64(key, ((ulong)high << 32) | low);
+}
