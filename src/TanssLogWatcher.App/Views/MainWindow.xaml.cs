@@ -13,15 +13,6 @@ namespace TanssLogWatcher.App.Views;
 /// </summary>
 public partial class MainWindow
 {
-    /// <summary>
-    /// Unterscheidet „zuklappen“ von „beenden“.
-    /// </summary>
-    /// <remarks>
-    /// Ohne diesen Merker würde <see cref="OnClosing"/> auch das gewollte Beenden abfangen und
-    /// das Werkzeug ließe sich nur noch über den Task-Manager loswerden.
-    /// </remarks>
-    private bool _exitRequested;
-
     public MainWindow() : this(null)
     {
     }
@@ -37,16 +28,17 @@ public partial class MainWindow
 
         Type page = PageFor(startPage);
 
-        // Ohne diese Zeile zeigt die Navigationsleiste beim Start eine leere Fläche.
-        Loaded += (_, _) =>
-        {
-            // Erst hier und nicht im Konstruktor: Die Laufzeit entsteht in App.OnStartup nach
-            // dem Fenster. Ein Zugriff davor liefe in die Ausnahme, die AppHost dafuer vorsieht.
-            ViewModel ??= new ShellViewModel(App.Runtime, App.Updates);
-            DataContext = ViewModel;
+        // Jetzt im Konstruktor und nicht mehr im Loaded-Ereignis: Die Anzeige gehört seit dem
+        // Umbau der Anwendung (App.Shell) und wird dort vor jedem Fenster gebaut. Am
+        // Loaded-Ereignis war sie falsch aufgehoben - beim Autostart fällt es nie, und damit
+        // fehlte auch der Hinweistext am Symbol im Infobereich, der an derselben Anzeige hängt.
+        ViewModel = App.Shell;
+        DataContext = ViewModel;
 
-            ShowStartPage(page);
-        };
+        // Die Navigation braucht dagegen wirklich das Loaded-Ereignis: Vorher gibt es die
+        // Einträge nicht, die sie auflösen müsste. Ohne diese Zeile zeigt die
+        // Navigationsleiste beim Start eine leere Fläche.
+        Loaded += (_, _) => ShowStartPage(page);
     }
 
     /// <summary>
@@ -96,13 +88,14 @@ public partial class MainWindow
         });
     }
 
-    /// <summary>Fußzeile und Hinweistext am Symbol im Infobereich.</summary>
+    /// <summary>Die Fußzeile — dieselbe Anzeige, die auch das Symbol im Infobereich trägt.</summary>
     /// <remarks>
-    /// Lebt so lange wie das Fenster und wird nicht beim Zuklappen abgemeldet: Der Hinweistext
-    /// am Symbol ist im Normalbetrieb die einzige sichtbare Anzeige — gerade dann, wenn das
-    /// Fenster zu ist.
+    /// <b>Geliehen, nicht besessen.</b> Das Stück gehört der Anwendung (<see cref="App.Shell"/>)
+    /// und lebt länger als dieses Fenster: Der Hinweistext am Symbol hängt daran und ist im
+    /// Normalbetrieb die einzige sichtbare Anzeige — gerade dann, wenn nie ein Fenster offen
+    /// war. Deshalb wird es hier auch nicht freigegeben; das tut <see cref="App.Dispose"/>.
     /// </remarks>
-    public ShellViewModel? ViewModel { get; private set; }
+    public ShellViewModel ViewModel { get; }
 
     private static Type PageFor(string? name) => name?.ToLowerInvariant() switch
     {
@@ -121,13 +114,17 @@ public partial class MainWindow
     /// Das Schließen des Fensters beendet die Überwachung <b>nicht</b>, es blendet sie aus.
     /// </summary>
     /// <remarks>
-    /// Das ist bei einem Werkzeug im Infobereich üblich und hier deshalb ebenso gehalten. Damit
-    /// daraus kein verdeckter Betrieb wird, bleibt das Symbol im Infobereich sichtbar und der
-    /// Menüpunkt „Beenden“ steht direkt daneben.
+    /// <para>Das ist bei einem Werkzeug im Infobereich üblich und hier deshalb ebenso gehalten.
+    /// Damit daraus kein verdeckter Betrieb wird, bleibt das Symbol im Infobereich sichtbar und
+    /// der Menüpunkt „Beenden“ steht direkt daneben.</para>
+    /// <para><b>Der Merker steht in <see cref="App"/> und nicht mehr hier.</b> Er unterschied
+    /// früher „zuklappen“ von „beenden“ und wurde vom Menüpunkt am Symbol gesetzt — der aber
+    /// gehört seit dem Umbau nicht mehr diesem Fenster. Ein Beenden ohne offenes Fenster hätte
+    /// ihn nie erreicht.</para>
     /// </remarks>
     protected override void OnClosing(CancelEventArgs e)
     {
-        if (!_exitRequested)
+        if (!App.IsExiting)
         {
             e.Cancel = true;
             Hide();
@@ -154,16 +151,4 @@ public partial class MainWindow
         }
     }
 
-    private void OnTrayOpen(object sender, RoutedEventArgs e)
-    {
-        Show();
-        WindowState = WindowState.Normal;
-        Activate();
-    }
-
-    private void OnTrayExit(object sender, RoutedEventArgs e)
-    {
-        _exitRequested = true;
-        Application.Current.Shutdown();
-    }
 }

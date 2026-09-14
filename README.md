@@ -401,7 +401,16 @@ Damit lässt sich das Werkzeug in eine bestehende Überwachung einhängen, ohne 
 
 Im Normalbetrieb läuft das Werkzeug mit geschlossenem Fenster und sichtbarem Symbol im
 Infobereich. Der Hinweistext am Symbol zeigt den Zustand: laufende Sitzungen, wartende Einträge,
-Token-Restlaufzeit.
+Token-Restlaufzeit — und, solange nichts eingerichtet ist, genau das.
+
+Das Symbol gehört der Anwendung und nicht einem Fenster: Es ist da, sobald das Werkzeug läuft,
+auch wenn beim Autostart nie ein Fenster gezeigt wurde. Das Hauptfenster entsteht erst mit
+„Fenster öffnen“. Das Kontextmenü trägt den Zustand in Worten, „Fenster öffnen“,
+„Überwachung angehalten“, „Beenden“ — und „Einrichten“, solange es gebraucht wird. Der
+Einrichtungsassistent geht beim Autostart nicht von selbst auf.
+
+Ein zweiter Start bei laufendem Werkzeug holt das Fenster der ersten Instanz nach vorn. Kam er
+aus dem Autostart, geschieht das schweigend — beim Anmelden soll nichts aufgehen.
 
 Drei Hintergrundvorgänge arbeiten unabhängig voneinander:
 

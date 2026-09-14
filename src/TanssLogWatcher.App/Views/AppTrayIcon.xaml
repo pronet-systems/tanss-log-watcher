@@ -1,0 +1,57 @@
+<!--
+    Das Symbol im Infobereich gehört der ANWENDUNG und nicht einem Fenster.
+
+    Vorher stand es in MainWindow.xaml. Ein TaskbarIcon meldet sich bei Windows aber erst an,
+    wenn WPF es aufbaut — und ein Fenster, das nie gezeigt wurde, löst sein Loaded-Ereignis
+    nicht aus. Beim Autostart (Startargument „minimized“) rief App.xaml.cs Hide() auf einem nie
+    gezeigten Fenster: Der Prozess lief, führte aber kein einziges Fenster der Klasse
+    H.NotifyIcon_* — das Symbol entstand nie, und es gab keinen Weg mehr, das Werkzeug zu
+    bedienen.
+
+    Deshalb steht es hier für sich, wird in App.OnStartup gebaut und mit ForceCreate
+    ausdrücklich angemeldet, bevor überhaupt von einem Fenster die Rede ist.
+
+    Die Bindungen gehen gegen ShellViewModel, das ebenfalls der Anwendung gehört (App.Shell) —
+    nicht gegen ein Fenster-Ansichtsmodell. Sonst hätte der Hinweistext dasselbe Schicksal wie
+    das Symbol: erst da, wenn jemand ein Fenster geöffnet hat.
+
+    Der Pfad zum Sinnbild nennt seine Assembly ausdrücklich. Die kurze Form
+    "pack://application:,,,/Assets/tray.ico" sucht im EINSTIEGSPROGRAMM, und das ist nur im
+    Betrieb dieses hier: Im Prüfstand ist es der Testläufer, und das Laden scheitert mit
+    "Die Ressource assets/tray.ico kann nicht gefunden werden" - gemessen, nicht vermutet.
+-->
+<tb:TaskbarIcon x:Class="TanssLogWatcher.App.Views.AppTrayIcon"
+                xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:tb="http://www.hardcodet.net/taskbar"
+                IconSource="pack://application:,,,/TanssLogWatcher;component/Assets/tray.ico"
+                ToolTipText="{Binding TrayToolTip}"
+                NoLeftClickDelay="True"
+                TrayLeftMouseUp="OnOpenWindow">
+    <tb:TaskbarIcon.ContextMenu>
+        <ContextMenu>
+            <!-- Der Zustand in Worten, gleich obenauf. Der Hinweistext am Symbol sagt dasselbe,
+                 aber er verlangt, dass jemand mit der Maus darauf stehen bleibt; Windows
+                 schneidet ihn ausserdem bei 127 Zeichen ab. Wer das Menü ohnehin aufklappt,
+                 soll nicht erst raten müssen, warum nichts passiert. -->
+            <MenuItem x:Name="StateItem" Header="{Binding StateText}" IsEnabled="False" />
+            <Separator />
+
+            <MenuItem Header="Fenster öffnen" Click="OnOpenWindow" />
+
+            <!-- Nur sichtbar, solange nichts eingerichtet ist. Beim Autostart drängt sich der
+                 Assistent ausdrücklich NICHT von selbst auf (siehe App.OfferSetup) — dann muss
+                 aber ein Weg dorthin am Symbol liegen, sonst wäre „nicht eingerichtet“ eine
+                 Meldung ohne Ausweg. -->
+            <MenuItem x:Name="SetupItem" Header="Einrichten …" Click="OnSetup"
+                      Visibility="{Binding NeedsSetup, Converter={StaticResource BoolToVis}}" />
+            <Separator />
+
+            <MenuItem x:Name="PauseItem" Header="Überwachung angehalten" IsCheckable="True"
+                      IsChecked="{Binding IsPaused, Mode=TwoWay}" />
+            <Separator />
+
+            <MenuItem Header="Beenden" Click="OnExit" />
+        </ContextMenu>
+    </tb:TaskbarIcon.ContextMenu>
+</tb:TaskbarIcon>

@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Threading;
 using TanssLogWatcher.Api.Diagnostics;
 using TanssLogWatcher.App.Design;
@@ -21,6 +22,12 @@ namespace TanssLogWatcher.App;
 /// Benutzer alle weiteren aus — sie starten das Werkzeug und es passiert nichts.
 /// <c>Local\</c> bindet die Sperre an die Anmeldesitzung, wo sie hingehört: das Werkzeug ist
 /// ein Einzelarbeitsplatzwerkzeug je Benutzer, nicht je Maschine.</para>
+/// <para><b>Das Werkzeug lebt am Symbol im Infobereich, nicht am Fenster.</b> Symbol und
+/// Anzeige entstehen hier in <see cref="OnStartup"/>, bevor von einem Fenster die Rede ist;
+/// das Hauptfenster entsteht erst, wenn jemand es öffnet (<see cref="ShowMainWindow"/>). Beim
+/// Autostart lief das Werkzeug vorher unsichtbar UND unerreichbar: Das Symbol hing an einem
+/// Fenster, das nie gezeigt wurde, und ein nie gezeigtes Fenster baut seinen Inhalt nicht
+/// auf.</para>
 /// <para><b>Startargumente.</b> Neben <c>--minimized</c> nimmt der Start drei Schalter, die
 /// die Oberfläche prüfbar machen, ohne am Rechner des Benutzers etwas zu verstellen:</para>
 /// <list type="bullet">
@@ -44,6 +51,16 @@ public partial class App : IDisposable
 {
     private const string InstanceName = @"Local\TanssLogWatcher.SingleInstance";
 
+    /// <summary>
+    /// Das Zeichen, mit dem ein zweiter Start die erste Instanz nach vorn bittet.
+    /// </summary>
+    /// <remarks>
+    /// Derselbe <c>Local\</c>-Gedanke wie bei der Sperre: an die Anmeldesitzung gebunden, nicht
+    /// an die Maschine. Auf einem Terminalserver bittet sonst der eine Benutzer das Fenster des
+    /// anderen nach vorn.
+    /// </remarks>
+    private const string ActivateName = @"Local\TanssLogWatcher.SingleInstance.Activate";
+
     /// <summary>Wie lange das geordnete Beenden höchstens dauern darf.</summary>
     /// <remarks>
     /// Grosszügig, weil in dieser Zeit die laufenden Sitzungen abgeschlossen und eingereiht
@@ -54,8 +71,15 @@ public partial class App : IDisposable
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
 
     private Mutex? _instanceLock;
+    private EventWaitHandle? _activateRequest;
+    private RegisteredWaitHandle? _activateWait;
     private AppHost? _host;
+    private ShellViewModel? _shell;
+    private AppTrayIcon? _tray;
+    private MainWindow? _window;
     private DialogGate? _dialogs;
+    private string? _startPage;
+    private bool _exiting;
 
     /// <summary>
     /// Die Laufzeit: Konfiguration, Bausteine, Betriebszustand und die drei Hintergrunddienste.
@@ -102,17 +126,51 @@ public partial class App : IDisposable
     /// </remarks>
     public static UpdateService Updates { get; } = new();
 
+    /// <summary>
+    /// Die Anzeige, an der Symbol und Fußzeile gemeinsam hängen.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Sie gehört der Anwendung und nicht dem Fenster</b>, und daran hing der Fehler,
+    /// den der Benutzer gemeldet hat. Gebaut wurde sie früher im <c>Loaded</c>-Ereignis des
+    /// Hauptfensters. Beim Autostart wird dieses Fenster nie gezeigt, das Ereignis fällt nie,
+    /// und der Hinweistext am Symbol hätte selbst dann nichts angezeigt, wenn es das Symbol
+    /// gegeben hätte.</para>
+    /// <para>Eine einzige für die ganze Anwendung: Zwei Stücke hingen an denselben drei
+    /// Diensten, zählten dieselben Sitzungen doppelt mit und liefen bei jeder Änderung beide
+    /// mit — und der Haken „Überwachung angehalten“ stünde in Fenster und Menü verschieden.</para>
+    /// </remarks>
+    /// <exception cref="InvalidOperationException">
+    /// Vor <see cref="OnStartup"/> oder nach <see cref="OnExit"/> abgerufen.
+    /// </exception>
+    public static ShellViewModel Shell => ((App)Current)._shell
+        ?? throw new InvalidOperationException(
+            "Die Anzeige steht erst ab OnStartup bereit und nach OnExit nicht mehr. Wird sie "
+            + "früher abgerufen, ist die Reihenfolge im Start falsch — nicht die Anzeige.");
+
+    /// <summary>Wird die Anwendung gerade ausdrücklich beendet?</summary>
+    /// <remarks>
+    /// Das Hauptfenster fängt sein Schliessen ab und blendet sich statt dessen aus. Ohne diese
+    /// Unterscheidung finge es auch das gewollte Beenden ab, und das Werkzeug wäre nur noch
+    /// über den Task-Manager loszuwerden. Der Merker steht hier und nicht im Fenster, weil
+    /// „Beenden“ am Symbol hängt — und das gibt es auch ohne Fenster.
+    /// </remarks>
+    internal static bool IsExiting => Current is App app && app._exiting;
+
     protected override void OnStartup(StartupEventArgs e)
     {
+        bool startMinimized = e.Args.Contains("--minimized", StringComparer.OrdinalIgnoreCase);
+
+        // MUSS vor dem ersten Fenster stehen. In der Voreinstellung endet eine WPF-Anwendung,
+        // sobald ihr letztes Fenster zugeht - und seit das Symbol nicht mehr am Hauptfenster
+        // haengt, laeuft das Werkzeug beim Autostart voellig ohne Fenster. Der erste
+        // Abschlussdialog, den der Techniker schliesst, waere dann das Ende der Ueberwachung
+        // gewesen. Beendet wird ab jetzt nur noch ausdruecklich: ueber "Beenden" am Symbol.
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
         _instanceLock = new Mutex(initiallyOwned: true, InstanceName, out bool isFirstInstance);
         if (!isFirstInstance)
         {
-            // Eine zweite Instanz sagt das und geht. Ein Activate() traefe hier ein Fenster, das
-            // nie gezeigt worden ist - der erneute Start wirkte folgenlos.
-            MessageBox.Show(
-                "Der TANSS Log-Watcher läuft bereits. Das Symbol finden Sie im Infobereich "
-                + "der Taskleiste, rechts unten neben der Uhr.",
-                "TANSS Log-Watcher", MessageBoxButton.OK, MessageBoxImage.Information);
+            GreetRunningInstance(startMinimized);
             Shutdown();
             return;
         }
@@ -125,36 +183,47 @@ public partial class App : IDisposable
         // der gerade gesetzten Darstellung ausgerichtet, bevor das erste Fenster entsteht.
         ThemeTokens.Track();
 
-        bool startMinimized = e.Args.Contains("--minimized", StringComparer.OrdinalIgnoreCase);
+        // Gemerkt statt sofort benutzt: Das Fenster entsteht beim Autostart erst dann, wenn
+        // jemand es ueber das Symbol oeffnet - die gewuenschte Startseite muss bis dahin warten.
+        _startPage = Option(e.Args, "--page");
 
-        // VOR dem Fenster, und zwar nur der Konstruktor: Er rührt weder Platte noch Netz an
-        // (siehe AppHost) und verzögert das erste Fenster deshalb nicht. Gelesen und gestartet
-        // wird weiter unten. Umgekehrt käme das Fenster zuerst — und sein Loaded-Ereignis
-        // griffe über App.Runtime auf eine Laufzeit zu, die es noch nicht gibt. Genau daran
-        // blieb der Start hängen: ein Fenster, das nie sichtbar wurde.
+        // VOR allem anderen, und zwar nur der Konstruktor: Er ruehrt weder Platte noch Netz an
+        // (siehe AppHost) und verzoegert deshalb nichts. Gelesen und gestartet wird weiter
+        // unten. Umgekehrt kaemen Anzeige und Symbol zuerst - und griffen ueber App.Runtime auf
+        // eine Laufzeit zu, die es noch nicht gibt.
         _host = new AppHost();
 
-        var window = new MainWindow(Option(e.Args, "--page"));
-        MainWindow = window;
+        // Anzeige und Symbol entstehen zusammen und vor jedem Fenster. Das ist der Kern der
+        // Behebung: Beides haengt jetzt an der Anwendung und nicht an einem Fenster, das beim
+        // Autostart nie gezeigt wird.
+        _shell = new ShellViewModel(_host, Updates);
+        _tray = new AppTrayIcon(_shell);
 
-        if (startMinimized)
+        // ForceCreate ist die Zeile, ohne die es beim Autostart kein Symbol gab: Ein
+        // TaskbarIcon meldet sich bei Windows erst an, wenn WPF es aufbaut. Im Fenster geschah
+        // das ueber dessen Loaded-Ereignis - hier steht kein Fenster mehr dazwischen.
+        //
+        // Ohne Sparbetrieb, und das ist Absicht: Er senkt Vorrang und Takt des ganzen
+        // Prozesses. Dieses Werkzeug erkennt Fernwartungen dadurch, dass es regelmaessig
+        // nachsieht; eine gedrosselte Erkennung verschoebe Beginn und Ende einer Sitzung - also
+        // genau die beiden Zahlen, wegen derer es gebaut wurde.
+        _tray.ForceCreate(enablesEfficiencyMode: false);
+
+        ListenForSecondInstance();
+
+        if (!startMinimized)
         {
-            // Beim Autostart bleibt das Fenster zu. Sichtbar ist das Symbol im Infobereich -
-            // verdeckter Betrieb ist bei einem Werkzeug, das Fenstertitel mitliest, keine Option.
-            window.Hide();
-        }
-        else
-        {
-            window.Show();
+            ShowMainWindow();
         }
 
         // Der Abschlussdialog haengt am Ende einer Sitzung und nicht an einer Seite: Im
         // Normalbetrieb ist das Fenster zu, und genau dann muss er trotzdem aufgehen.
         _host.Sessions.SessionEnded += OnSessionEnded;
 
-        // Erst nach dem Fenster und ausdruecklich ohne await: Der Start soll nicht an einer
+        // Erst nach dem Symbol und ausdruecklich ohne await: Der Start soll nicht an einer
         // toten Leitung haengen. Liegt keine Konfiguration vor - heute der Normalfall -, tut
-        // der Host genau das Richtige und sagt es ueber seinen Betriebszustand.
+        // der Host genau das Richtige und sagt es ueber seinen Betriebszustand. Abzulesen ist
+        // er am Hinweistext des Symbols, und zwar ab jetzt auch beim Autostart.
         _ = _host.StartAsync();
 
         // Erst wenn das Fenster steht: Der Assistent ist ein Kindfenster und braucht einen
@@ -175,6 +244,201 @@ public partial class App : IDisposable
             _ = Dispatcher.BeginInvoke(DispatcherPriority.ApplicationIdle,
                                        () => Dialogs.Enqueue(preview));
         }
+    }
+
+    /// <summary>
+    /// Zeigt das Hauptfenster — und erzeugt es, wenn es noch keines gibt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Das Fenster entsteht erst hier.</b> Früher baute <see cref="OnStartup"/> es
+    /// immer und rief beim Autostart <c>Hide()</c> darauf. Ein Fenster, das nie gezeigt wurde,
+    /// löst sein <c>Loaded</c>-Ereignis nicht aus — es lag halb gebaut herum und trug das
+    /// Symbol im Infobereich mit sich, das dadurch nie entstand.</para>
+    /// <para><b>Ein <c>Show()</c> mit sofortigem <c>Hide()</c> wäre der falsche Ausweg:</b> Beim
+    /// Anmelden an Windows blitzte dann jedes Mal ein Fenster auf, und der Autostart ist der
+    /// Normalbetrieb.</para>
+    /// <para>Hierher führen das Symbol im Infobereich und der zweite Start, der die erste
+    /// Instanz nach vorn bittet.</para>
+    /// </remarks>
+    public void ShowMainWindow()
+    {
+        if (_host is null || _exiting)
+        {
+            return;
+        }
+
+        if (_window is null)
+        {
+            _window = new MainWindow(_startPage);
+
+            // Application.MainWindow ist der Besitzer, den die Kindfenster suchen. Er wird
+            // wieder geleert, wenn das Fenster wirklich zugeht - ein Besitzer, der auf ein
+            // geschlossenes Fenster zeigt, ist eine Ausnahme beim naechsten Dialog.
+            _window.Closed += OnMainWindowClosed;
+            MainWindow = _window;
+        }
+
+        _window.Show();
+
+        if (_window.WindowState == WindowState.Minimized)
+        {
+            _window.WindowState = WindowState.Normal;
+        }
+
+        _ = _window.Activate();
+    }
+
+    /// <summary>Öffnet den Einrichtungsassistenten, auch ohne Hauptfenster.</summary>
+    /// <remarks>
+    /// Der Menüpunkt am Symbol führt hierher. Ohne ihn wäre „nicht eingerichtet“ beim Autostart
+    /// eine Meldung ohne Ausweg: Das Hauptfenster böte denselben Weg an, aber wer nicht weiß,
+    /// dass er es öffnen muss, findet ihn nicht.
+    /// </remarks>
+    public void ShowSetup()
+    {
+        if (_host is not { } host)
+        {
+            return;
+        }
+
+        SetupWindow setup = new(host)
+        {
+            // Nur ein wirklich gezeigtes Fenster darf Besitzer sein; WPF wirft sonst. Beim
+            // Autostart gibt es gar keins - dann steht der Assistent eben fuer sich.
+            Owner = _window is { IsVisible: true } ? _window : null,
+        };
+
+        _ = setup.ShowDialog();
+    }
+
+    /// <summary>Beendet die Anwendung — auch dann, wenn nie ein Fenster offen war.</summary>
+    /// <remarks>
+    /// Der Merker steht ausdrücklich <b>vor</b> dem Beenden: Das Hauptfenster fängt sein
+    /// Schliessen sonst ab und blendet sich nur aus, und „Beenden“ liefe ins Leere. Das
+    /// geordnete Ende mitsamt den laufenden Sitzungen besorgt <see cref="OnExit"/>.
+    /// </remarks>
+    public void RequestExit()
+    {
+        _exiting = true;
+        Shutdown();
+    }
+
+    /// <summary>
+    /// Hört darauf, dass ein zweiter Start das Fenster nach vorn bittet.
+    /// </summary>
+    /// <remarks>
+    /// <para>Ein Wartehandle statt einer Leitung: Es gibt nichts zu übertragen ausser „jemand
+    /// hat das Werkzeug noch einmal gestartet“. Gewartet wird im Vorrat und nicht auf einem
+    /// eigenen Strang — das Zeichen fällt an manchen Tagen nie.</para>
+    /// <para>Hausregel 3: Misslingt die Anmeldung, läuft das Werkzeug trotzdem. Dann bleibt es
+    /// bei dem Hinweis, den der zweite Start selbst zeigt.</para>
+    /// </remarks>
+    private void ListenForSecondInstance()
+    {
+        try
+        {
+            _activateRequest = new EventWaitHandle(
+                initialState: false, EventResetMode.AutoReset, ActivateName);
+
+            _activateWait = ThreadPool.RegisterWaitForSingleObject(
+                _activateRequest, OnActivateRequested, state: null,
+                millisecondsTimeOutInterval: Timeout.Infinite, executeOnlyOnce: false);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                "Ein zweiter Start kann dieses Fenster nicht nach vorn bitten: " + ex.Message);
+        }
+    }
+
+    /// <summary>Ein zweiter Start hat sich gemeldet.</summary>
+    /// <param name="state">Unbenutzt.</param>
+    /// <param name="timedOut">Ob statt des Zeichens die Wartezeit abgelaufen ist.</param>
+    private void OnActivateRequested(object? state, bool timedOut)
+    {
+        if (timedOut)
+        {
+            return;
+        }
+
+        try
+        {
+            // Hier ruft der Vorrat und nicht der Strang der Oberflaeche.
+            _ = Dispatcher.BeginInvoke(DispatcherPriority.Normal, ShowMainWindow);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Trifft das Zeichen genau ins Beenden, gibt es kein Fenster mehr, das nach vorn
+            // koennte. Das ist kein Fehler, den jemand sehen muesste.
+            System.Diagnostics.Debug.WriteLine("Fenster nicht nach vorn geholt: " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// Was ein zweiter Start tut, wenn das Werkzeug schon läuft.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Beim Autostart schweigend.</b> Dort ist ein zweiter Start keine Absicht, sondern
+    /// eine Doppelung — etwa Autostart-Verknüpfung und Aufgabenplanung nebeneinander. Ein
+    /// Fenster, das sich daraufhin beim Anmelden vor alles schiebt, wäre genau die
+    /// Zudringlichkeit, die der Autostart vermeiden soll; und eine Meldung, die am Anmeldebild
+    /// stehen bleibt, bis jemand sie wegklickt, ist nicht besser.</para>
+    /// <para><b>Von Hand: das Fenster der ERSTEN Instanz nach vorn.</b> Wer das Werkzeug
+    /// startet, will es sehen. Früher stand hier nur die Meldung „läuft bereits“ — richtig, aber
+    /// es blieb dem Benutzer überlassen, das Symbol zu suchen. Der Hinweis bleibt als
+    /// Rückfallebene für den Fall, dass die erste Instanz nicht zu erreichen ist.</para>
+    /// </remarks>
+    /// <param name="startMinimized">Ob dieser zweite Start aus dem Autostart kam.</param>
+    private static void GreetRunningInstance(bool startMinimized)
+    {
+        if (startMinimized || RaiseRunningInstance())
+        {
+            return;
+        }
+
+        _ = MessageBox.Show(
+            "Der TANSS Log-Watcher läuft bereits, liess sich aber nicht nach vorn holen. Das "
+            + "Symbol finden Sie im Infobereich der Taskleiste, rechts unten neben der Uhr.",
+            "TANSS Log-Watcher", MessageBoxButton.OK, MessageBoxImage.Information);
+    }
+
+    /// <summary>Bittet die laufende Instanz, ihr Fenster zu zeigen.</summary>
+    /// <returns><see langword="true"/>, wenn das Zeichen angekommen ist.</returns>
+    private static bool RaiseRunningInstance()
+    {
+        try
+        {
+            using EventWaitHandle handle = EventWaitHandle.OpenExisting(ActivateName);
+            return handle.Set();
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            // Die erste Instanz beendet sich gerade, oder sie hat das Handle nie angelegt.
+            // Beides ist kein Grund zu scheitern - der Aufrufer zeigt dann den Hinweis.
+            System.Diagnostics.Debug.WriteLine(
+                "Die laufende Instanz war nicht zu erreichen: " + ex.Message);
+            return false;
+        }
+    }
+
+    /// <summary>Das Hauptfenster ist wirklich zugegangen.</summary>
+    /// <remarks>
+    /// Im Betrieb blendet sich das Fenster aus, statt zu schliessen; hierher führt also nur das
+    /// Beenden. Der Verweis wird trotzdem geleert: Ein <c>Show()</c> auf ein geschlossenes
+    /// Fenster ist eine Ausnahme, und es gibt keinen Grund, sich darauf zu verlassen, dass
+    /// dieser Fall nur ganz am Ende eintritt.
+    /// </remarks>
+    /// <param name="sender">Das Fenster.</param>
+    /// <param name="e">Das Ereignis.</param>
+    private void OnMainWindowClosed(object? sender, EventArgs e)
+    {
+        if (_window is { } window)
+        {
+            window.Closed -= OnMainWindowClosed;
+        }
+
+        _window = null;
+        MainWindow = null;
     }
 
     /// <summary>
@@ -464,8 +728,14 @@ public partial class App : IDisposable
     /// Windows ungefragt vor alles andere schiebt, ist eine Zumutung — und beim Autostart
     /// steht der Techniker meistens gar nicht vor dem Rechner. Dort bleibt es beim Symbol im
     /// Infobereich, dessen Hinweistext „nicht eingerichtet“ sagt.</para>
-    /// <para>Wird abgebrochen, passiert nichts weiter: Das Fenster steht dann im Zustand
-    /// „nicht eingerichtet“ und bietet unter „Einstellungen“ dasselbe noch einmal an.</para>
+    /// <para><b>Damit „nicht eingerichtet“ am Symbol kein Sackgassenzustand ist</b>, hat das
+    /// Kontextmenü dort einen eigenen Eintrag „Einrichten“, der genau denselben Assistenten
+    /// öffnet — sichtbar nur, solange er gebraucht wird. Der Hinweistext am Symbol sagt den
+    /// Zustand; der Eintrag daneben sagt, was dagegen zu tun ist. Ein Zustand, den man ablesen,
+    /// aber nicht ändern kann, wäre nur die halbe Auskunft.</para>
+    /// <para>Wird abgebrochen, passiert nichts weiter: Der Zustand bleibt „nicht eingerichtet“,
+    /// und sowohl das Symbol als auch „Einstellungen“ im Fenster bieten dasselbe noch einmal
+    /// an.</para>
     /// </remarks>
     private void OfferSetup()
     {
@@ -474,8 +744,7 @@ public partial class App : IDisposable
             return;
         }
 
-        SetupWindow setup = new(host) { Owner = MainWindow };
-        _ = setup.ShowDialog();
+        ShowSetup();
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -497,9 +766,38 @@ public partial class App : IDisposable
         base.OnExit(e);
     }
 
-    /// <summary>Gibt Laufzeit und Einzelinstanz-Sperre frei.</summary>
+    /// <summary>Gibt Symbol, Anzeige, Laufzeit und Einzelinstanz-Sperre frei.</summary>
+    /// <remarks>
+    /// <b>Die Reihenfolge ist keine Geschmacksfrage.</b> Zuerst das Symbol: Es bei Windows
+    /// abzumelden ist der einzige Weg, es sofort aus dem Infobereich zu bekommen — sonst bleibt
+    /// eine tote Kachel liegen, bis jemand mit der Maus darüberfährt. Danach die Anzeige, die
+    /// sich von den Diensten abmeldet, und erst dann die Laufzeit, an der diese Dienste hängen.
+    /// </remarks>
     public void Dispose()
     {
+        _activateWait?.Unregister(waitObject: null);
+        _activateWait = null;
+        _activateRequest?.Dispose();
+        _activateRequest = null;
+
+        if (_tray is { } tray)
+        {
+            // ZUERST die Bindungen loesen, dann abmelden. Eine Bindung haengt sich nicht sofort
+            // an, sondern in einem spaeteren Durchlauf des Bindungswerks; laeuft dieser erst
+            // nach dem Abmelden, schreibt er in ein abgemeldetes Symbol - gemessen als
+            // "ObjectDisposedException: TrayIcon is disposed" aus TaskbarIcon.WriteToolTipSettings,
+            // die einen ganzen Prozess mitnahm. Ein Absturz beim Beenden ist kein harmloser
+            // Absturz: Er faellt in dieselbe Zeit wie das geordnete Ende der Sitzungen.
+            BindingOperations.ClearAllBindings(tray);
+            tray.DataContext = null;
+            tray.Dispose();
+        }
+
+        _tray = null;
+
+        _shell?.Dispose();
+        _shell = null;
+
         _host?.Dispose();
         _host = null;
         Updates.Dispose();

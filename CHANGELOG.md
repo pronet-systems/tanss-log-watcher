@@ -9,6 +9,61 @@ Die Versionsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
+## [Unveröffentlicht]
+
+### Behoben — beim Autostart fehlte das Symbol im Infobereich
+
+**Der Befund.** Der Autostart lief, aber das Symbol kam nicht mit — das Werkzeug war nicht zu
+bedienen. Gemessen an den Fenstern des laufenden Prozesses: Mit `--minimized` führte er kein
+einziges Fenster der Klasse `H.NotifyIcon_*`, ohne den Schalter schon.
+
+**Die Ursache war der Ort des Symbols.** Es stand in `MainWindow.xaml`, gehörte also einem
+Fenster. Beim Autostart rief der Start `Hide()` auf einem Fenster, das nie gezeigt worden war
+— und ein solches Fenster löst sein `Loaded`-Ereignis nicht aus. Daran hingen beide Stücke, die
+gefehlt haben: das Anmelden des Symbols bei Windows und die Anzeige, aus der sein Hinweistext
+kommt. Das Werkzeug lief damit unsichtbar **und** unerreichbar.
+
+- **Das Symbol gehört jetzt der Anwendung** (`Views/AppTrayIcon.xaml`). Es entsteht in
+  `App.OnStartup` und wird mit `ForceCreate` ausdrücklich bei Windows angemeldet, bevor von
+  einem Fenster überhaupt die Rede ist. Kein `Show()` mit sofortigem `Hide()`: Das liesse beim
+  Anmelden an Windows jedes Mal ein Fenster aufblitzen, und der Autostart ist der Normalbetrieb.
+- **Der Hinweistext hängt nicht mehr am Fenster.** Die Anzeige dahinter gehört ebenfalls der
+  Anwendung; Symbol und Fußzeile teilen sich dieselbe. Er sagt den Zustand also auch dann, wenn
+  nie ein Fenster offen war — genau der Fall, um den es geht.
+- **Das Hauptfenster entsteht erst, wenn es gebraucht wird.** „Fenster öffnen“ am Symbol baut
+  es beim ersten Mal. Beim Autostart liegt damit kein halb gebautes Fenster mehr herum.
+- **Beendet wird jetzt ausdrücklich** (`ShutdownMode.OnExplicitShutdown`). Ohne das hätte der
+  erste Abschlussdialog, den der Techniker schliesst, die Überwachung mitgenommen: In der
+  Voreinstellung endet eine WPF-Anwendung, sobald ihr letztes Fenster zugeht — und beim
+  Autostart gibt es keines.
+- **Der Zustand ist am Symbol ablesbar.** Das Kontextmenü führt ihn in Worten und hält einen
+  Eintrag „Einrichten“ bereit, solange nichts eingerichtet ist. Der Einrichtungsassistent
+  drängt sich beim Autostart weiterhin **nicht** von selbst auf — ein Assistent, der beim
+  Anmelden ungefragt aufgeht, ist zudringlich, und beim Autostart steht meist niemand vor dem
+  Rechner. Ohne den Eintrag wäre „nicht eingerichtet“ aber eine Meldung ohne Ausweg gewesen.
+- **Der Pfad zum Sinnbild nennt seine Assembly.** Die kurze Form sucht im Einstiegsprogramm und
+  scheiterte ausserhalb des Betriebs mit „Die Ressource assets/tray.ico kann nicht gefunden
+  werden“.
+- **Beim Abmelden werden zuerst die Bindungen gelöst.** WPF hängt eine Bindung erst in einem
+  späteren Durchlauf an; fällt der hinter das Abmelden, schreibt er in ein abgemeldetes Symbol.
+  Gemessen als `ObjectDisposedException` aus `TaskbarIcon.WriteToolTipSettings`, die einen
+  ganzen Prozess mitnahm.
+
+### Geändert — ein zweiter Start holt das Fenster der ersten Instanz nach vorn
+
+Bisher zeigte ein zweiter Start nur die Meldung „läuft bereits“. Das war wahr, liess den
+Benutzer aber das Symbol suchen — und solange es keines gab, suchte er vergebens.
+
+- **Von Hand gestartet:** Die erste Instanz zeigt ihr Fenster. Wer das Werkzeug startet, will es
+  sehen.
+- **Aus dem Autostart (`--minimized`):** schweigend, ohne Fenster und ohne Meldung. Dort ist ein
+  zweiter Start keine Absicht, sondern eine Doppelung — etwa Autostart-Verknüpfung und
+  Aufgabenplanung nebeneinander. Ein Fenster oder eine Meldung, die sich beim Anmelden vor alles
+  schiebt, wäre genau die Zudringlichkeit, die der Autostart vermeiden soll.
+- Die Meldung bleibt als Rückfallebene, wenn die erste Instanz nicht zu erreichen ist.
+
+---
+
 ## [0.3.2] — 2026-09-13
 
 ### Behoben — ein laufender Ladevorgang überlebt den Seitenwechsel
