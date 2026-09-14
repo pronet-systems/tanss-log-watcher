@@ -233,34 +233,95 @@ public sealed class StateDatabaseTests
             "SELECT COUNT(*) FROM pragma_table_info('queue') WHERE name = 'awaiting_decision';"));
     }
 
+    /// <summary>
+    /// Das Beenden wartet auf eine laufende Abfrage.
+    /// </summary>
+    /// <remarks>
+    /// <para>Beim geordneten Beenden schreibt der Beobachtungstakt erfahrungsgemaess noch,
+    /// waehrend abgebaut wird. Ohne Sperre im <c>Dispose</c> schloesse das die Verbindung
+    /// mitten in der Abfrage — und der Eintrag waere fort.</para>
+    ///
+    /// <para><b>Warum hier nichts mehr an der Wanduhr haengt.</b> Die frühere Fassung reihte
+    /// die Abfrage mit <c>Task.Run</c> in den Strangpool ein und wartete fünf Sekunden darauf,
+    /// dass sie anfängt. Auf dem Bauläufer — zwei Kerne, alle Testprojekte gleichzeitig — fing
+    /// sie in diesen fünf Sekunden nicht an, und der Test scheiterte an der Warteschlange des
+    /// Strangpools statt an der Datenbank (Lauf 34820163227, fehlgeschlagen nach 5 s; derselbe
+    /// Quelltext im Lauf 34786953205 grün — genau das Muster eines Zeitfehlers). Die Abfrage
+    /// läuft deshalb auf einem eigenen Strang, der niemandem hinten ansteht, und sie endet
+    /// nicht nach einer Schlafzeit, sondern auf ein Signal aus diesem Test.</para>
+    ///
+    /// <para><b>Die Zusicherung ist dadurch schärfer geworden, nicht weicher.</b> Vorher wurde
+    /// aus „nach 400 ms Schlaf war <c>finished</c> gesetzt“ nur <i>geschlossen</i>, dass
+    /// <c>Dispose</c> gewartet hat. Jetzt wird es gemessen: <c>Dispose</c> läuft auf einem
+    /// eigenen Strang und darf, solange die Abfrage in der Sperre steht, <b>nicht</b>
+    /// zurückkehren.</para>
+    /// </remarks>
     [Fact]
-    public async Task Das_Beenden_wartet_auf_eine_laufende_Abfrage()
+    public void Das_Beenden_wartet_auf_eine_laufende_Abfrage()
     {
-        // Beim geordneten Beenden schreibt der Beobachtungstakt erfahrungsgemaess noch,
-        // waehrend abgebaut wird. Ohne Sperre im Dispose schloesse das die Verbindung
-        // mitten in der Abfrage - und der Eintrag waere fort.
         using TempDirectory temp = new();
         StateDatabase database = new(temp.File("state.db"));
 
         using ManualResetEventSlim inside = new();
+        using ManualResetEventSlim release = new();
+        using ManualResetEventSlim disposed = new();
         bool finished = false;
 
-        Task work = Task.Run(() => database.Execute(connection =>
+        // Eigener Strang statt Strangpool: Dieser hier laeuft sofort los, ganz gleich, wie
+        // besetzt der Pool gerade ist. Genau daran scheiterte der Test auf dem Baulaeufer.
+        Thread query = new(() => database.Execute(connection =>
         {
             using SqliteCommand command = connection.CreateCommand();
             command.CommandText = "SELECT COUNT(*) FROM queue;";
             _ = command.ExecuteScalar();
 
             inside.Set();
-            Thread.Sleep(400);
+            release.Wait();
             finished = true;
-        }));
+        }))
+        {
+            IsBackground = true,
+            Name = "Abfrage",
+        };
 
-        Assert.True(inside.Wait(TimeSpan.FromSeconds(5)));
-        database.Dispose();
+        Thread closing = new(() =>
+        {
+            database.Dispose();
+            disposed.Set();
+        })
+        {
+            IsBackground = true,
+            Name = "Beenden",
+        };
 
+        query.Start();
+
+        // Kein Mass, sondern eine Reissleine gegen einen Haenger: Der Strang laeuft, die
+        // Abfrage ist ein COUNT auf einer leeren Tabelle. Eine halbe Minute ist dafuer so
+        // weit jenseits von allem, dass ein Ablauf hier nur noch eine Verklemmung sein kann -
+        // und die soll als roter Test enden und nicht als Lauf, der in sein Zeitlimit rennt.
+        Assert.True(inside.Wait(TimeSpan.FromSeconds(30)),
+            "Die Abfrage hat die Sperre nie betreten.");
+
+        closing.Start();
+
+        // Der Kern des Falls. Die 200 ms sind keine Grenze, an der etwas scheitern kann:
+        // Je langsamer der Rechner, desto sicherer steht die Abfrage noch in der Sperre und
+        // desto sicherer haelt diese Zusicherung. Durchfallen kann hier nur ein Dispose, das
+        // die Sperre gar nicht erst nimmt - und das ist der Fehler, um den es geht.
+        Assert.False(disposed.Wait(TimeSpan.FromMilliseconds(200)),
+            "Das Beenden kam zurueck, waehrend die Abfrage noch in der Sperre stand. Die "
+            + "Verbindung waere mitten im Lesen geschlossen worden.");
+        Assert.False(finished, "Die Abfrage war fertig, bevor der Test sie freigegeben hat.");
+
+        release.Set();
+
+        Assert.True(disposed.Wait(TimeSpan.FromSeconds(30)),
+            "Das Beenden kam nach dem Ende der Abfrage nicht zurueck.");
         Assert.True(finished);
-        await work;
+
+        query.Join();
+        closing.Join();
     }
 
     [Fact]

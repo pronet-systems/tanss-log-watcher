@@ -215,6 +215,76 @@ public sealed class CanvasLayout
     }
 
     /// <summary>
+    /// Legt die Leinwand auf GENAU EINEN Bildschirm — den, auf dem am meisten von der Sitzung
+    /// liegt.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Für den Bildschirmbetrieb, und dort ist es kein Geschmack, sondern
+    /// Voraussetzung.</b> Im Bildschirmbetrieb nimmt der Rekorder einen einzigen Bildschirm auf
+    /// und setzt dessen Bild bündig bei 0/0 auf die Leinwand. Eine Leinwand über zwei
+    /// Bildschirme hat dann keine Quelle für die zweite Hälfte: Am echten Aufbau gemessen —
+    /// Bildschirme bei −1920, 0 und 1920 — ergab eine Sitzung mit einem Fenster auf jedem der
+    /// beiden linken eine Datei von 3840×1200, von der zwei Drittel dauerhaft schwarz waren;
+    /// der Bildpunkt in der Mitte des grossen Fensters las sich als 0/0/0.</para>
+    /// <para><see cref="ForScreens"/> bleibt für den Fensterbetrieb richtig: Dort hat jedes
+    /// Fenster seine eigene Aufnahme, und die Leinwand darf deshalb über Bildschirme
+    /// reichen.</para>
+    /// </remarks>
+    /// <param name="windows">Die aufzunehmenden Fenster.</param>
+    /// <param name="screens">Die angeschlossenen Bildschirme.</param>
+    /// <returns>Die Leinwand, oder <c>null</c>, wenn nichts aufzunehmen ist.</returns>
+    public static CanvasLayout? ForScreen(IReadOnlyList<WindowBox> windows,
+                                          IReadOnlyList<ScreenBox> screens)
+    {
+        ArgumentNullException.ThrowIfNull(windows);
+        ArgumentNullException.ThrowIfNull(screens);
+
+        List<WindowBox> usable = [.. windows.Where(w => w.HasArea)];
+
+        if (usable.Count == 0)
+        {
+            return null;
+        }
+
+        ScreenBox? best = null;
+        long bestOverlap = 0;
+
+        foreach (ScreenBox screen in screens.Where(s => s.HasArea))
+        {
+            long overlap = usable.Sum(screen.Overlap);
+
+            if (overlap > bestOverlap)
+            {
+                best = screen;
+                bestOverlap = overlap;
+            }
+        }
+
+        // Kein Bildschirm beruehrt: Dienstsitzung ohne Bildschirm. Dann die Huellflaeche - eine
+        // Aufzeichnung, die klein beginnt, ist besser als keine.
+        return best is { } chosen && Accepts(chosen.Width, chosen.Height)
+            ? new CanvasLayout(Even(chosen.Width), Even(chosen.Height), chosen.Left, chosen.Top)
+            : For(usable);
+    }
+
+    /// <summary>
+    /// Deckt diese Leinwand den ganzen Bildschirm ab?
+    /// </summary>
+    /// <remarks>
+    /// <b>Die Frage, die über einen Bildschirmwechsel entscheidet.</b> Nicht „liegt die
+    /// Leinwand auf demselben Ursprung“: Eine Leinwand über zwei Bildschirme hat den Ursprung
+    /// des linkesten, und der ist bei einem Bildschirm links vom Hauptbildschirm negativ. Am
+    /// echten Aufbau gemessen (−1920/0/1920) rutschte das Bild deshalb mitten in der Sitzung um
+    /// 1920 Bildpunkte zur Seite, obwohl sich kein Fenster bewegt hatte — und das Fenster auf
+    /// dem linken Bildschirm fiel dabei aus dem Bild.
+    /// </remarks>
+    /// <param name="screen">Der Bildschirm.</param>
+    /// <returns><c>true</c>, wenn der Bildschirm vollständig auf der Leinwand liegt.</returns>
+    public bool Covers(ScreenBox screen) =>
+        screen.Left >= OriginLeft && screen.Top >= OriginTop
+        && screen.Right <= OriginLeft + Width && screen.Bottom <= OriginTop + Height;
+
+    /// <summary>
     /// Dieselbe Leinwand an einer anderen Stelle des Bildschirmsystems.
     /// </summary>
     /// <remarks>

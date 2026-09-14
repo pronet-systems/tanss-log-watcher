@@ -27,6 +27,13 @@
     <!-- Die Grafikinnereien sind intern, weil CsWin32 die Direct3D-Schnittstellen intern
          erzeugt. Geprüft werden müssen sie trotzdem - und zwar gegen echte Fenster. -->
     <InternalsVisibleTo Include="TanssLogWatcher.Recording.Tests" />
+    <!-- Auch das Anwendungstestprojekt: Es teilt sich mit dem Aufnahmetestprojekt das
+         Pruefwerkzeug (TestWindow.cs, LiveScreen.cs, als Quelltext verlinkt statt
+         abgeschrieben), und LiveScreen misst mit WindowCapture, ob auf diesem Rechner nach
+         dem ersten Bild ueberhaupt ein weiteres kommt. Zwei Abschriften derselben Messung
+         liefen auseinander; eine oeffentliche Zweitfassung von WindowCapture waere Bauwerk
+         der Anwendung, das nur Tests braeuchten. -->
+    <InternalsVisibleTo Include="TanssLogWatcher.App.Tests" />
   </ItemGroup>
 
   <ItemGroup>

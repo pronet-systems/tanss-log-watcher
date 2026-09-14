@@ -58,7 +58,14 @@ public sealed class WindowCaptureTests
     /// der Grund, warum Fenster und nicht Bildschirme aufgenommen werden — sonst stünde das
     /// Mailfenster des Technikers in der Dokumentation des Kunden.
     /// </summary>
-    [CaptureFact]
+    /// <remarks>
+    /// <b><see cref="LiveScreenFactAttribute"/> und nicht <see cref="CaptureFactAttribute"/>:</b>
+    /// Das Verdecken ist keine Änderung am Zielfenster selbst. Ein Bild danach gibt es nur,
+    /// wenn die Fensterverwaltung überhaupt noch einmal zeichnet — auf dem Bauläufer ohne
+    /// Bildschirm kam gemessen keines mehr, und der Fall scheiterte an der fehlenden Zeichnung
+    /// statt an seiner Zusicherung.
+    /// </remarks>
+    [LiveScreenFact]
     public void Ein_fremdes_Fenster_darueber_landet_nicht_im_Bild()
     {
 

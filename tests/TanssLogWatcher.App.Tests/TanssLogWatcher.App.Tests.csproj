@@ -27,5 +27,8 @@
          Zwei Abschriften liefen auseinander, und die Abweichung fiele erst auf, wenn ein
          Test aus unerfindlichem Grund nur hier scheitert. -->
     <Compile Include="..\TanssLogWatcher.Recording.Tests\TestWindow.cs" Link="TestWindow.cs" />
+    <!-- Und dieselbe Messung: Ob dieser Rechner nach dem ersten Bild noch eines herausgibt,
+         gilt hier wie dort. -->
+    <Compile Include="..\TanssLogWatcher.Recording.Tests\LiveScreen.cs" Link="LiveScreen.cs" />
   </ItemGroup>
 </Project>

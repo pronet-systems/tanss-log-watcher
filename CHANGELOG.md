@@ -9,6 +9,68 @@ Die Versionsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
+## [0.3.4] — 2026-09-14
+
+### Behoben — die Aufzeichnung auf einem Aufbau mit mehreren Bildschirmen
+
+**Gemessen an einem echten Arbeitsplatz** mit drei Bildschirmen: einer bei **X = −1920**, einer
+bei 0 (der Hauptbildschirm, also **in der Mitte**) und einer bei 1920; der linke ist mit 1200
+Bildpunkten **höher** als die beiden anderen mit 1080. Geprüft wurde nicht der Rückgabewert,
+sondern der Bildpunkt im fertigen Video.
+
+- **Das Bild rutschte mitten in der Aufzeichnung um 1920 Bildpunkte zur Seite**, obwohl sich
+  kein Fenster bewegt hatte. Der Direktor entschied über einen Bildschirmwechsel mit der Frage
+  „sitzt die Leinwand auf dem Ursprung dieses Bildschirms?“. Eine Leinwand über zwei
+  Bildschirme sitzt auf dem Ursprung des **linkesten** — hier bei −1920 —, der Bildschirm mit
+  der grössten Überdeckung war aber der Hauptbildschirm bei 0/0. Gemessen: Bei t = 2 s standen
+  beide Fenster im Bild, bei t = 3 s war das Fenster auf dem linken Bildschirm aus dem Bild
+  gefallen und ein Drittel der Leinwand dauerhaft schwarz. Entschieden wird jetzt danach, ob die
+  Leinwand den Bildschirm **schon zeigt** (`CanvasLayout.Covers`).
+- **Im Bildschirmbetrieb waren zwei Drittel des Bildes schwarz.** Dort nimmt der Rekorder einen
+  einzigen Bildschirm auf und setzt ihn bündig bei 0/0 auf die Leinwand; die Leinwand wurde aber
+  als Hüllfläche **aller** berührten Bildschirme angelegt. Gemessen: eine Datei von 3840×1200,
+  deren Mitte des grossen Fensters sich als 0/0/0 las. Im Bildschirmbetrieb gilt jetzt
+  `CanvasLayout.ForScreen` — genau ein Bildschirm, und zwar der mit der grössten Überdeckung.
+- **Der aufzunehmende Bildschirm wird über die Fläche bestimmt**, nicht über den Ursprung der
+  Leinwand und nicht über die Reihenfolge der Aufzählung. Am echten Aufbau gemessen zählt
+  Windows die Bildschirme weder von links nach rechts noch mit dem Hauptbildschirm zuerst auf;
+  bei einer Sitzung auf dem mittleren Bildschirm lief so der linke mit.
+
+**Was nachweislich schon stimmte** und jetzt durch Prüfungen festgehalten ist: Ein Fenster bei
+negativem X wird vollständig aufgenommen, die Leinwand bekommt die Höhe **seines** Bildschirms
+(1200, nicht die 1080 des Hauptbildschirms), und ein Fenster über einer Bildschirmgrenze steht
+im Video auf beiden Hälften.
+
+**Neu geprüft.** `MehrschirmAufzeichnungTests` misst am echten Aufbau bis zum Bildpunkt — das
+Video wird dafür mit dem Decoder von Windows geöffnet (`Mp4Frame`), die Bildgrösse aus dem
+`tkhd`-Block der Datei gelesen (`Mp4Duration.SizeOf`). `DreiSchirmeLageTests` rechnet dieselbe
+Lage gegen erfundene Bildschirme durch, damit ein Rückfall auch auf einem Einschirmrechner
+auffällt.
+
+### Behoben — drei Tests blockierten jede Veröffentlichung
+
+Auf einem GitHub-Läufer scheiterten drei Fälle, lokal liefen alle drei. Damit kam die
+Werkstrecke nie bis zum Release.
+
+**Die Ursache ist auf dem Läufer selbst gemessen**, nicht geraten: Ein Läufer arbeitet in
+Sitzung 2 auf `WinSta0\Default` **ohne DWM-Komposition**. Zwei der Fälle setzen ein
+aufnehmbares Bild voraus — nicht ihre Zusicherung war falsch, ihnen fehlte die Voraussetzung.
+
+- **`[LiveScreenFact]`** übernimmt das Muster, das die Live-Fälle im Projekt schon benutzen:
+  Fehlt die Voraussetzung, wird der Fall mit einem Grund übersprungen, der im Protokoll steht.
+  Auf einem Rechner mit Bildschirm läuft er Zeile für Zeile unverändert. Ein zweiter
+  Mechanismus dafür ist nicht entstanden.
+- **`Das_Beenden_wartet_auf_eine_laufende_Abfrage`** hing nicht an der Datenbank, sondern am
+  Strangpool: Auf einer geteilten Maschine kam die Abfrage nicht rechtzeitig los. Die Abfrage
+  läuft jetzt auf einem eigenen Strang, und beide Abhängigkeiten von der Wanduhr sind weg —
+  statt die Zeitgrenze hochzusetzen. Der Fall wird nirgends übersprungen und sichert jetzt
+  **schärfer** zu als vorher: `Dispose` kehrt nachweislich nicht zurück, solange eine Abfrage
+  läuft.
+
+Auf einem Arbeitsplatz mit Bildschirm wird damit weiterhin kein einziger Fall übersprungen.
+
+---
+
 ## [0.3.3] — 2026-09-14
 
 ### Behoben — beim Autostart fehlte das Symbol im Infobereich
@@ -875,6 +937,7 @@ mehrere Arbeitstage und die Beteiligung der Mitbestimmung.
 - Der Rechte-Vorabtest für das Prägen wird nicht selbsttätig ausgeführt: Er erzeugt in TANSS
   ein echtes, nicht widerrufbares Token. Fehlt das Recht, meldet es der Versuch selbst.
 
+[0.3.4]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.4
 [0.3.3]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.3
 [0.3.2]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.2
 [0.3.1]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.1

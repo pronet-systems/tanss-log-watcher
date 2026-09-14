@@ -197,8 +197,16 @@ public sealed class RecordingDirector
 
     private RecordingDecision StartIfPossible(RecordingInput input, List<WindowBox> visible)
     {
-        if (CanvasLayout.ForScreens(visible, [.. input.Screens.Select(s => s.Box)])
-            is not { } canvas)
+        List<ScreenBox> boxes = [.. input.Screens.Select(s => s.Box)];
+
+        // Im Bildschirmbetrieb nimmt der Rekorder EINEN Bildschirm auf; eine Leinwand ueber
+        // zwei haette fuer die zweite Haelfte keine Quelle und bliebe dort schwarz. Im
+        // Fensterbetrieb hat jedes Fenster seine eigene Aufnahme - dort darf sie reichen.
+        CanvasLayout? built = _options.Scope is CaptureScope.Screen
+            ? CanvasLayout.ForScreen(visible, boxes)
+            : CanvasLayout.ForScreens(visible, boxes);
+
+        if (built is not { } canvas)
         {
             // Noch kein Fenster mit Flaeche - etwa weil die Fernwartung erst startet. Es wird
             // nichts angelegt: eine leere Datei waere eine Aufzeichnung, die es nicht gibt.
@@ -208,7 +216,7 @@ public sealed class RecordingDirector
         _canvas = canvas;
         _state = DirectorState.Recording;
         _windowsGoneSince = null;
-        Screen = Nearest(input.Screens, canvas);
+        Screen = Nearest(input.Screens, canvas, visible);
 
         return new RecordingDecision(RecordingAction.Start, visible,
             $"Aufzeichnung begonnen, {canvas.Width}×{canvas.Height} Bildpunkte, "
@@ -306,8 +314,12 @@ public sealed class RecordingDirector
             }
         }
 
-        if (best is not { } target
-            || (target.Box.Left == canvas.OriginLeft && target.Box.Top == canvas.OriginTop))
+        // Gefragt ist, ob der Bildschirm SCHON IM BILD IST - nicht, ob die Leinwand zufaellig
+        // auf seinem Ursprung sitzt. Reicht die Leinwand ueber zwei Bildschirme, sitzt sie auf
+        // dem Ursprung des linkesten; ein Vergleich der Ursprünge zoege sie dann auf den
+        // Bildschirm mit der groessten Ueberdeckung, obwohl dort ohnehin schon alles zu sehen
+        // ist - und schoebe dabei den anderen Bildschirm aus dem Bild.
+        if (best is not { } target || canvas.Covers(target.Box))
         {
             _pendingScreen = null;
             _pendingSince = null;
@@ -351,9 +363,40 @@ public sealed class RecordingDirector
             + "Bild folgt ihr dorthin. Eine neue Datei kostet das nicht." + note);
     }
 
-    /// <summary>Der Bildschirm, dessen Ecke links oben auf der Leinwand liegt.</summary>
-    private static ScreenInfo? Nearest(IReadOnlyList<ScreenInfo> screens, CanvasLayout canvas)
+    /// <summary>
+    /// Der Bildschirm, auf dem die Sitzung liegt.
+    /// </summary>
+    /// <remarks>
+    /// <b>Über die Fläche und nicht über den Ursprung der Leinwand.</b> Reicht die Leinwand
+    /// über zwei Bildschirme, sitzt ihr Ursprung auf dem linkesten — und das ist bei einem
+    /// Bildschirm links vom Hauptbildschirm der mit dem negativen X, auf dem oft nur ein
+    /// Nebenfenster steht. Im Bildschirmbetrieb liefe dann der falsche Bildschirm mit. Bleibt
+    /// die Fläche unentschieden — kein Bildschirm berührt —, entscheidet der Ursprung, und erst
+    /// danach fällt die Wahl auf den Hauptbildschirm; die Reihenfolge der Aufzählung ist
+    /// ausdrücklich kein Kriterium, sie hängt von der Grafikkarte ab.
+    /// </remarks>
+    private static ScreenInfo? Nearest(IReadOnlyList<ScreenInfo> screens, CanvasLayout canvas,
+                                       IReadOnlyList<WindowBox> windows)
     {
+        ScreenInfo? best = null;
+        long bestOverlap = 0;
+
+        foreach (ScreenInfo screen in screens.Where(s => s.Box.HasArea))
+        {
+            long overlap = windows.Sum(screen.Box.Overlap);
+
+            if (overlap > bestOverlap)
+            {
+                best = screen;
+                bestOverlap = overlap;
+            }
+        }
+
+        if (best is not null)
+        {
+            return best;
+        }
+
         foreach (ScreenInfo screen in screens)
         {
             if (screen.Box.Left == canvas.OriginLeft && screen.Box.Top == canvas.OriginTop)
@@ -362,7 +405,20 @@ public sealed class RecordingDirector
             }
         }
 
-        return screens.Count > 0 ? screens[0] : null;
+        if (screens.Count == 0)
+        {
+            return null;
+        }
+
+        foreach (ScreenInfo screen in screens)
+        {
+            if (screen.IsPrimary)
+            {
+                return screen;
+            }
+        }
+
+        return screens[0];
     }
 
     private RecordingDecision Stop(string reason)

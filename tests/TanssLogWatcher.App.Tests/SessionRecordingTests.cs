@@ -166,8 +166,16 @@ public sealed class SessionRecordingTests
     /// <para>Das Prüffenster ist randlos und meldet maximiert deshalb 0/0. Die Lage wird hier
     /// also unmittelbar hergestellt — ein Fenster, dessen Ecke wirklich vor dem Bildschirm
     /// liegt — statt sie über „maximieren“ zu erhoffen.</para>
+    /// <para><b><see cref="LiveScreenFactAttribute"/> und nicht
+    /// <see cref="CaptureFactAttribute"/>:</b> Geprüft wird an der Dateigrösse, also an einem
+    /// <i>Verlauf</i> von Bildern. <c>SessionRecorder.Compose</c> lässt den Platz eines
+    /// Fensters schwarz, solange kein neues Bild kommt — ein stehengebliebenes Bild behauptete,
+    /// dort sei noch etwas zu sehen. Auf dem Bauläufer ohne Bildschirm kam gemessen genau ein
+    /// Bild, alle weiteren Takte schrieben Schwarz, und die Datei war mit 7067 Byte
+    /// folgerichtig zu klein. Das ist der Zustand, den dieser Fall meldet — nur kommt er dort
+    /// nicht vom Beschneiden, sondern vom fehlenden Bildschirm.</para>
     /// </remarks>
-    [CaptureFact]
+    [LiveScreenFact]
     public async Task Ein_Fenster_ueber_dem_Bildschirmrand_ergibt_kein_schwarzes_Video()
     {
         using TempDirectory temp = new();

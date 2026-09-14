@@ -79,6 +79,59 @@ internal static class Mp4Duration
     }
 
     /// <summary>
+    /// Die Bildgrösse der Datei, wie ein Abspieler sie liest.
+    /// </summary>
+    /// <remarks>
+    /// Aus dem <c>tkhd</c>-Block der Spur und nicht aus unserer Buchführung: Die Behauptung
+    /// lautet, die Datei sei so gross wie der Bildschirm — geprüft gegen unsere eigene
+    /// Leinwandrechnung wäre das die Rechnung gegen sich selbst. Die Breite steht dort als
+    /// Festkommazahl mit sechzehn Nachkommastellen.
+    /// </remarks>
+    /// <param name="path">Die Datei.</param>
+    /// <returns>Breite und Höhe, oder <c>null</c>, wenn die Datei keine Spur hat.</returns>
+    public static (int Width, int Height)? SizeOf(string path)
+    {
+        byte[] bytes = File.ReadAllBytes(path);
+
+        if (FindBox(bytes, 0, bytes.Length, "moov") is not { } moov)
+        {
+            return null;
+        }
+
+        if (FindBox(bytes, moov.Content, moov.End, "trak") is not { } trak)
+        {
+            return null;
+        }
+
+        if (FindBox(bytes, trak.Content, trak.End, "tkhd") is not { } tkhd)
+        {
+            return null;
+        }
+
+        int at = tkhd.Content;
+
+        if (at + 4 > bytes.Length)
+        {
+            return null;
+        }
+
+        // Nach Version und Kennzeichen folgen Erzeugung, Aenderung, Spurnummer, Reserve und
+        // Dauer - in Version 1 in doppelter Breite. Danach 8 Byte Reserve, Ebene, Gruppe,
+        // Lautstaerke, Reserve und die 36 Byte der Abbildungsmatrix.
+        int offset = at + 4 + (bytes[at] == 1 ? 32 : 20) + 8 + 2 + 2 + 2 + 2 + 36;
+
+        if (offset + 8 > bytes.Length)
+        {
+            return null;
+        }
+
+        uint width = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(offset));
+        uint height = BinaryPrimitives.ReadUInt32BigEndian(bytes.AsSpan(offset + 4));
+
+        return ((int)(width >> 16), (int)(height >> 16));
+    }
+
+    /// <summary>
     /// Die Blöcke der obersten Ebene, in der Reihenfolge, in der sie in der Datei stehen.
     /// </summary>
     /// <remarks>
