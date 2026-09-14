@@ -9,6 +9,33 @@ Die Versionsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
+## [0.3.5] — 2026-09-14
+
+### Behoben — das Logo auf der Über-Seite war weg
+
+Die Datei war noch da und im Projekt eingetragen, aber **beschädigt**: Aus der PNG-Kennung
+`89 50 4E 47 0D 0A 1A 0A` war `89 50 4E 47 0A 1A 0A 00` geworden, die Datei genau ein Byte
+kürzer. Ein projektweites Suchen und Ersetzen (Commit `41873d2`, „Version statt Fassung") war
+über die Binärdatei gelaufen und hatte ein Wagenrücklaufzeichen entfernt.
+
+Git trifft keine Schuld — `*.png binary` in `.gitattributes` greift korrekt; die Ersetzung
+selbst hat die Datei angefasst. Wiederhergestellt aus `d909203`, dem letzten heilen Stand:
+742×258, RGBA, alle Blockprüfsummen stimmen.
+
+**Das Tückische war nicht der Fehler, sondern sein Ausbleiben.** WPF meldet ein unlesbares Bild
+nicht — `Image` zeigt schlicht nichts. Bau und Testsammlung blieben grün, und die beschädigte
+Datei überstand **zwei Veröffentlichungen**, bis sie jemandem am Bildschirm auffiel.
+
+- **Neu: `BildmaterialTests`.** Prüft nicht, ob eine Datei *vorhanden* ist — das war sie ja —,
+  sondern ob sie *heil* ist: PNG-Kennung, jede Blockprüfsumme, Masse und Farbtyp, beim Icon die
+  Verzeichniseinträge gegen die Dateilänge. Geprüft wird die **eingebettete Ressource**, also
+  das, was der Techniker wirklich bekommt, nicht die Datei im Quellbaum.
+- Der Wächter ist gegengeprüft: Mit dem nachgestellten Schaden schlägt er an und nennt die
+  Ursache im Klartext; mit der heilen Datei ist er still.
+- Auch `tray.ico` ist geprüft. Es war unversehrt.
+
+---
+
 ## [0.3.4] — 2026-09-14
 
 ### Behoben — die Aufzeichnung auf einem Aufbau mit mehreren Bildschirmen
@@ -937,6 +964,7 @@ mehrere Arbeitstage und die Beteiligung der Mitbestimmung.
 - Der Rechte-Vorabtest für das Prägen wird nicht selbsttätig ausgeführt: Er erzeugt in TANSS
   ein echtes, nicht widerrufbares Token. Fehlt das Recht, meldet es der Versuch selbst.
 
+[0.3.5]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.5
 [0.3.4]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.4
 [0.3.3]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.3
 [0.3.2]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.2
