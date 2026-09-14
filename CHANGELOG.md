@@ -9,7 +9,7 @@ Die Versionsnummer selbst steht an genau einer Stelle: im Element `Version` in
 
 ---
 
-## [Unveröffentlicht]
+## [0.3.3] — 2026-09-14
 
 ### Behoben — beim Autostart fehlte das Symbol im Infobereich
 
@@ -875,6 +875,7 @@ mehrere Arbeitstage und die Beteiligung der Mitbestimmung.
 - Der Rechte-Vorabtest für das Prägen wird nicht selbsttätig ausgeführt: Er erzeugt in TANSS
   ein echtes, nicht widerrufbares Token. Fehlt das Recht, meldet es der Versuch selbst.
 
+[0.3.3]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.3
 [0.3.2]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.2
 [0.3.1]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.1
 [0.3.0]: https://github.com/pronet-systems/tanss-log-watcher/releases/tag/v0.3.0
